@@ -506,12 +506,17 @@ let private palettePanel (ps: PaletteState) (m: Model) : LayoutNode<Msg> =
     let rows =
         items
         |> List.mapi (fun i (trig, desc) ->
-            let style = if i = ps.Sel then Theme.selection else Theme.text
-            let descStyle = if i = ps.Sel then Theme.selection else Theme.subtle
-            Stack.sized Length.Content
-                (Stack.hstackOf
+            let selected = i = ps.Sel
+            let style = if selected then Theme.selection else Theme.text
+            let descStyle = if selected then Theme.selection else Theme.subtle
+            let rowContent =
+                Stack.hstackOf
                     [ Stack.sized (Length.Cells 16) (Text.text (" " + trig) style)
-                      Stack.sized Length.Fill (Text.text desc descStyle) ]))
+                      Stack.sized Length.Fill (Text.text desc descStyle) ]
+            // Full-width highlight: fill the whole row with the selection colour,
+            // not just the cells under the glyphs.
+            Stack.sized Length.Content
+                (if selected then Backdrop.behind Theme.selection rowContent else rowContent))
     let content =
         Stack.vstackOf
             [ Stack.sized (Length.Cells 1) (Text.text (sprintf " ❯ %s▏" ps.Query) Theme.text)

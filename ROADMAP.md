@@ -41,7 +41,7 @@ agent widgets are the (not-yet-created) `Mire.Agent` layer.
 | `Dock.*` helpers | ✅ | `top`/`bottom`/`left`/`right`/`fill`. |
 | `Stack.*` helpers | ✅ | `vstack`/`hstack` (Content) + `*Of` / `sized` for explicit lengths. |
 | `Scroll.vertical` / `scrollState` | ✅ | Thin wrapper over the `Scroll` node. |
-| `Backdrop.solid` | ✅ | Thin wrapper over the `Filled` node. |
+| `Backdrop.solid` / `behind` | ✅ | `solid` = `Filled` wrapper; `behind style child` fills the rect then draws the child on top (full-bleed row/cell highlight). |
 | `Spacer.spacer` | 🟡 | Currently `Empty` → 0 extent in a stack. Needs a `Fill`-based flex spacer. |
 | Predefined styles | ✅ | `border`/`title`/`text`/`dim`/`success`/`warning`/`danger`/`info`/… |
 | `Separator` | ⬜ | Horizontal/vertical rule. |
@@ -49,7 +49,7 @@ agent widgets are the (not-yet-created) `Mire.Agent` layer.
 | `KeyHint` | ⬜ | `Ctrl+P` → label chips for status bars. |
 | `Scrollbar` | ⬜ | Track + thumb; pairs with `ScrollView`. |
 | `ScrollView` | ⬜ | Scroll + scrollbar + follow-tail + jump-to-bottom + virtualization. |
-| `List` | ⬜ | Selectable, keyboard-navigable, virtualized rows. |
+| `List` / `ListView` | 🟡 | `ListView.view` does single-selection + full-width highlight + auto-scroll-to-selection (string labels). No virtualization, multi-select, or built-in key handling yet. |
 | `Table` | ⬜ | Virtualized rows, sticky header, column sizing, selection. |
 | `Input` (single-line) | ⬜ | Text buffer, cursor, selection. |
 | `TextArea` (multi-line) | ⬜ | Multiline editing, shift-enter newline. |

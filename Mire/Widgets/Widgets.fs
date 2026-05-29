@@ -118,3 +118,31 @@ module Backdrop =
     /// backdrop, or highlight. Occludes whatever it covers in an Overlay.
     let solid (style: Style) : LayoutNode<'msg> =
         LayoutNode.Filled(Rect.Create(0, 0, 0, 0), style)
+
+    /// Draw `child` over a full-bleed background of `style` — the row/cell
+    /// highlight primitive. A bare styled `Text` only colours the cells under its
+    /// glyphs; this fills the whole assigned rect first, then renders the child on
+    /// top, so a selection background spans the full width (gaps included).
+    let behind (style: Style) (child: LayoutNode<'msg>) : LayoutNode<'msg> =
+        LayoutNode.Overlay(
+            Rect.Create(0, 0, 0, 0),
+            [ LayoutNode.Filled(Rect.Create(0, 0, 0, 0), style); child ])
+
+/// Single-selection, scrollable list of text rows. The selected row gets a
+/// full-width highlight (via `Backdrop.behind`), auto-scrolled to stay visible.
+/// Labels are caller-truncated to the available width. (Not yet virtualized.)
+module ListView =
+    /// One row: full-width selection fill when `selected`, plain text otherwise.
+    let row (selStyle: Style) (rowStyle: Style) (selected: bool) (label: string) : LayoutNode<'msg> =
+        if selected then Backdrop.behind selStyle (Text.text label selStyle)
+        else Text.text label rowStyle
+
+    /// A scrollable list `height` rows tall, auto-scrolled to keep `sel` centred
+    /// and in view.
+    let view (height: int) (selStyle: Style) (rowStyle: Style) (sel: int) (labels: string list) : LayoutNode<'msg> =
+        let n = List.length labels
+        let off = max 0 (min (max 0 (n - height)) (sel - height / 2))
+        labels
+        |> List.mapi (fun i l -> row selStyle rowStyle (i = sel) l)
+        |> Stack.vstack
+        |> Scroll.vertical off

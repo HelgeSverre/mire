@@ -127,14 +127,6 @@ let private truncate (width: int) (s0: string) : string =
                     stop <- true
         sb.Append('…').ToString()
 
-/// A list row that, when selected, fills its full width with the selection
-/// colour (a Filled backdrop under the text) — not just behind the glyphs.
-let private selectableRow (selected: bool) (label: string) : LayoutNode<Msg> =
-    if selected then
-        LayoutNode.Overlay(Rect.Create(0, 0, 0, 0), [ Backdrop.solid sSel; Text.text label sSel ])
-    else
-        Text.text label sRow
-
 /// A bordered panel with a one-line title row above its content. Built as a
 /// single-child Box (avoiding the multi-child Box overlap), so title and content
 /// don't collide.
@@ -168,15 +160,12 @@ let view (m: Model) : LayoutNode<Msg> =
         Box.box sBorder
             [ Text.text (sprintf " %s   %s" m.FeedTitle (statusText m)) sTitle ]
 
-    // article list (scrolled to keep the selection roughly centred)
-    let rows =
-        m.Items
-        |> List.mapi (fun i a -> selectableRow (i = m.Sel) (truncate (listInnerW - 1) a.Title))
-    let listOff = clamp 0 (max 0 (count - listInnerH)) (m.Sel - listInnerH / 2)
+    // article list — the framework ListView handles full-width highlight + scroll
+    let labels = m.Items |> List.map (fun a -> truncate (listInnerW - 1) a.Title)
     let listBorder = if m.Pane = ListPane then "Articles ▸" else "Articles"
     let listPane =
         panel (sprintf "%s (%d)" listBorder count)
-            (Scroll.vertical listOff (Stack.vstack rows))
+            (ListView.view listInnerH sSel sRow m.Sel labels)
 
     // reader pane
     let readerContent =

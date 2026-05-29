@@ -218,6 +218,34 @@ let layoutTests =
         }
     ]
 
+// Widgets ------------------------------------------------------------------
+
+let widgetTests =
+    testList "Widgets" [
+        test "Backdrop.behind fills the full row background, not just under glyphs" {
+            let selBg = Color.Rgb(0x4Cuy, 0xAFuy, 0x50uy)
+            let sel = Style.Default.WithForeground(Color.Black).WithBackground(selBg)
+            let node : LayoutNode<unit> =
+                Mire.Widgets.Backdrop.behind sel (Mire.Widgets.Text.text "hi" sel)
+            let laid = Layout.measure (Rect.Create(0, 0, 8, 1)) node
+            let surf = Surface(Size.Create(8, 1))
+            Layout.render surf laid
+            Expect.equal surf.[0, 0].Style.Background (Some selBg) "glyph cell carries the selection bg"
+            Expect.equal surf.[5, 0].Style.Background (Some selBg) "cell past the text is filled too (full-bleed)"
+        }
+        test "ListView highlights the selected row full-width, others not" {
+            let selBg = Color.Rgb(0x4Cuy, 0xAFuy, 0x50uy)
+            let sel = Style.Default.WithForeground(Color.Black).WithBackground(selBg)
+            let row = Style.Default.WithForeground(Color.White)
+            let node : LayoutNode<unit> =
+                Mire.Widgets.ListView.view 3 sel row 1 [ "alpha"; "beta"; "gamma" ]
+            let surf = Surface(Size.Create(10, 3))
+            Layout.measure (Rect.Create(0, 0, 10, 3)) node |> Layout.render surf
+            Expect.equal surf.[8, 1].Style.Background (Some selBg) "selected row (beta) filled full width"
+            Expect.notEqual surf.[8, 0].Style.Background (Some selBg) "unselected row (alpha) left unfilled"
+        }
+    ]
+
 [<Tests>]
 let all =
     testList "Mire" [
@@ -225,4 +253,5 @@ let all =
         inputTests
         diffTests
         layoutTests
+        widgetTests
     ]
