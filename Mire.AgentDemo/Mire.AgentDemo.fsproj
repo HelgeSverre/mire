@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Authors>Helge Sverre</Authors>
+    <Copyright>Copyright (c) 2026 Helge Sverre</Copyright>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Reuse the canonical brand palette (standalone module, no Mire dependency). -->
+    <Compile Include="../brand/palette.fs" />
+    <Compile Include="Theme.fs" />
+    <Compile Include="Markdown.fs" />
+    <Compile Include="Blocks.fs" />
+    <Compile Include="Skills.fs" />
+    <Compile Include="Dummy.fs" />
+    <Compile Include="PromptInput.fs" />
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Mire/Mire.fsproj" />
+  </ItemGroup>
+
+</Project>
