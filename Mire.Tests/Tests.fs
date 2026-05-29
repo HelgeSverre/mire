@@ -67,6 +67,56 @@ let inputTests =
         test "empty input is None" {
             Expect.isNone (InputParser.parseBytes [||]) "no bytes → no event"
         }
+        // Kitty keyboard protocol (CSI u) — what Ghostty/Kitty actually send for
+        // modified keys when the runtime enables `CSI > 1 u`.
+        test "Kitty CSI u: Ctrl+P → Char p + Ctrl" {
+            let k = asKey (InputParser.parseBytes (System.Text.Encoding.ASCII.GetBytes "\x1b[112;5u"))
+            Expect.equal (k |> Option.map (fun k -> k.Key)) (Some (Char "p")) "ESC[112;5u → Char \"p\""
+            Expect.isTrue (k |> Option.exists (fun k -> k.Modifiers.Ctrl)) "carries Ctrl"
+            Expect.isFalse (k |> Option.exists (fun k -> k.Modifiers.Shift || k.Modifiers.Alt)) "Ctrl only"
+        }
+        test "Kitty CSI u: Ctrl+O → Char o + Ctrl" {
+            let k = asKey (InputParser.parseBytes (System.Text.Encoding.ASCII.GetBytes "\x1b[111;5u"))
+            Expect.equal (k |> Option.map (fun k -> k.Key)) (Some (Char "o")) "ESC[111;5u → Char \"o\""
+            Expect.isTrue (k |> Option.exists (fun k -> k.Modifiers.Ctrl)) "carries Ctrl"
+        }
+        test "Kitty CSI u: super/Cmd (mod 9) → Meta" {
+            let k = asKey (InputParser.parseBytes (System.Text.Encoding.ASCII.GetBytes "\x1b[112;9u"))
+            Expect.isTrue (k |> Option.exists (fun k -> k.Modifiers.Meta)) "modifier 9 → Meta"
+            Expect.isFalse (k |> Option.exists (fun k -> k.Modifiers.Ctrl)) "not Ctrl"
+        }
+        test "Kitty CSI u: bare Escape (ESC[27u)" {
+            let k = asKey (InputParser.parseBytes (System.Text.Encoding.ASCII.GetBytes "\x1b[27u"))
+            Expect.equal (k |> Option.map (fun k -> k.Key)) (Some Escape) "ESC[27u → Escape"
+        }
+        test "Kitty CSI u: Shift+Tab (ESC[9;2u)" {
+            let k = asKey (InputParser.parseBytes (System.Text.Encoding.ASCII.GetBytes "\x1b[9;2u"))
+            Expect.equal (k |> Option.map (fun k -> k.Key)) (Some Tab) "ESC[9;2u → Tab"
+            Expect.isTrue (k |> Option.exists (fun k -> k.Modifiers.Shift)) "carries Shift"
+        }
+        test "modified arrow: Ctrl+Up (ESC[1;5A)" {
+            let k = asKey (InputParser.parseBytes (System.Text.Encoding.ASCII.GetBytes "\x1b[1;5A"))
+            Expect.equal (k |> Option.map (fun k -> k.Key)) (Some ArrowUp) "ESC[1;5A → ArrowUp"
+            Expect.isTrue (k |> Option.exists (fun k -> k.Modifiers.Ctrl)) "carries Ctrl"
+        }
+        test "plain arrow still decodes (ESC[A, no mods)" {
+            let k = asKey (InputParser.parseBytes (System.Text.Encoding.ASCII.GetBytes "\x1b[A"))
+            Expect.equal (k |> Option.map (fun k -> k.Key)) (Some ArrowUp) "ESC[A → ArrowUp"
+            Expect.isFalse (k |> Option.exists (fun k -> k.Modifiers.Ctrl || k.Modifiers.Shift)) "no modifiers"
+        }
+        // Application-cursor-key mode (DECCKM) — what JediTerm sends for arrows.
+        test "SS3 arrow: ESC O A → ArrowUp" {
+            let k = asKey (InputParser.parseBytes (System.Text.Encoding.ASCII.GetBytes "\x1bOA"))
+            Expect.equal (k |> Option.map (fun k -> k.Key)) (Some ArrowUp) "ESC O A → ArrowUp"
+        }
+        test "SS3 arrow: ESC O B → ArrowDown" {
+            let k = asKey (InputParser.parseBytes (System.Text.Encoding.ASCII.GetBytes "\x1bOB"))
+            Expect.equal (k |> Option.map (fun k -> k.Key)) (Some ArrowDown) "ESC O B → ArrowDown"
+        }
+        test "SS3 F1 still decodes (ESC O P)" {
+            let k = asKey (InputParser.parseBytes (System.Text.Encoding.ASCII.GetBytes "\x1bOP"))
+            Expect.equal (k |> Option.map (fun k -> k.Key)) (Some (Function 1)) "ESC O P → F1"
+        }
     ]
 
 // Frame diffing ------------------------------------------------------------

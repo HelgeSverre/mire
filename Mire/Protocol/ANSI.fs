@@ -139,8 +139,14 @@ module TerminalMode =
         val mutable Events: int16
         val mutable Revents: int16
 
+    // NOTE: `poll` takes the pollfd BY REFERENCE, not as an array. A managed
+    // `PollFd[]` is marshaled in-only here, so the kernel's writes to `revents`
+    // never make it back and `stdinAvailable` would always read 0 → no input is
+    // ever detected. Passing the single struct byref marshals as `pollfd*` (which
+    // is exactly what poll wants for nfds=1) and is in/out, so `revents` is
+    // written back. (For nfds>1 this would need a pinned array + IntPtr instead.)
     [<DllImport("libc", SetLastError = true)>]
-    extern int poll(PollFd[] fds, uint32 nfds, int timeout)
+    extern int poll(PollFd& fds, uint32 nfds, int timeout)
 
     [<DllImport("libc", SetLastError = true)>]
     extern int read(int fd, byte[] buf, uint32 count)
@@ -153,7 +159,7 @@ module TerminalMode =
             pfd.Fd <- 0
             pfd.Events <- int16 1 // POLLIN
             pfd.Revents <- int16 0
-            let result = poll([|pfd|], 1u, 0)
+            let result = poll(&pfd, 1u, 0)
             result > 0 && (int pfd.Revents &&& 1) <> 0
 
     let readStdinByte() : byte option =

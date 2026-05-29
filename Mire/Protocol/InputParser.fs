@@ -6,60 +6,111 @@ open Mire.Core
 
 module InputParser =
 
+    let private mkKey key text mods : KeyEvent =
+        { Key = key; Text = text; Modifiers = mods; Repeat = false; EventType = Press }
+
+    /// xterm/Kitty modifier parameter is `(bitfield + 1)`: shift=1, alt=2,
+    /// ctrl=4, super=8, … Decode to `KeyModifiers` (super → Meta, our closest).
+    let private modifiersOf (param: int) : KeyModifiers =
+        let bits = if param > 0 then param - 1 else 0
+        { Shift = bits &&& 1 <> 0
+          Alt = bits &&& 2 <> 0
+          Ctrl = bits &&& 4 <> 0
+          Meta = bits &&& 8 <> 0 }
+
+    /// Map a Kitty `CSI u` Unicode key code to a `Key`. Letters/printables come
+    /// through as their base codepoint (e.g. Ctrl+P → 112 → `Char "p"`).
+    let private keyOfCodepoint (cp: int) : Key =
+        match cp with
+        | 13 -> Enter
+        | 27 -> Escape
+        | 9 -> Tab
+        | 127 -> Backspace
+        | _ when cp >= 32 -> Char(Char.ConvertFromUtf32 cp)
+        | _ -> Unknown(string cp)
+
+    /// Parse a CSI sequence `ESC [ … <final>` into its numeric parameters and the
+    /// final byte. Sub-parameters (after ':') are dropped. `None` if malformed.
+    let private parseCsi (bytes: byte[]) : (int list * char) option =
+        if bytes.Length < 3 then None
+        else
+            let final = char bytes.[bytes.Length - 1]
+            if final < '\x40' || final > '\x7E' then None
+            else
+                let paramStr = Encoding.ASCII.GetString(bytes, 2, bytes.Length - 3)
+                let parms =
+                    if paramStr = "" then []
+                    else
+                        paramStr.Split(';')
+                        |> Array.map (fun p ->
+                            match Int32.TryParse((p.Split(':')).[0]) with
+                            | true, v -> v
+                            | _ -> 0)
+                        |> Array.toList
+                Some(parms, final)
+
     let private parseEscSequence (bytes: byte[]) : KeyEvent option =
         if bytes.Length < 2 then None
         else
             match bytes.[1] with
-            | 0x5Buy -> // [
+            | 0x5Buy -> // CSI: ESC [ …
+                match parseCsi bytes with
+                | None -> None
+                | Some(parms, final) ->
+                    let nth i = if List.length parms > i then List.item i parms else 0
+                    let mods = modifiersOf (nth 1)
+                    match final with
+                    // Kitty key encoding: ESC [ <codepoint> ; <modifiers> u
+                    | 'u' ->
+                        match parms with
+                        | cp :: _ -> Some(mkKey (keyOfCodepoint cp) None mods)
+                        | [] -> None
+                    // Cursor / navigation keys; modifiers arrive as `ESC [ 1 ; <mod> <final>`.
+                    | 'A' -> Some(mkKey ArrowUp None mods)
+                    | 'B' -> Some(mkKey ArrowDown None mods)
+                    | 'C' -> Some(mkKey ArrowRight None mods)
+                    | 'D' -> Some(mkKey ArrowLeft None mods)
+                    | 'H' -> Some(mkKey Home None mods)
+                    | 'F' -> Some(mkKey End None mods)
+                    | 'Z' -> Some(mkKey Tab None { mods with Shift = true }) // backtab (Shift+Tab)
+                    | 'P' -> Some(mkKey (Function 1) None mods)
+                    | 'Q' -> Some(mkKey (Function 2) None mods)
+                    | 'S' -> Some(mkKey (Function 4) None mods) // ('R' omitted: collides with cursor-position report)
+                    // `ESC [ <n> [; <mod>] ~` — editing/function keys.
+                    | '~' ->
+                        let key =
+                            match nth 0 with
+                            | 2 -> Some Insert
+                            | 3 -> Some Delete
+                            | 5 -> Some PageUp
+                            | 6 -> Some PageDown
+                            | 15 -> Some(Function 5)
+                            | 17 -> Some(Function 6)
+                            | 18 -> Some(Function 7)
+                            | 19 -> Some(Function 8)
+                            | 20 -> Some(Function 9)
+                            | 21 -> Some(Function 10)
+                            | 23 -> Some(Function 11)
+                            | 24 -> Some(Function 12)
+                            | _ -> None
+                        key |> Option.map (fun k -> mkKey k None mods)
+                    | _ -> None
+            | 0x4Fuy -> // SS3: ESC O … — arrows/Home/End in *application cursor key*
+                        // mode (DECCKM), and unmodified F1–F4. Terminals like
+                        // JediTerm default to app-cursor mode, sending `ESC O A`
+                        // for Up where others send `ESC [ A`; decode both.
                 if bytes.Length = 3 then
                     match bytes.[2] with
-                    | 0x41uy -> Some { Key = ArrowUp; Text = None; Modifiers = KeyModifiers.None; Repeat = false; EventType = Press }
-                    | 0x42uy -> Some { Key = ArrowDown; Text = None; Modifiers = KeyModifiers.None; Repeat = false; EventType = Press }
-                    | 0x43uy -> Some { Key = ArrowRight; Text = None; Modifiers = KeyModifiers.None; Repeat = false; EventType = Press }
-                    | 0x44uy -> Some { Key = ArrowLeft; Text = None; Modifiers = KeyModifiers.None; Repeat = false; EventType = Press }
-                    | 0x48uy -> Some { Key = Home; Text = None; Modifiers = KeyModifiers.None; Repeat = false; EventType = Press }
-                    | 0x46uy -> Some { Key = End; Text = None; Modifiers = KeyModifiers.None; Repeat = false; EventType = Press }
-                    // Backtab (Shift+Tab): legacy `ESC [ Z`. Note: under the full Kitty
-                    // keyboard protocol some terminals emit the `CSI u` form instead,
-                    // which this parser does not yet decode (see ROADMAP v0.2/v0.5).
-                    | 0x5Auy -> Some { Key = Tab; Text = None; Modifiers = { KeyModifiers.None with Shift = true }; Repeat = false; EventType = Press }
-                    | _ -> None
-                elif bytes.Length >= 4 && bytes.[bytes.Length - 1] = 0x7Euy then // ~ terminated
-                    match bytes.[2] with
-                    | 0x31uy when bytes.Length = 5 && bytes.[3] = 0x35uy -> Some { Key = Function 5; Text = None; Modifiers = KeyModifiers.None; Repeat = false; EventType = Press }
-                    | 0x31uy when bytes.Length = 5 && bytes.[3] = 0x37uy -> Some { Key = Function 6; Text = None; Modifiers = KeyModifiers.None; Repeat = false; EventType = Press }
-                    | 0x31uy when bytes.Length = 5 && bytes.[3] = 0x38uy -> Some { Key = Function 7; Text = None; Modifiers = KeyModifiers.None; Repeat = false; EventType = Press }
-                    | 0x31uy when bytes.Length = 5 && bytes.[3] = 0x39uy -> Some { Key = Function 8; Text = None; Modifiers = KeyModifiers.None; Repeat = false; EventType = Press }
-                    | 0x32uy when bytes.Length = 5 && bytes.[3] = 0x30uy -> Some { Key = Function 9; Text = None; Modifiers = KeyModifiers.None; Repeat = false; EventType = Press }
-                    | 0x32uy when bytes.Length = 5 && bytes.[3] = 0x31uy -> Some { Key = Function 10; Text = None; Modifiers = KeyModifiers.None; Repeat = false; EventType = Press }
-                    | 0x32uy when bytes.Length = 5 && bytes.[3] = 0x33uy -> Some { Key = Function 11; Text = None; Modifiers = KeyModifiers.None; Repeat = false; EventType = Press }
-                    | 0x32uy when bytes.Length = 5 && bytes.[3] = 0x34uy -> Some { Key = Function 12; Text = None; Modifiers = KeyModifiers.None; Repeat = false; EventType = Press }
-                    | 0x32uy -> Some { Key = Insert; Text = None; Modifiers = KeyModifiers.None; Repeat = false; EventType = Press }
-                    | 0x33uy -> Some { Key = Delete; Text = None; Modifiers = KeyModifiers.None; Repeat = false; EventType = Press }
-                    | 0x35uy -> Some { Key = PageUp; Text = None; Modifiers = KeyModifiers.None; Repeat = false; EventType = Press }
-                    | 0x36uy -> Some { Key = PageDown; Text = None; Modifiers = KeyModifiers.None; Repeat = false; EventType = Press }
-                    | _ -> None
-                elif bytes.Length = 4 then
-                    match bytes.[2] with
-                    | 0x31uy when bytes.[3] = 0x35uy -> Some { Key = Function 5; Text = None; Modifiers = KeyModifiers.None; Repeat = false; EventType = Press }
-                    | 0x31uy when bytes.[3] = 0x37uy -> Some { Key = Function 6; Text = None; Modifiers = KeyModifiers.None; Repeat = false; EventType = Press }
-                    | 0x31uy when bytes.[3] = 0x38uy -> Some { Key = Function 7; Text = None; Modifiers = KeyModifiers.None; Repeat = false; EventType = Press }
-                    | 0x31uy when bytes.[3] = 0x39uy -> Some { Key = Function 8; Text = None; Modifiers = KeyModifiers.None; Repeat = false; EventType = Press }
-                    | 0x32uy when bytes.[3] = 0x30uy -> Some { Key = Function 9; Text = None; Modifiers = KeyModifiers.None; Repeat = false; EventType = Press }
-                    | 0x32uy when bytes.[3] = 0x31uy -> Some { Key = Function 10; Text = None; Modifiers = KeyModifiers.None; Repeat = false; EventType = Press }
-                    | 0x32uy when bytes.[3] = 0x33uy -> Some { Key = Function 11; Text = None; Modifiers = KeyModifiers.None; Repeat = false; EventType = Press }
-                    | 0x32uy when bytes.[3] = 0x34uy -> Some { Key = Function 12; Text = None; Modifiers = KeyModifiers.None; Repeat = false; EventType = Press }
-                    | _ -> None
-                else None
-            | 0x4Fuy -> // O
-                if bytes.Length = 3 then
-                    match bytes.[2] with
-                    | 0x50uy -> Some { Key = Function 1; Text = None; Modifiers = KeyModifiers.None; Repeat = false; EventType = Press }
-                    | 0x51uy -> Some { Key = Function 2; Text = None; Modifiers = KeyModifiers.None; Repeat = false; EventType = Press }
-                    | 0x52uy -> Some { Key = Function 3; Text = None; Modifiers = KeyModifiers.None; Repeat = false; EventType = Press }
-                    | 0x53uy -> Some { Key = Function 4; Text = None; Modifiers = KeyModifiers.None; Repeat = false; EventType = Press }
-                    | 0x48uy -> Some { Key = Home; Text = None; Modifiers = KeyModifiers.None; Repeat = false; EventType = Press }
-                    | 0x46uy -> Some { Key = End; Text = None; Modifiers = KeyModifiers.None; Repeat = false; EventType = Press }
+                    | 0x41uy -> Some(mkKey ArrowUp None KeyModifiers.None)
+                    | 0x42uy -> Some(mkKey ArrowDown None KeyModifiers.None)
+                    | 0x43uy -> Some(mkKey ArrowRight None KeyModifiers.None)
+                    | 0x44uy -> Some(mkKey ArrowLeft None KeyModifiers.None)
+                    | 0x50uy -> Some(mkKey (Function 1) None KeyModifiers.None)
+                    | 0x51uy -> Some(mkKey (Function 2) None KeyModifiers.None)
+                    | 0x52uy -> Some(mkKey (Function 3) None KeyModifiers.None)
+                    | 0x53uy -> Some(mkKey (Function 4) None KeyModifiers.None)
+                    | 0x48uy -> Some(mkKey Home None KeyModifiers.None)
+                    | 0x46uy -> Some(mkKey End None KeyModifiers.None)
                     | _ -> None
                 else None
             | _ -> None
