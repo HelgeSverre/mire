@@ -84,18 +84,18 @@ agent widgets are the (not-yet-created) `Mire.Agent` layer.
 The whole pipeline runs end-to-end: `model → view → layout → surface → diff → terminal`.
 
 - [x] `Mire.Core` value types (`Point`/`Size`/`Rect`/`Color`/`Style`/`Cell`/`Region`/`Grapheme`/input events)
-- [x] Raw terminal mode (`stty` + libc `poll`/`read` P/Invoke), alternate screen, resize handling
+- [x] Raw terminal mode (`stty` + libc `poll`/`read` P/Invoke), alternate screen, resize handling (resize re-renders but doesn't force a full repaint — see Known gaps)
 - [x] Byte-level `InputParser` — printable chars, Ctrl chords, arrows, function keys, Home/End/PgUp/PgDn/Ins/Del
 - [x] `Surface` cell grid + draw primitives; run-based `Diff` writer
 - [x] Elmish `Runtime.run` (~30 FPS) with `Cmd`/`Sub`, `Program` builders, `OnError`
 - [x] `Mire.Widgets` convenience layer + predefined semantic styles
-- [x] Grapheme-cluster width handling (wide chars, combining marks)
+- [x] Grapheme-cluster width handling (wide chars, combining marks) — BMP per-`char` width + combining-mark merge; not true cluster handling (see Known gaps)
 
 ### v0.2 — Layout, regions & overlays 🟡 ← *current phase*
 
 - [x] **Layout engine complete** — real `Stack` flow, `Scroll` offset+clipping, `Content`/`Fill` dock lengths, `Filled` opaque node
 - [x] Headless `--dump` verification mode
-- [ ] **Input decoding** — mouse (SGR 1006), bracketed paste, focus events, full Kitty keyboard (modifiers/release/repeat). *Sequences are already enabled by the runtime but not parsed.* (Partial: `Ctrl+letter` and **`Shift+Tab`** — legacy backtab `ESC [ Z` — are decoded; the Kitty `CSI u` modifier form is not.)
+- [ ] **Input decoding** — mouse (SGR 1006), bracketed paste, focus events, Kitty release/repeat event types. *Done:* the Kitty **`CSI u`** modifier form is now decoded (`ESC [ <codepoint> ; <mod> u` → `Char`/named key + `KeyModifiers`, super→`Meta`), so **Ctrl/Alt/Shift/Super chords work** (Ctrl+P, Ctrl+O, …); modified navigation keys (`ESC [ 1 ; <mod> A/B/C/D/H/F`, `ESC [ <n> ; <mod> ~`) decode too — alongside the legacy `Ctrl+letter`, `Shift+Tab`, F-keys, and arrows in **both** normal (`ESC [ A`) and application-cursor (`ESC O A`, DECCKM — what JediTerm sends) modes. *Still pending:* mouse/focus sequences are enabled by `Runtime.run` but unparsed; **bracketed paste is neither enabled nor parsed** (`ANSI.enableBracketedPaste` is never written); release/repeat events aren't requested (only the disambiguate flag `CSI > 1 u` is pushed, not "report event types"), so the parser still only emits `Key … Press`. The `Mouse`/`Paste`/`FocusGained`/`FocusLost` `InputEvent` cases exist but aren't produced.
 - [ ] **Runtime: quit-from-update** — a `Cmd.quit` (or `Quit` message convention) so apps can exit cleanly without relying on the hard-coded Ctrl+C intercept
 - [ ] **Focus manager** — focusable node IDs, tab order, focus trap; route key/scroll events to the focused region first
 - [ ] **Overlay positioning** — anchor (`Screen`/`Region`/`Cursor`) + placement (center, above/below, corners); the missing half of `Overlay`
@@ -124,6 +124,11 @@ Optional layer above `Mire.App`; the base framework must not depend on it.
 > a skill-explorer overlay, toasts, and an approval/permission modal — on top of the
 > existing layout primitives. It's a *testbed*, not the reusable library; these boxes stay
 > ⬜ until the widgets are extracted into `Mire.Agent`. See `DEMO-TODOS.md` for the gaps.
+>
+> **Design reference:** `prototype/agent-harness.html` (Alpine.js, brand-faithful) mocks the
+> intended agent-shell direction — including an MCP-server manager, slash-command completion,
+> and code-block syntax highlighting that the TUI hasn't attempted yet. It's a visual target,
+> not running F#.
 
 - [ ] Create `Mire.Agent` project (preserve the one-directional dependency chain)
 - [ ] `TranscriptBlock` model + `ChatTranscript` (block virtualization, follow-tail)
@@ -135,7 +140,7 @@ Optional layer above `Mire.App`; the base framework must not depend on it.
 
 ### v0.5 — Kitty/Ghostty niceties ⬜
 
-- [ ] Full Kitty keyboard protocol decode (the encoder is enabled; finish the decoder)
+- [ ] Full Kitty keyboard protocol decode — 🟡 `CSI u` **modifier** decoding done (see v0.2); remaining: request + decode release/repeat **event types** (push "report event types", parse the `:event` sub-param) and the private-use functional codepoints
 - [ ] OSC 8 hyperlinks — render `Cell.Link` (sequences exist; cells don't carry links yet)
 - [ ] Kitty graphics protocol → `ImagePreview` with text fallback
 - [ ] Light/dark theme notifications
@@ -156,9 +161,9 @@ From `SPEC.md`'s optimization tiers. Do these *when they hurt*, not before.
 ### Project infrastructure 🟡
 
 - [x] **Framework consolidated** into a single `Mire` project (folders = layers); solution is `Mire` + `Mire.Demo` + `Mire.AgentDemo` + `Mire.Tests`
-- [x] **Test project** — `Mire.Tests` (Expecto) covering `Layout.measure`/`render`, `Diff.compute`, `InputParser`, `Grapheme` width
+- [x] **Test project** — `Mire.Tests` (Expecto) covering `Layout.measure`/`render`, `Diff.compute`, `InputParser`, `Grapheme` width (18 tests, all green; `dotnet build Mire.slnx` is warning-clean)
 - [ ] Promote `--dump` scenarios into golden-frame snapshot tests (assert full cell grids, not just spot checks)
-- [x] `git init` (done — not yet committed)
+- [x] `git init` + under version control — 8 commits on `main` (framework, both demos, tests, docs, HTML prototype)
 - [ ] CI build + `dotnet test` on .NET 10
 
 ---
@@ -170,9 +175,12 @@ Things that work "well enough" today but have a sharp edge worth remembering:
 - **`Box` children overlap.** All children are measured at the same inner rect; multi-child boxes overdraw. Workaround: nest a `Stack`. (v0.2 fix listed above.)
 - **`Spacer` is a no-op in stacks.** It maps to `Empty` (0 extent). A real flex spacer needs `Fill`.
 - **No quit from `update`.** The runtime only exits on its hard-coded Ctrl+C intercept; `update` can't request exit. (Old counter demo's `q` silently did nothing.)
-- **Input is keys-only.** Mouse/paste/focus sequences are *enabled* by the runtime but `InputParser` ignores them.
+- **Input is keys-only.** Keyboard is solid now — including Kitty `CSI u` modifier chords (Ctrl/Alt/Shift/Super) and legacy fallbacks — but mouse and focus sequences are *enabled* by the runtime yet ignored by `InputParser`, and **bracketed paste is not even enabled** (the `ANSI.enableBracketedPaste` sequence is never written). The `Mouse`/`Paste`/`FocusGained`/`FocusLost` `InputEvent` cases are defined but never produced. Key **release/repeat** events aren't requested either (only the disambiguate flag is pushed).
 - **`Scroll` has no scrollbar / follow-tail / virtualization** — it's the primitive, not the `ScrollView` widget.
 - **`Overlay` can't position layers** — every layer fills the area; modals need anchoring/centering.
+- **Resize doesn't force a full repaint.** On size change `Runtime.run` sets `NeedsRender` but keeps the previous `Surface`; `Diff.compute` then only diffs the `min(old, new)` overlap, so *growing* the terminal leaves the newly-exposed rows/columns unpainted until a later full redraw. Fix: reset `PreviousSurface` to `None` when the size changes (forcing the no-previous full-render path).
+- **Wide-char rendering is BMP-only and leaves a trailing cell.** `Grapheme.charWidth` works per UTF-16 `char`, so the `0x20000–0x2A6DF` CJK-Ext-B branch in `isWide` is unreachable and astral-plane / emoji-ZWJ clusters aren't handled. `Cell.FromChar` always sets `Width = 1` while `Surface.Write` advances the cursor by the glyph width *without blanking the wide glyph's trailing cell* — so a wide glyph overwriting narrower content can leave an artifact.
+- **Dead scaffolding & externs.** `Region`/`RegionId`/`RenderMode` (and the `Focusable`/`ZIndex`/`Clip` fields) are defined in `Core/Region.fs` but wired to nothing — forward declarations for the unbuilt focus manager / overlay positioning / z-ordering. The `tcgetattr`/`tcsetattr`/`ioctl` libc externs in `TerminalMode` are also unused (raw mode uses the `stty` subprocess; size uses `Console.WindowWidth/Height`); the "For now, use Console APIs" comment in `setupRawMode` is stale.
 - **Solution file is `Mire.slnx`** (modern XML format), not `Mire.sln`.
 
 ---
