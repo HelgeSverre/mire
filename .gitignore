@@ -1,0 +1,34 @@
+# ---- .NET / F# build output ----
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+*.user
+project.lock.json
+artifacts/
+
+# NuGet
+*.nupkg
+*.snupkg
+.nuget/
+packages/
+
+# ---- JetBrains Rider / IntelliJ ----
+.idea/
+*.iml
+
+# ---- Visual Studio / VS Code ----
+.vs/
+.vscode/
+*.suo
+*.userprefs
+
+# ---- macOS ----
+.DS_Store
+
+# ---- Tooling artifacts ----
+# Generated code index snapshot (codedb)
+codedb.snapshot
+
+# ---- Claude Code (machine-local agent settings) ----
+.claude/settings.local.json
