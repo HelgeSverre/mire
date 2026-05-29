@@ -50,8 +50,8 @@ agent widgets are the (not-yet-created) `Mire.Agent` layer.
 | `Scrollbar` | ⬜ | Track + thumb; pairs with `ScrollView`. |
 | `ScrollView` | ⬜ | Scroll + scrollbar + follow-tail + jump-to-bottom + virtualization. |
 | `List` / `ListView` | 🟡 | `ListView.view` does single-selection + full-width highlight + auto-scroll-to-selection (string labels). No virtualization, multi-select, or built-in key handling yet. |
-| `Table` | ⬜ | Virtualized rows, sticky header, column sizing, selection. |
-| `Input` (single-line) | ⬜ | Text buffer, cursor, selection. |
+| `Table` | ⬜ | Virtualized rows, sticky header, column sizing, selection. (`Mire.SpreadsheetDemo` hand-rolls a grid from nested `Stack`s — motivates this.) |
+| `Input` (single-line) | ⬜ | Text buffer, cursor, selection. (`Mire.AgentDemo`'s `PromptInput` and `Mire.SpreadsheetDemo`'s cell editor both hand-roll append+backspace — motivates a real `TextBuffer`.) |
 | `TextArea` (multi-line) | ⬜ | Multiline editing, shift-enter newline. |
 | `Modal` | ⬜ | Centered, focus-trapping, with actions. |
 | `Toast` | ⬜ | Auto-dismissing notification stack. |
