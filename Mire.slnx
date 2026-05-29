@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="Mire/Mire.fsproj" />
+  <Project Path="Mire.Demo/Mire.Demo.fsproj" />
+  <Project Path="Mire.AgentDemo/Mire.AgentDemo.fsproj" />
+  <Project Path="Mire.Tests/Mire.Tests.fsproj" />
+</Solution>

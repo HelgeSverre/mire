@@ -1,0 +1,49 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <Authors>Helge Sverre</Authors>
+    <Copyright>Copyright (c) 2026 Helge Sverre</Copyright>
+  </PropertyGroup>
+
+  <!--
+    One framework assembly, organized by folder. The compile order *is* the
+    layering — files must appear after everything they depend on. The folders
+    map to namespaces (Mire.Core, Mire.Protocol, …) which stay stable, so
+    consumer `open Mire.Layout` etc. is unchanged.
+
+    Layer order: Core → Protocol → Renderer → Layout → {Widgets, App}
+    (Widgets and App both depend only on Layout, not on each other.)
+  -->
+  <ItemGroup>
+    <!-- Core — pure value types, no I/O -->
+    <Compile Include="Core/Point.fs" />
+    <Compile Include="Core/Size.fs" />
+    <Compile Include="Core/Rect.fs" />
+    <Compile Include="Core/Color.fs" />
+    <Compile Include="Core/Style.fs" />
+    <Compile Include="Core/Cell.fs" />
+    <Compile Include="Core/Region.fs" />
+    <Compile Include="Core/Grapheme.fs" />
+    <Compile Include="Core/Input.fs" />
+
+    <!-- Protocol — ANSI strings, raw terminal mode, input decoding -->
+    <Compile Include="Protocol/ANSI.fs" />
+    <Compile Include="Protocol/InputParser.fs" />
+
+    <!-- Renderer — cell grid + frame diff (Diff uses Protocol.ANSI) -->
+    <Compile Include="Renderer/Surface.fs" />
+    <Compile Include="Renderer/Diff.fs" />
+
+    <!-- Layout — node tree, measure, render -->
+    <Compile Include="Layout/Layout.fs" />
+
+    <!-- Widgets — convenience builders over Layout -->
+    <Compile Include="Widgets/Widgets.fs" />
+
+    <!-- App — Elmish runtime -->
+    <Compile Include="App/Program.fs" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,67 @@
+namespace Mire.Core
+
+type Key =
+    | Char of string
+    | Enter
+    | Escape
+    | Backspace
+    | Tab
+    | ArrowUp
+    | ArrowDown
+    | ArrowLeft
+    | ArrowRight
+    | Home
+    | End
+    | PageUp
+    | PageDown
+    | Function of int
+    | Space
+    | Delete
+    | Insert
+    | Unknown of string
+
+type KeyModifiers =
+    { Shift: bool
+      Ctrl: bool
+      Alt: bool
+      Meta: bool }
+    
+    static member None = { Shift = false; Ctrl = false; Alt = false; Meta = false }
+
+type KeyEventType =
+    | Press
+    | Repeat
+    | Release
+
+type KeyEvent =
+    { Key: Key
+      Text: string option
+      Modifiers: KeyModifiers
+      Repeat: bool
+      EventType: KeyEventType }
+
+type MouseButton =
+    | Left
+    | Middle
+    | Right
+    | ScrollUp
+    | ScrollDown
+    | ScrollLeft
+    | ScrollRight
+    | UnknownButton of int
+
+type MouseEvent =
+    { X: int
+      Y: int
+      Button: MouseButton
+      Modifiers: KeyModifiers
+      Pressed: bool }
+
+type InputEvent =
+    | Key of KeyEvent
+    | Mouse of MouseEvent
+    | Paste of string
+    | Resize of Size
+    | FocusGained
+    | FocusLost
+    | Tick of System.TimeSpan
