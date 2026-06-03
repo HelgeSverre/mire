@@ -5,11 +5,19 @@ open Mire.Layout
 
 module Style =
     let border = Style.Default.WithForeground(Color.Rgb(0x4Auy, 0x90uy, 0xD9uy))
-    let title = Style.Default.WithForeground(Color.Rgb(0xF4uy, 0xD0uy, 0x3Fuy)).WithBold(true)
+
+    let title =
+        Style.Default.WithForeground(Color.Rgb(0xF4uy, 0xD0uy, 0x3Fuy)).WithBold(true)
+
     let text = Style.Default.WithForeground(Color.White)
     let dim = Style.Default.WithForeground(Color.Rgb(0x88uy, 0x88uy, 0x88uy))
-    let counter = Style.Default.WithForeground(Color.Rgb(0x4Cuy, 0xAFuy, 0x50uy)).WithBold(true)
-    let highlight = Style.Default.WithForeground(Color.Rgb(0xFFuy, 0x57uy, 0x22uy)).WithBold(true)
+
+    let counter =
+        Style.Default.WithForeground(Color.Rgb(0x4Cuy, 0xAFuy, 0x50uy)).WithBold(true)
+
+    let highlight =
+        Style.Default.WithForeground(Color.Rgb(0xFFuy, 0x57uy, 0x22uy)).WithBold(true)
+
     let key = Style.Default.WithForeground(Color.Rgb(0x9Cuy, 0x27uy, 0xB0uy))
     let bg = Style.Default.WithBackground(Color.Rgb(0x1Auy, 0x1Auy, 0x2Euy))
     let success = Style.Default.WithForeground(Color.Rgb(0x4Cuy, 0xAFuy, 0x50uy))
@@ -21,21 +29,17 @@ module Text =
     let text (content: string) (style: Style) : LayoutNode<'msg> =
         LayoutNode.Text(Rect.Create(0, 0, 0, 0), content, style)
 
-    let textDefault (content: string) : LayoutNode<'msg> =
-        text content Style.text
+    let textDefault (content: string) : LayoutNode<'msg> = text content Style.text
 
-    let title (content: string) : LayoutNode<'msg> =
-        text content Style.title
+    let title (content: string) : LayoutNode<'msg> = text content Style.title
 
-    let dimText (content: string) : LayoutNode<'msg> =
-        text content Style.dim
+    let dimText (content: string) : LayoutNode<'msg> = text content Style.dim
 
 module Box =
     let box (style: Style) (children: LayoutNode<'msg> list) : LayoutNode<'msg> =
         LayoutNode.Box(Rect.Create(0, 0, 0, 0), style, children)
 
-    let boxDefault (children: LayoutNode<'msg> list) : LayoutNode<'msg> =
-        box Style.border children
+    let boxDefault (children: LayoutNode<'msg> list) : LayoutNode<'msg> = box Style.border children
 
     let panel (title: string) (style: Style) (children: LayoutNode<'msg> list) : LayoutNode<'msg> =
         let titleNode = Text.text ($" {title} ") Style.title
@@ -45,11 +49,18 @@ module Box =
         panel title Style.border children
 
 module StatusBar =
-    let statusBar (leftItems: LayoutNode<'msg> list)
-                  (centerItems: LayoutNode<'msg> list)
-                  (rightItems: LayoutNode<'msg> list) : LayoutNode<'msg> =
+    let statusBar
+        (leftItems: LayoutNode<'msg> list)
+        (centerItems: LayoutNode<'msg> list)
+        (rightItems: LayoutNode<'msg> list)
+        : LayoutNode<'msg> =
         let allItems =
-            leftItems @ [Text.text " " Style.dim] @ centerItems @ [Text.text " " Style.dim] @ rightItems
+            leftItems
+            @ [ Text.text " " Style.dim ]
+            @ centerItems
+            @ [ Text.text " " Style.dim ]
+            @ rightItems
+
         Box.box Style.border allItems
 
     let statusBarSimple (items: string list) : LayoutNode<'msg> =
@@ -57,32 +68,35 @@ module StatusBar =
         statusBar nodes [] []
 
 module Spacer =
-    let spacer : LayoutNode<'msg> =
-        LayoutNode.Empty
+    let spacer: LayoutNode<'msg> = LayoutNode.Empty
 
 module Dock =
     let dock (children: DockChild<'msg> list) : LayoutNode<'msg> =
         LayoutNode.Dock(Rect.Create(0, 0, 0, 0), children)
 
     let top (height: int) (child: LayoutNode<'msg>) : DockChild<'msg> =
-        { Position = DockPosition.Top(Cells height); Child = child }
+        { Position = DockPosition.Top(Cells height)
+          Child = child }
 
     let bottom (height: int) (child: LayoutNode<'msg>) : DockChild<'msg> =
-        { Position = DockPosition.Bottom(Cells height); Child = child }
+        { Position = DockPosition.Bottom(Cells height)
+          Child = child }
 
     let left (width: int) (child: LayoutNode<'msg>) : DockChild<'msg> =
-        { Position = DockPosition.Left(Cells width); Child = child }
+        { Position = DockPosition.Left(Cells width)
+          Child = child }
 
     let right (width: int) (child: LayoutNode<'msg>) : DockChild<'msg> =
-        { Position = DockPosition.Right(Cells width); Child = child }
+        { Position = DockPosition.Right(Cells width)
+          Child = child }
 
     let fill (child: LayoutNode<'msg>) : DockChild<'msg> =
-        { Position = DockPosition.Fill; Child = child }
+        { Position = DockPosition.Fill
+          Child = child }
 
 module Stack =
     /// Pair a child with an explicit length along the stack axis.
-    let sized (length: Length) (child: LayoutNode<'msg>) : StackChild<'msg> =
-        { Length = length; Child = child }
+    let sized (length: Length) (child: LayoutNode<'msg>) : StackChild<'msg> = { Length = length; Child = child }
 
     /// Build a stack from explicitly-sized children.
     let stackOf (direction: Direction) (children: StackChild<'msg> list) : LayoutNode<'msg> =
@@ -92,17 +106,13 @@ module Stack =
     let stack (direction: Direction) (children: LayoutNode<'msg> list) : LayoutNode<'msg> =
         stackOf direction (children |> List.map (sized Length.Content))
 
-    let vstack (children: LayoutNode<'msg> list) : LayoutNode<'msg> =
-        stack Direction.Vertical children
+    let vstack (children: LayoutNode<'msg> list) : LayoutNode<'msg> = stack Direction.Vertical children
 
-    let hstack (children: LayoutNode<'msg> list) : LayoutNode<'msg> =
-        stack Direction.Horizontal children
+    let hstack (children: LayoutNode<'msg> list) : LayoutNode<'msg> = stack Direction.Horizontal children
 
-    let vstackOf (children: StackChild<'msg> list) : LayoutNode<'msg> =
-        stackOf Direction.Vertical children
+    let vstackOf (children: StackChild<'msg> list) : LayoutNode<'msg> = stackOf Direction.Vertical children
 
-    let hstackOf (children: StackChild<'msg> list) : LayoutNode<'msg> =
-        stackOf Direction.Horizontal children
+    let hstackOf (children: StackChild<'msg> list) : LayoutNode<'msg> = stackOf Direction.Horizontal children
 
 module Scroll =
     /// A scroll region driven by a full ScrollState (offset + content size).
@@ -111,7 +121,12 @@ module Scroll =
 
     /// A vertically-scrolling region at the given row offset.
     let vertical (offsetY: int) (child: LayoutNode<'msg>) : LayoutNode<'msg> =
-        LayoutNode.Scroll(Rect.Create(0, 0, 0, 0), { ScrollState.Empty with OffsetY = offsetY }, child)
+        LayoutNode.Scroll(
+            Rect.Create(0, 0, 0, 0),
+            { ScrollState.Empty with
+                OffsetY = offsetY },
+            child
+        )
 
 module Backdrop =
     /// An opaque rectangle filling its assigned rect — panel background, modal
@@ -124,9 +139,7 @@ module Backdrop =
     /// glyphs; this fills the whole assigned rect first, then renders the child on
     /// top, so a selection background spans the full width (gaps included).
     let behind (style: Style) (child: LayoutNode<'msg>) : LayoutNode<'msg> =
-        LayoutNode.Overlay(
-            Rect.Create(0, 0, 0, 0),
-            [ LayoutNode.Filled(Rect.Create(0, 0, 0, 0), style); child ])
+        LayoutNode.Overlay(Rect.Create(0, 0, 0, 0), [ LayoutNode.Filled(Rect.Create(0, 0, 0, 0), style); child ])
 
 /// Single-selection, scrollable list of text rows. The selected row gets a
 /// full-width highlight (via `Backdrop.behind`), auto-scrolled to stay visible.
@@ -134,15 +147,62 @@ module Backdrop =
 module ListView =
     /// One row: full-width selection fill when `selected`, plain text otherwise.
     let row (selStyle: Style) (rowStyle: Style) (selected: bool) (label: string) : LayoutNode<'msg> =
-        if selected then Backdrop.behind selStyle (Text.text label selStyle)
-        else Text.text label rowStyle
+        if selected then
+            Backdrop.behind selStyle (Text.text label selStyle)
+        else
+            Text.text label rowStyle
 
     /// A scrollable list `height` rows tall, auto-scrolled to keep `sel` centred
     /// and in view.
     let view (height: int) (selStyle: Style) (rowStyle: Style) (sel: int) (labels: string list) : LayoutNode<'msg> =
         let n = List.length labels
         let off = max 0 (min (max 0 (n - height)) (sel - height / 2))
+
         labels
         |> List.mapi (fun i l -> row selStyle rowStyle (i = sel) l)
         |> Stack.vstack
         |> Scroll.vertical off
+
+/// Single-line text editor view over a `TextBuffer`. Pure edit logic lives in
+/// `Mire.Core.TextBuffer`; this only renders. When `focused`, a block cursor is
+/// drawn (the cell under the cursor in `cursorStyle`) and the view scrolls
+/// horizontally to keep it visible within `width` cells.
+module Input =
+    let render
+        (width: int)
+        (textStyle: Style)
+        (cursorStyle: Style)
+        (focused: bool)
+        (buf: TextBuffer)
+        : LayoutNode<'msg> =
+        let text = buf.Text
+        let len = text.Length
+        let cur = max 0 (min len buf.Cursor)
+        // horizontal scroll window of `width` chars containing the cursor
+        let start = if cur < width then 0 else cur - width + 1
+        let visLen = min (max 0 (len - start)) width
+        let visible = if visLen <= 0 then "" else text.Substring(start, visLen)
+
+        if not focused then
+            Text.text visible textStyle
+        else
+            let cw = cur - start // cursor column within the window (0 .. width-1)
+
+            let leftPart =
+                if cw <= 0 then
+                    ""
+                else
+                    visible.Substring(0, min cw visible.Length)
+
+            let atCursor = if cw < visible.Length then string visible.[cw] else " "
+
+            let rightPart =
+                if cw + 1 <= visible.Length then
+                    visible.Substring(min (cw + 1) visible.Length)
+                else
+                    ""
+
+            Stack.hstackOf
+                [ Stack.sized Length.Content (Text.text leftPart textStyle)
+                  Stack.sized (Length.Cells 1) (Text.text atCursor cursorStyle)
+                  Stack.sized Length.Content (Text.text rightPart textStyle) ]

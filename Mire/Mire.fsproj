@@ -26,6 +26,7 @@
     <Compile Include="Core/Cell.fs" />
     <Compile Include="Core/Region.fs" />
     <Compile Include="Core/Grapheme.fs" />
+    <Compile Include="Core/TextBuffer.fs" />
     <Compile Include="Core/Input.fs" />
 
     <!-- Protocol — ANSI strings, raw terminal mode, input decoding -->
