@@ -144,7 +144,7 @@ Optional layer above `Mire.App`; the base framework must not depend on it.
 - [ ] OSC 8 hyperlinks — render `Cell.Link` (sequences exist; cells don't carry links yet)
 - [ ] Kitty graphics protocol → `ImagePreview` with text fallback
 - [ ] Light/dark theme notifications
-- [ ] Wire synchronized output (`?2026h`) around frame writes
+- [x] Wire synchronized output (`?2026h`) around frame writes — `Diff.renderToTerminal` brackets every frame in begin/end-sync (BSU/ESU); covered by a test
 - [ ] Richer mouse (hit-testing → focus/selection)
 
 ### Cross-cutting — Performance & rendering ⬜
@@ -160,10 +160,11 @@ From `SPEC.md`'s optimization tiers. Do these _when they hurt_, not before.
 
 ### Project infrastructure 🟡
 
-- [x] **Framework consolidated** into a single `Mire` project (folders = layers); solution is `Mire` + `Mire.Demo` + `Mire.AgentDemo` + `Mire.Tests`
-- [x] **Test project** — `Mire.Tests` (Expecto) covering `Layout.measure`/`render`, `Diff.compute`, `InputParser`, `Grapheme` width (18 tests, all green; `dotnet build Mire.slnx` is warning-clean)
+- [x] **Framework consolidated** into a single `Mire` project (folders = layers); solution is `Mire` + `Mire.Demo` + `Mire.AgentDemo` + `Mire.FeedDemo` + `Mire.SpreadsheetDemo` + `Mire.MinesweeperDemo` + `Mire.Tests`
+- [x] **Test project** — `Mire.Tests` (Expecto) covering `Layout.measure`/`render`, `Diff.compute` (incl. sync-output bracketing + display-width cursor advance), `InputParser`, `Grapheme` width, `TextBuffer`/`Input`, and the `Mire.MinesweeperDemo` `Board` + `Mire.FeedDemo` `Feed` helpers (62 tests, all green; `dotnet build Mire.slnx` is warning-clean)
+- [x] **Dev tooling** — `justfile` (build/test/run/format/lint) + Fantomas tool manifest (`.config/dotnet-tools.json`); `just check` = lint + build + test
 - [ ] Promote `--dump` scenarios into golden-frame snapshot tests (assert full cell grids, not just spot checks)
-- [x] `git init` + under version control — 8 commits on `main` (framework, both demos, tests, docs, HTML prototype)
+- [x] `git init` + under version control — framework, four demos, tests, docs, prototypes (work continues on the `feat/widget-gallery` branch)
 - [ ] CI build + `dotnet test` on .NET 10
 
 ---
