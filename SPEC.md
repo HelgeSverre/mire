@@ -38,10 +38,9 @@ A framework for building **modern, Kitty/Ghostty-targeted terminal applications*
 
 Ghostty is a good target because it explicitly supports modern terminal features like Kitty graphics, hyperlinks, light/dark notifications, grapheme clustering, and broader modern terminal behavior; Kitty itself defines protocol extensions for graphics, keyboard handling, mouse/clipboard-style features, notifications, and more. The Kitty keyboard protocol is especially relevant because it lets apps opt into richer keyboard handling than old terminal escape parsing allows. [sw.kovidgoyal.net+3Ghostty+3Ghostty+3](https://ghostty.org/docs/features?utm_source=chatgpt.com)
 
-___________
+---
 
-Core idea
-=========
+# Core idea
 
 The framework should be built around this mental model:
 
@@ -57,10 +56,9 @@ type Program<'model, 'msg> =    {        Init : unit -> 'model * Cmd<'msg>      
 
 The big design difference from web UI is that terminal UI needs **regions**, **diffed cell rendering**, **scroll state**, **focus routing**, and **terminal protocol control** as first-class things. HTML gets layout, focus, scroll containers, overlays, and input normalization from the browser. Here, the framework is the browser.
 
-___________
+---
 
-Design goal
-===========
+# Design goal
 
 Not:
 
@@ -94,10 +92,9 @@ Claude Code + Lazygit + k9s + Linear command menu + mini IDE panels
 
 but as a reusable F# framework.
 
-___________
+---
 
-Strong constraints
-==================
+# Strong constraints
 
 I’d intentionally make the first version opinionated:
 
@@ -107,10 +104,9 @@ Supported:  - Ghostty first  - Kitty-compatible terminals second  - Unix/macOS/L
 
 You can always add degraded backends later, but the architecture should not be polluted by them.
 
-___________
+---
 
-Major packages
-==============
+# Major packages
 
 ```
 src/  Aether.Terminal.Core/    Rect.fs    Size.fs    Point.fs    Color.fs    Style.fs    Text.fs    Grapheme.fs    Buffer.fs    Region.fs  Aether.Terminal.Protocol/    Ansi.fs    KittyKeyboard.fs    KittyGraphics.fs    Osc.fs    Mouse.fs    EscapeParser.fs    TerminalMode.fs    CapabilityProbe.fs  Aether.Terminal.Renderer/    Cell.fs    Surface.fs    RenderOp.fs    Diff.fs    Painter.fs    Compositor.fs  Aether.Terminal.Layout/    Constraint.fs    Flex.fs    Grid.fs    Stack.fs    Dock.fs    Overlay.fs    Measure.fs  Aether.Terminal.App/    Program.fs    Runtime.fs    Cmd.fs    Sub.fs    Effect.fs    Dispatcher.fs    Scheduler.fs  Aether.Terminal.Widgets/    Text.fs    Box.fs    Panel.fs    ScrollView.fs    Table.fs    List.fs    Input.fs    TextArea.fs    Markdown.fs    Modal.fs    Toast.fs    CommandPalette.fs    Completion.fs    SplitView.fs    StatusBar.fs  Aether.Terminal.Agent/    ChatView.fs    Transcript.fs    ToolCallView.fs    ThinkingBlock.fs    DiffView.fs    FileTree.fs    PromptBox.fs    TaskTimeline.fs
@@ -124,10 +120,9 @@ Core             pure typesProtocol         terminal I/O and escape sequencesRen
 
 The `Agent` package should be optional. The base framework should not know what an LLM is.
 
-___________
+---
 
-The central abstraction: Node
-=============================
+# The central abstraction: Node
 
 The user writes views as values:
 
@@ -161,10 +156,9 @@ But:
 model -> view tree -> layout -> render list -> diff -> terminal
 ```
 
-___________
+---
 
-Regions as a first-class concept
-================================
+# Regions as a first-class concept
 
 This is probably the most important part.
 
@@ -202,10 +196,9 @@ floating "completion" {    anchor = Anchor.Region "prompt-input"    placement = 
 
 This gives you web-like “position absolute / fixed / portal” semantics, but in terminal coordinates.
 
-___________
+---
 
-Layout model
-============
+# Layout model
 
 I’d use a small set of layout primitives:
 
@@ -231,10 +224,9 @@ Or:
 constrain {    maxWidth 120    align Center    child (        table {            columns [                col "Name" 32                col "Status" 12                col "Updated" 20            ]            rows model.Rows        }    )}
 ```
 
-___________
+---
 
-Rendering pipeline
-==================
+# Rendering pipeline
 
 Terminal rendering should be treated like a tiny browser engine:
 
@@ -256,10 +248,9 @@ Important details:
 
 The Kitty graphics protocol is explicitly designed for raster graphics in the terminal, including drawing graphics at pixel positions, which gives you a clean path for previews, thumbnails, screenshots, charts, or generated images later. [sw.kovidgoyal.net](https://sw.kovidgoyal.net/kitty/graphics-protocol/?utm_source=chatgpt.com)
 
-___________
+---
 
-Input model
-===========
+# Input model
 
 Do not expose raw escape sequences to app code.
 
@@ -283,10 +274,9 @@ I’d expose keybindings declaratively:
 keymap [    bind "ctrl+p" OpenCommandPalette    bind "ctrl+j" FocusNextPane    bind "ctrl+k" FocusPreviousPane    bind "esc" DismissOverlay    bind "shift+enter" InsertNewline    bind "enter" SubmitPrompt]
 ```
 
-___________
+---
 
-Focus model
-===========
+# Focus model
 
 Every focusable node gets a stable ID:
 
@@ -306,10 +296,9 @@ Example:
 input {    id "prompt"    value model.Input    focus AutoFocus    onChange InputChanged}
 ```
 
-___________
+---
 
-Overlay manager
-===============
+# Overlay manager
 
 Overlays should not be special-cased by every app.
 
@@ -339,10 +328,9 @@ completionList {    anchor "prompt"    items model.Completions    selected model
 
 The key architectural trick: overlays are rendered through a **portal layer**, outside their parent region, while still being anchored to some node/region.
 
-___________
+---
 
-Scrollable areas with fixed sections
-====================================
+# Scrollable areas with fixed sections
 
 This is the Claude Code / chat UI case.
 
@@ -372,10 +360,9 @@ type TranscriptBlock =    | UserMessage of Message    | AssistantMessage of Mess
 
 Then the transcript can virtualize by block, not line.
 
-___________
+---
 
-Table view
-==========
+# Table view
 
 The table component should not be a dumb pretty-printer. It should be a serious data grid.
 
@@ -401,10 +388,9 @@ and:
 panel "Recent files" [    constrainHeight 12 (        table {...}    )]
 ```
 
-___________
+---
 
-Floating panels
-===============
+# Floating panels
 
 Floating panels need to be anchored, not just absolute.
 
@@ -424,10 +410,9 @@ This gives you:
 - command completion- slash command list- file picker popup- symbol picker- tooltip- inline docs- mini inspector
 ```
 
-___________
+---
 
-Component styling without Tailwind-class soup
-=============================================
+# Component styling without Tailwind-class soup
 
 For F#, I would avoid “class strings” completely.
 
@@ -475,10 +460,9 @@ text "Modified"|> fg theme.Warning|> dim
 
 But reusable components should hide most of this.
 
-___________
+---
 
-App runtime
-===========
+# App runtime
 
 The runtime should own:
 
@@ -504,10 +488,9 @@ View:
 let view model =    app [        dock [            top 1 (                statusBar [                    text "Aether"                    spacer                    text "gpt-5.5"                ]            )            bottom 5 (                promptBox {                    id "prompt"                    value model.Input                    onChange InputChanged                    onSubmit SubmitPrompt                }            )            fill (                chatTranscript {                    id "transcript"                    blocks model.Messages                    followTail true                }            )        ]        overlay (            commandPalette {                state model.CommandPalette                onDismiss DismissOverlay                onChoose CommandChosen            }        )        toastStack model.Toasts    ]
 ```
 
-___________
+---
 
-Effects and subscriptions
-=========================
+# Effects and subscriptions
 
 Agent apps are async and streaming. So `Cmd<'msg>` matters.
 
@@ -533,15 +516,13 @@ This lets the framework handle:
 - streaming model output- subprocess stdout/stderr- background indexing- tool execution status- file watching- spinner ticks- periodic refresh
 ```
 
-___________
+---
 
-Agent-specific components
-=========================
+# Agent-specific components
 
 This is where the library becomes obviously useful.
 
-Chat transcript
----------------
+## Chat transcript
 
 ```
 chatTranscript {    blocks model.Transcript    followTail model.FollowTail    compact true    showToolCalls Collapsed    onOpenBlock OpenTranscriptBlock}
@@ -553,8 +534,7 @@ Block rendering:
 User promptAssistant answerThinking / reasoning placeholderTool callTool resultFile editPatch/diffCommand outputErrorApproval request
 ```
 
-Prompt box
-----------
+## Prompt box
 
 ```
 promptBox {    value model.Input    mode model.InputMode    attachments model.Attachments    placeholder "Ask anything, / for commands"    onChange InputChanged    onSubmit SubmitPrompt    onSlash OpenCommandPalette}
@@ -566,31 +546,27 @@ Should support:
 - multiline input- shift-enter newline- enter submit- slash commands- @file mentions- history- paste handling- validation- pending attachments
 ```
 
-Tool call view
---------------
+## Tool call view
 
 ```
 toolCall {    name "shell"    status Running    command "dotnet test"    output model.Output    collapsed false}
 ```
 
-Diff view
----------
+## Diff view
 
 ```
 diffView {    file "src/App.fs"    hunks model.Hunks    mode Unified    onAccept AcceptHunk    onReject RejectHunk}
 ```
 
-Approval modal
---------------
+## Approval modal
 
 ```
 approvalModal {    title "Run command?"    command "rm -rf bin obj && dotnet test"    risk Medium    onApprove ApproveCommand    onDeny DenyCommand}
 ```
 
-___________
+---
 
-Rendering dense layouts sanely
-==============================
+# Rendering dense layouts sanely
 
 A big trap is building this:
 
@@ -622,29 +598,25 @@ But also app-level components:
 appShellagentShellpanelinspectortranscriptPanecomposercommandSurface
 ```
 
-___________
+---
 
-Suggested API style
-===================
+# Suggested API style
 
 I’d support three styles.
 
-1\. Lightweight functional DSL
-------------------------------
+## 1\. Lightweight functional DSL
 
 ```
 panel "Files" [    fileTree model.Files]
 ```
 
-2\. Computation expressions for bigger widgets
-----------------------------------------------
+## 2\. Computation expressions for bigger widgets
 
 ```
 table {    id "tasks"    columns [        column "Name" { width Fill }        column "State" { width 12 }    ]    rows model.Tasks}
 ```
 
-3\. Component functions for app code
-------------------------------------
+## 3\. Component functions for app code
 
 ```
 let taskTable model =    table {        columns TaskColumns.defaultColumns        rows model.Tasks        selection model.SelectedTask        onSelect TaskSelected    }
@@ -652,15 +624,13 @@ let taskTable model =    table {        columns TaskColumns.defaultColumns      
 
 Avoid huge object-oriented inheritance trees. Prefer records + functions + discriminated unions.
 
-___________
+---
 
-Runtime modes
-=============
+# Runtime modes
 
 The framework should support two app modes:
 
-Fullscreen app
---------------
+## Fullscreen app
 
 Uses alternate screen:
 
@@ -674,8 +644,7 @@ Good for:
 Claude Code-style appsfile browsersk9s/lazygit style UIsdashboards
 ```
 
-Inline region app
------------------
+## Inline region app
 
 Runs inside the normal terminal output stream:
 
@@ -691,10 +660,9 @@ progress UIssmall pickersinteractive setuptemporary task dashboards
 
 This is important. A lot of libraries accidentally force fullscreen forever. For this framework, “fullscreen or constrained region” is part of the core premise.
 
-___________
+---
 
-Capability model
-================
+# Capability model
 
 Even though v1 is Ghostty/Kitty-first, still model capabilities explicitly:
 
@@ -720,15 +688,13 @@ Instead, widgets should degrade internally:
 imagePreview {    source file    fallback (text "[image preview unavailable]")}
 ```
 
-___________
+---
 
-Command palette and completion
-==============================
+# Command palette and completion
 
 These should probably be separate but related abstractions.
 
-Command palette
----------------
+## Command palette
 
 Global command surface:
 
@@ -736,8 +702,7 @@ Global command surface:
 commandPalette {    commands [        command "Open file" OpenFile        command "Run tests" RunTests        command "Toggle sidebar" ToggleSidebar    ]    query model.CommandQuery    selected model.SelectedCommand}
 ```
 
-Completion list
----------------
+## Completion list
 
 Contextual completion anchored to input/cursor:
 
@@ -753,10 +718,9 @@ type CommandItem<'msg> =    {        Id : string        Title : string        Su
 
 But command palette is global. Completion is local and input-aware.
 
-___________
+---
 
-Text model
-==========
+# Text model
 
 You want a real text model early.
 
@@ -786,10 +750,9 @@ value model.InputonChange InputChanged
 
 The string API can exist as a convenience wrapper.
 
-___________
+---
 
-Internal render data flow
-=========================
+# Internal render data flow
 
 A nice crisp model:
 
@@ -803,10 +766,9 @@ ASCII diagram:
 ┌────────────┐│ Terminal   │└─────┬──────┘      │ input bytes      ▼┌────────────┐       ┌────────────┐│ Decoder    │──────▶│ Dispatcher │└────────────┘       └─────┬──────┘                           │ Msg                           ▼                    ┌────────────┐                    │ Update     │                    └─────┬──────┘                          │ Model                          ▼                    ┌────────────┐                    │ View       │                    └─────┬──────┘                          │ Node tree                          ▼                    ┌────────────┐                    │ Layout     │                    └─────┬──────┘                          │ Regions                          ▼                    ┌────────────┐                    │ Renderer   │                    └─────┬──────┘                          │ Diff ops                          ▼                    ┌────────────┐                    │ Terminal   │                    └────────────┘
 ```
 
-___________
+---
 
-What makes it agent-friendly?
-=============================
+# What makes it agent-friendly?
 
 Most generic TUI frameworks stop at widgets. This one should include patterns for **long-running, streaming, interruptible work**.
 
@@ -830,10 +792,9 @@ taskTimeline model.Runs
 
 This makes the framework useful for your own Glue-style CLI/agent stuff, not just generic terminal forms.
 
-___________
+---
 
-Error handling
-==============
+# Error handling
 
 Terminal apps fail in annoying ways. Bake in recovery:
 
@@ -853,22 +814,19 @@ Dev shortcut:
 ctrl+shift+d → toggle debug overlay
 ```
 
-___________
+---
 
-Testing strategy
-================
+# Testing strategy
 
 This framework should be unusually testable because most of it can be pure.
 
-Pure tests
-----------
+## Pure tests
 
 ```
 - layout calculation- clipping- region hit testing- scroll math- table virtualization- text wrapping- grapheme width- diff generation
 ```
 
-Snapshot tests
---------------
+## Snapshot tests
 
 Given:
 
@@ -888,8 +846,7 @@ or:
 expected ANSI output
 ```
 
-Golden terminal frames
-----------------------
+## Golden terminal frames
 
 Store expected frames:
 
@@ -897,8 +854,7 @@ Store expected frames:
 tests/golden/chat-basic.frametests/golden/table-scroll.frametests/golden/modal-overlay.frame
 ```
 
-Fake terminal backend
----------------------
+## Fake terminal backend
 
 ```
 type FakeTerminal =    {        Input : Channel<InputEvent>        Output : ResizeArray<RenderOp>    }
@@ -906,52 +862,45 @@ type FakeTerminal =    {        Input : Channel<InputEvent>        Output : Resi
 
 Then test whole apps without launching a terminal.
 
-___________
+---
 
-Minimal viable version
-======================
+# Minimal viable version
 
 I’d cut v1 like this:
 
-v0.1: Terminal runtime
-----------------------
+## v0.1: Terminal runtime
 
 ```
 - raw mode- alternate screen- resize- keyboard input- mouse input- bracketed paste- diff renderer- truecolor styles- basic layout
 ```
 
-v0.2: Regions and overlays
---------------------------
+## v0.2: Regions and overlays
 
 ```
 - region tree- scroll views- focus manager- floating panels- modal- toast stack
 ```
 
-v0.3: Core widgets
-------------------
+## v0.3: Core widgets
 
 ```
 - text- box- panel- status bar- scroll view- input- textarea- list- table- command palette
 ```
 
-v0.4: Agent widgets
--------------------
+## v0.4: Agent widgets
 
 ```
 - chat transcript- prompt box- tool call view- diff view- approval modal- task timeline
 ```
 
-v0.5: Kitty/Ghostty niceties
-----------------------------
+## v0.5: Kitty/Ghostty niceties
 
 ```
 - Kitty keyboard protocol- OSC 8 hyperlinks- Kitty image previews- light/dark theme notification- richer mouse support
 ```
 
-___________
+---
 
-MVP app example
-===============
+# MVP app example
 
 A tiny coding-agent shell:
 
@@ -961,10 +910,9 @@ module AgentAppopen Aether.Terminaltype Model =    {        Transcript : Transcr
 
 That’s the vibe.
 
-___________
+---
 
-Design principles
-=================
+# Design principles
 
 The framework should be built around these rules:
 
@@ -1002,10 +950,9 @@ LLM streaming tokenstool logs streamingmarkdown transcript growingtables updatin
 
 So the optimization story should be designed around **incremental change**.
 
-___________
+---
 
-Optimization tiers
-==================
+# Optimization tiers
 
 I’d think of them like this:
 
@@ -1015,10 +962,9 @@ Tier 0: correctness and architectureTier 1: avoid terminal writesTier 2: avoid u
 
 Most projects should get to tier 4 before worrying about tier 6 or 7.
 
-___________
+---
 
-1\. Surface diffing
-===================
+# 1\. Surface diffing
 
 This is the obvious one.
 
@@ -1056,10 +1002,9 @@ Always.
 
 This is baseline architecture.
 
-___________
+---
 
-2\. Run-based diffing, not cell-by-cell writes
-==============================================
+# 2\. Run-based diffing, not cell-by-cell writes
 
 A naive differ emits:
 
@@ -1095,10 +1040,9 @@ This matters especially for:
 
 Priority: **very high**.
 
-___________
+---
 
-3\. Dirty region tracking
-=========================
+# 3\. Dirty region tracking
 
 Surface diffing still compares the whole screen.
 
@@ -1134,10 +1078,9 @@ But don’t start here. Full-surface diff is fine for v1.
 
 Priority: **medium**.
 
-___________
+---
 
-4\. Avoid full layout when only local state changed
-===================================================
+# 4\. Avoid full layout when only local state changed
 
 If mouse wheel scrolls the markdown pane, you do not necessarily need to re-layout the whole app.
 
@@ -1169,10 +1112,9 @@ For a first implementation, full arrange per frame is usually okay. Later, regio
 
 Priority: **medium-high for serious apps**, but not v0.
 
-___________
+---
 
-5\. Virtualized tables
-======================
+# 5\. Virtualized tables
 
 This one matters massively.
 
@@ -1200,10 +1142,9 @@ Basically always for tables.
 
 Priority: **very high**.
 
-___________
+---
 
-6\. Virtualized transcript / markdown blocks
-============================================
+# 6\. Virtualized transcript / markdown blocks
 
 Agent transcripts can get large.
 
@@ -1241,10 +1182,9 @@ This matters a lot for:
 
 Priority: **very high** for agent apps.
 
-___________
+---
 
-7\. Text wrapping cache
-=======================
+# 7\. Text wrapping cache
 
 Text wrapping is sneakily expensive.
 
@@ -1276,10 +1216,9 @@ When it matters:
 
 Priority: **high**.
 
-___________
+---
 
-8\. Column width measurement cache
-==================================
+# 8\. Column width measurement cache
 
 Autosized table columns should not scan all rows every frame.
 
@@ -1317,10 +1256,9 @@ Autosizing can otherwise turn virtual tables back into non-virtual tables.
 
 Priority: **high**.
 
-___________
+---
 
-9\. Stable node IDs and keyed children
-======================================
+# 9\. Stable node IDs and keyed children
 
 If the framework cannot identify “same widget as last frame”, it cannot retain scroll state, focus, measured widths, or cached text layout.
 
@@ -1350,10 +1288,9 @@ This matters when:
 
 Priority: **architectural/high**.
 
-___________
+---
 
-10\. Opaque overlays
-====================
+# 10\. Opaque overlays
 
 If a modal/floating panel is opaque, you do not need to render what is behind it for the covered area.
 
@@ -1381,10 +1318,9 @@ When it matters:
 
 Priority: **medium**.
 
-___________
+---
 
-11\. Scroll blitting
-====================
+# 11\. Scroll blitting
 
 When a region scrolls by one line, most of its content is the same, just shifted.
 
@@ -1418,10 +1354,9 @@ But terminal-side scroll optimization is complex with overlays/clipping. I’d d
 
 Priority: **medium**.
 
-___________
+---
 
-12\. Frame coalescing / render throttling
-=========================================
+# 12\. Frame coalescing / render throttling
 
 Streaming tokens can arrive faster than the terminal should redraw.
 
@@ -1455,10 +1390,9 @@ If you render every token/chunk, you waste work and can make the terminal feel c
 
 Priority: **very high** for coding agents.
 
-___________
+---
 
-13\. Backpressure on terminal writes
-====================================
+# 13\. Backpressure on terminal writes
 
 Do not let rendering pile up if terminal output is slow.
 
@@ -1490,10 +1424,9 @@ This matters when:
 
 Priority: **high**.
 
-___________
+---
 
-14\. Avoid allocating per cell
-==============================
+# 14\. Avoid allocating per cell
 
 A full surface is an array of cells:
 
@@ -1533,10 +1466,9 @@ That is not insane, but avoid unnecessary allocation.
 
 Priority: **medium initially, high later**.
 
-___________
+---
 
-15\. Style interning
-====================
+# 15\. Style interning
 
 Terminal styles repeat a lot.
 
@@ -1566,10 +1498,9 @@ This matters when:
 
 Priority: **medium**.
 
-___________
+---
 
-16\. Grapheme and width caching
-===============================
+# 16\. Grapheme and width caching
 
 Unicode is annoying.
 
@@ -1597,10 +1528,9 @@ When it matters:
 
 Priority: **high for correctness, medium for perf**.
 
-___________
+---
 
-17\. Incremental text input rendering
-=====================================
+# 17\. Incremental text input rendering
 
 Prompt boxes should not re-render the whole app on every key if they can avoid it.
 
@@ -1626,10 +1556,9 @@ For coding-agent apps, I’d keep prompt text in app model by default, then rely
 
 Priority: **low-medium**.
 
-___________
+---
 
-18\. Separate animation ticks from model updates
-================================================
+# 18\. Separate animation ticks from model updates
 
 A spinner should not force your whole app model to update.
 
@@ -1661,10 +1590,9 @@ When it matters:
 
 Priority: **medium**.
 
-___________
+---
 
-19\. Layout result caching
-==========================
+# 19\. Layout result caching
 
 If a subtree’s inputs did not change, reuse its layout result.
 
@@ -1696,10 +1624,9 @@ When it matters:
 
 Priority: **medium-high**, but selectively.
 
-___________
+---
 
-20\. Partial composition
-========================
+# 20\. Partial composition
 
 If only one region changed, you can compose just that region into the old surface.
 
@@ -1725,10 +1652,9 @@ For v1, compose whole screen. It is simpler and probably fine.
 
 Priority: **low initially, high for mature engine**.
 
-___________
+---
 
-21\. Damage tracking with z-index overlap
-=========================================
+# 21\. Damage tracking with z-index overlap
 
 Dirty region tracking gets complicated with overlays.
 
@@ -1758,10 +1684,9 @@ When it matters:
 
 Priority: **medium for polish**, not MVP.
 
-___________
+---
 
-22\. Specialized renderers for common widgets
-=============================================
+# 22\. Specialized renderers for common widgets
 
 A generic `Node -> DrawCommand` renderer is nice, but certain widgets deserve custom rendering:
 
@@ -1779,10 +1704,9 @@ Generic layout cannot know those optimizations.
 
 Priority: **high for complex widgets**.
 
-___________
+---
 
-23\. Append-only optimization for logs and transcripts
-======================================================
+# 23\. Append-only optimization for logs and transcripts
 
 Logs and agent transcripts are often append-only.
 
@@ -1812,10 +1736,9 @@ When it matters:
 
 Priority: **very high for coding agents**.
 
-___________
+---
 
-24\. Command output throttling
-==============================
+# 24\. Command output throttling
 
 Tool output can be insane.
 
@@ -1847,10 +1770,9 @@ batch output every 33–100msforce flush on process exit
 
 Priority: **very high**.
 
-___________
+---
 
-25\. Adaptive render quality
-============================
+# 25\. Adaptive render quality
 
 When overwhelmed, degrade gracefully.
 
@@ -1874,10 +1796,9 @@ If frame time exceeds budget:
 
 Priority: **medium**, but very useful for agent apps.
 
-___________
+---
 
-26\. Byte budget awareness
-==========================
+# 26\. Byte budget awareness
 
 Terminal throughput matters.
 
@@ -1899,10 +1820,9 @@ This is especially relevant over SSH or slow terminal integrations.
 
 Priority: **medium-high**.
 
-___________
+---
 
-27\. Terminal synchronized updates
-==================================
+# 27\. Terminal synchronized updates
 
 Some terminals support synchronized output updates, where you bracket frame writes to avoid visible tearing/flicker.
 
@@ -1922,10 +1842,9 @@ Priority: **medium**.
 
 Nice polish, not fundamental.
 
-___________
+---
 
-28\. Cursor rendering optimization
-==================================
+# 28\. Cursor rendering optimization
 
 The cursor is special.
 
@@ -1949,10 +1868,9 @@ This matters because terminal cursor behavior can cause flicker if mishandled.
 
 Priority: **medium**.
 
-___________
+---
 
-29\. Reduce style churn
-=======================
+# 29\. Reduce style churn
 
 A differ should avoid doing:
 
@@ -1972,10 +1890,9 @@ This is obvious but important.
 
 Priority: **high**.
 
-___________
+---
 
-30\. Avoid cursor moves when already adjacent
-=============================================
+# 30\. Avoid cursor moves when already adjacent
 
 If you just wrote a character at `(x, y)`, the terminal cursor is probably at `(x + 1, y)`.
 
@@ -1991,10 +1908,9 @@ This reduces bytes a lot.
 
 Priority: **high**.
 
-___________
+---
 
-31\. Use erase-to-end-of-line strategically
-===========================================
+# 31\. Use erase-to-end-of-line strategically
 
 Sometimes it is cheaper to write:
 
@@ -2022,10 +1938,9 @@ But be careful with background colors and partial regions.
 
 Priority: **medium**.
 
-___________
+---
 
-32\. Avoid clearing the screen
-==============================
+# 32\. Avoid clearing the screen
 
 Full clear is visually jarring and expensive.
 
@@ -2039,10 +1954,9 @@ On resize, you may full redraw.
 
 Priority: **baseline/high**.
 
-___________
+---
 
-33\. Region-level clipping before painting
-==========================================
+# 33\. Region-level clipping before painting
 
 Do not emit draw commands for lines that are outside the clip rect.
 
@@ -2070,10 +1984,9 @@ When it matters:
 
 Priority: **high**.
 
-___________
+---
 
-34\. Viewport-aware rendering API
-=================================
+# 34\. Viewport-aware rendering API
 
 For heavy widgets, give them viewport info:
 
@@ -2085,10 +1998,9 @@ Then markdown/log/table can render visible content directly.
 
 Priority: **high for heavy widgets**.
 
-___________
+---
 
-35\. Incremental markdown parsing
-=================================
+# 35\. Incremental markdown parsing
 
 Full markdown parse on every token is wasteful.
 
@@ -2108,10 +2020,9 @@ LLM streaming markdown/code
 
 Priority: **very high for good UX**.
 
-___________
+---
 
-36\. Syntax highlighting cache
-==============================
+# 36\. Syntax highlighting cache
 
 Code blocks and diffs can be expensive.
 
@@ -2135,10 +2046,9 @@ highlight once
 
 Priority: **medium-high**.
 
-___________
+---
 
-37\. Avoid expensive string concatenation
-=========================================
+# 37\. Avoid expensive string concatenation
 
 In hot paths, avoid repeatedly doing:
 
@@ -2158,10 +2068,9 @@ Differ output should be built in chunks.
 
 Priority: **medium**.
 
-___________
+---
 
-38\. Object pooling
-===================
+# 38\. Object pooling
 
 For mature engine:
 
@@ -2173,10 +2082,9 @@ But do not start here. It complicates code.
 
 Priority: **low early, medium later**.
 
-___________
+---
 
-39\. Use arrays in hot paths
-============================
+# 39\. Use arrays in hot paths
 
 F# lists are pleasant but allocate a lot and are linked lists.
 
@@ -2190,10 +2098,9 @@ App DSL can use lists. Internal engine should use arrays/ResizeArray.
 
 Priority: **medium**.
 
-___________
+---
 
-40\. Separate logical tree from render tree
-===========================================
+# 40\. Separate logical tree from render tree
 
 The app-facing `Node<'msg>` can be nice and immutable.
 
@@ -2213,10 +2120,9 @@ into an optimized internal form.
 
 Priority: **medium-high** for framework maturity.
 
-___________
+---
 
-What matters most for this specific Skill Explorer?
-===================================================
+# What matters most for this specific Skill Explorer?
 
 For the floating skill explorer:
 
@@ -2244,10 +2150,9 @@ The heavy part is not the number of cells. The heavy part is:
 recomputing wrapped markdown and table layout unnecessarily
 ```
 
-___________
+---
 
-What matters most for a Claude Code-style app?
-==============================================
+# What matters most for a Claude Code-style app?
 
 Different priorities:
 
@@ -2263,10 +2168,9 @@ assistant streams textterminal redraws too oftenprompt feels laggyscroll jumpsCP
 
 So streaming optimization matters more than fancy layout optimization.
 
-___________
+---
 
-The practical implementation order
-==================================
+# The practical implementation order
 
 I’d build optimizations in this order:
 
@@ -2276,10 +2180,9 @@ I’d build optimizations in this order:
 
 This gets you most of the value without prematurely turning the engine into a nightmare.
 
-___________
+---
 
-Good enough v1
-==============
+# Good enough v1
 
 A very good v1 can simply do this:
 
@@ -2295,10 +2198,9 @@ With these caveats:
 
 That will feel fast for most real terminal apps.
 
-___________
+---
 
-The dangerous premature optimizations
-=====================================
+# The dangerous premature optimizations
 
 I would not start with:
 
@@ -2318,10 +2220,9 @@ Frame time:       2.3msLayout:           0.8msCompose:          0.6msDiff:      
 
 That will tell you what matters.
 
-___________
+---
 
-The core principle
-==================
+# The core principle
 
 The main optimization is not clever ANSI.
 
@@ -2361,10 +2262,9 @@ You render by **grapheme clusters**, and you position by **terminal cell width**
 
 Unicode defines grapheme clusters as user-perceived characters; one grapheme can be multiple Unicode code points, and Unicode Standard Annex #29 is the relevant segmentation spec. .NET’s `StringInfo` / `TextElementEnumerator` became UAX #29-compliant starting in .NET 5, so F# on modern .NET has a reasonable built-in segmentation starting point. [Unicode+1](https://www.unicode.org/reports/tr29/)
 
-___________
+---
 
-The three different “lengths”
-=============================
+# The three different “lengths”
 
 Take this:
 
@@ -2394,10 +2294,9 @@ A CJK character can be one grapheme but two terminal cells. An emoji sequence ca
 
 Unicode East Asian Width gives a normative width-related property useful for text processing and East Asian interop, but terminal cell width is still a rendering-policy problem because terminals, fonts, emoji presentation, and ambiguous-width characters can differ. [Unicode](https://www.unicode.org/reports/tr11/)
 
-___________
+---
 
-The internal model
-==================
+# The internal model
 
 I’d introduce a dedicated text shaping layer:
 
@@ -2421,10 +2320,9 @@ combining marks alone    -> maybe width 0 or replacement width 1control characte
 
 Important: the renderer should not accept arbitrary ANSI inside text nodes. If text contains ANSI, either parse it into styled spans or escape it. Otherwise layout and diffing become lies.
 
-___________
+---
 
-Grapheme segmentation in F#
-===========================
+# Grapheme segmentation in F#
 
 For segmentation, you can use `System.Globalization.StringInfo`.
 
@@ -2446,10 +2344,9 @@ let shapeText (measureClusterWidth: string -> int) (text: string) : ShapedText =
 
 The width calculator is the hard part.
 
-___________
+---
 
-Width calculation policy
-========================
+# Width calculation policy
 
 I’d make width calculation an explicit service:
 
@@ -2477,10 +2374,9 @@ And expose user/app override:
 Terminal.run {    widthPolicy {        ambiguousIsWide false        emojiIsWide true        tabWidth 4    }}
 ```
 
-___________
+---
 
-Surface representation must understand wide cells
-=================================================
+# Surface representation must understand wide cells
 
 Do **not** store a terminal cell like this:
 
@@ -2528,10 +2424,9 @@ x=10  GlyphStart("👩🏽‍💻", 2)x=11  GlyphContinuation(origin = 10, y)
 
 This is absolutely central.
 
-___________
+---
 
-Painting shaped text
-====================
+# Painting shaped text
 
 A painter receives shaped clusters, not chars.
 
@@ -2545,10 +2440,9 @@ If a previous wide glyph occupies x=10 and x=11, and you draw a single-width gly
 
 So every `Surface.set` needs to preserve invariants.
 
-___________
+---
 
-Surface invariant
-=================
+# Surface invariant
 
 The surface should guarantee:
 
@@ -2564,10 +2458,9 @@ module Surface =    let clearGlyphAt surface x y =        let cell = get surface
 
 This prevents cursed leftovers like half an emoji remaining after text changes.
 
-___________
+---
 
-Clipping wide graphemes
-=======================
+# Clipping wide graphemes
 
 Never render half a grapheme.
 
@@ -2625,10 +2518,9 @@ accidentally slicing the skin-tone modifier or ZWJ sequence
 
 which is a renderer crime.
 
-___________
+---
 
-Wrapping text
-=============
+# Wrapping text
 
 Line wrapping must also be width-based and grapheme-safe.
 
@@ -2652,10 +2544,9 @@ wrap at grapheme boundaries using terminal width
 
 not UTF-16 indexes.
 
-___________
+---
 
-Diffing with wide cells
-=======================
+# Diffing with wide cells
 
 The differ should not emit continuation cells as text.
 
@@ -2705,10 +2596,9 @@ Otherwise the second half of the old wide glyph may remain visually dirty in som
 
 A robust differ can solve this by diffing physical cells and grouping runs that include the cleanup spaces.
 
-___________
+---
 
-Cursor positioning
-==================
+# Cursor positioning
 
 The app cursor should not be stored as UTF-16 index only.
 
@@ -2752,10 +2642,9 @@ If the input contains:
 
 one backspace after the emoji deletes the whole emoji cluster, not just the laptop or skin tone modifier.
 
-___________
+---
 
-Selection
-=========
+# Selection
 
 Selection should also use grapheme boundaries.
 
@@ -2771,10 +2660,9 @@ selected cluster:  invert/highlight all cells occupied by that grapheme
 
 For a width-2 emoji, both cells get selected.
 
-___________
+---
 
-Tables and alignment
-====================
+# Tables and alignment
 
 Tables should measure by terminal width.
 
@@ -2798,10 +2686,9 @@ let rightAlign width shaped =    let contentWidth = shaped.TotalWidth    let pad
 
 But do not use `shaped.Original` after truncation. Use clusters.
 
-___________
+---
 
-Markdown/code rendering
-=======================
+# Markdown/code rendering
 
 Markdown rendering should produce styled **text runs**, but the final line builder shapes those runs.
 
@@ -2825,10 +2712,9 @@ Styles may change only at grapheme boundaries.
 
 If a style span starts inside a grapheme, expand it to the grapheme boundary or split conservatively outside the cluster.
 
-___________
+---
 
-Caches
-======
+# Caches
 
 You want caches because grapheme segmentation and width calculation are hot.
 
@@ -2844,10 +2730,9 @@ cluster width:  "👩🏽‍💻" -> 2shaped text:  string hash -> clusterswrapp
 
 For streaming output, avoid reshaping the whole assistant message every token. Shape per paragraph/chunk or append-only buffer.
 
-___________
+---
 
-Handling ambiguous / terminal-dependent width
-=============================================
+# Handling ambiguous / terminal-dependent width
 
 This is where things get annoying.
 
@@ -2893,10 +2778,9 @@ and allow overrides:
 widthOverrides [    range 0xE000 0xF8FF Width.One    codepoint 0xF07B Width.One]
 ```
 
-___________
+---
 
-What to do when terminal disagrees
-==================================
+# What to do when terminal disagrees
 
 You cannot perfectly know actual terminal glyph width from Unicode alone.
 
@@ -2926,10 +2810,9 @@ Target Ghostty/Kitty:  emoji width 2  CJK wide/fullwidth 2  ambiguous narrow  pr
 
 That will be correct enough for the intended audience.
 
-___________
+---
 
-Drawing text into a clipped region
-==================================
+# Drawing text into a clipped region
 
 Final painter shape:
 
@@ -2951,10 +2834,9 @@ If a cluster is not fully inside the clip, do not draw it.
 
 This avoids half-emojis at panel boundaries.
 
-___________
+---
 
-A better `DrawCommand`
-======================
+# A better `DrawCommand`
 
 Earlier we used:
 
@@ -2978,10 +2860,9 @@ The compositor shapes uncached `DrawText` at paint time.
 
 Markdown/log/table can pre-shape and cache.
 
-___________
+---
 
-Box drawing characters
-======================
+# Box drawing characters
 
 Box drawing characters like:
 
@@ -3003,10 +2884,9 @@ ellipsis …arrows ↑ ↓ ← →checkmarks ✓
 
 Even if Unicode properties get weird, the framework needs terminal-UI-stable semantics.
 
-___________
+---
 
-Tabs
-====
+# Tabs
 
 Tabs are not glyphs. Tabs are layout instructions.
 
@@ -3024,10 +2904,9 @@ let tabSpaces tabWidth currentX =    tabWidth - (currentX % tabWidth)
 
 A tab’s width depends on current column, so it cannot simply be measured as a standalone cluster width.
 
-___________
+---
 
-Newlines
-========
+# Newlines
 
 Newlines should not be rendered as cells.
 
@@ -3043,10 +2922,9 @@ Normalize newlines early:
 text.Replace("\r\n", "\n").Replace("\r", "\n")
 ```
 
-___________
+---
 
-Control characters
-==================
+# Control characters
 
 Never send raw control characters to the terminal except framework-owned escape sequences.
 
@@ -3059,7 +2937,7 @@ BELESCCRNUL
 render safely:
 
 ```
-␛^[� 
+␛^[�
 ```
 
 or escaped:
@@ -3070,10 +2948,9 @@ or escaped:
 
 This is especially important for log viewers and command output. Otherwise a malicious log line could move your cursor or rewrite the screen.
 
-___________
+---
 
-Recommended architecture
-========================
+# Recommended architecture
 
 I’d put this into its own package/module:
 
@@ -3093,10 +2970,9 @@ Usage in widgets:
 let renderTableCell ctx width value =    value    |> TerminalText.sanitize    |> TerminalText.shape ctx.WidthPolicy    |> TerminalText.truncate width
 ```
 
-___________
+---
 
-Renderer invariant
-==================
+# Renderer invariant
 
 The renderer should operate with this invariant:
 
@@ -3110,10 +2986,9 @@ This makes everything else sane:
 table columns line upcursor movement worksemoji does not corrupt layoutCJK text alignsbackspace deletes correctlyselection highlights correctlydiffing clears wide glyphs correctly
 ```
 
-___________
+---
 
-Practical v1 policy
-===================
+# Practical v1 policy
 
 For the framework’s first version, I would do this:
 
@@ -3129,10 +3004,9 @@ normal:  hello 👩🏽‍💻 worlddebug cells:  h e l l o · 👩🏽‍💻 �
 
 Where `»` marks a continuation cell.
 
-___________
+---
 
-The mental model
-================
+# The mental model
 
 A terminal renderer is not drawing characters.
 
@@ -3152,7 +3026,7 @@ Get this right early, and tables, panels, cursoring, markdown, logs, diffs, prom
 
 ## PROMPT 5
 
-Just for interest, could we build this entire thing, and swap out the terminal renderer with basically a html web renderer, and possibly even a canvasrenderer, the only difference is what it draws to  everything else would still work (maybe except events, but if we shimmed those for sake of example)?Show moreShow less
+Just for interest, could we build this entire thing, and swap out the terminal renderer with basically a html web renderer, and possibly even a canvasrenderer, the only difference is what it draws to everything else would still work (maybe except events, but if we shimmed those for sake of example)?Show moreShow less
 
 ## RESPONSE 6
 
@@ -3180,10 +3054,9 @@ The key is that the framework should not think “I print ANSI”. It should thi
 I produce a display list / scene graph.A backend presents that scene graph somewhere.
 ```
 
-___________
+---
 
-The clean split
-===============
+# The clean split
 
 The architecture becomes:
 
@@ -3201,10 +3074,9 @@ type DisplayList =    {        Size : Size        Regions : Region list        C
 
 Then each backend decides what to do.
 
-___________
+---
 
-The critical design decision
-============================
+# The critical design decision
 
 Do we define layout in **cells** or **abstract units**?
 
@@ -3224,10 +3096,9 @@ This makes the web/canvas renderer very easy.
 
 It also means the browser version will look like a terminal app, not like a native responsive web app. Which is probably exactly what you want for previews, demos, remote UI, tests, embedded agent consoles, etc.
 
-___________
+---
 
-Backend interface
-=================
+# Backend interface
 
 Something like:
 
@@ -3247,10 +3118,9 @@ For canvas, `Present` draws changed cells to a `<canvas>`.
 
 For HTML, `Present` patches DOM nodes.
 
-___________
+---
 
-Better: split compositor from presenter
-=======================================
+# Better: split compositor from presenter
 
 I’d probably keep the compositor separate:
 
@@ -3284,10 +3154,9 @@ Surface diff → update changed spans/divs/text nodes
 
 This is the most portable version because the `Surface` is already cell-oriented.
 
-___________
+---
 
-Surface as universal render target
-==================================
+# Surface as universal render target
 
 The same `Surface` we discussed for terminal can also power the browser:
 
@@ -3321,10 +3190,9 @@ or absolutely positioned:
 
 Same model.
 
-___________
+---
 
-HTML renderer option 1: terminal-grid DOM
-=========================================
+# HTML renderer option 1: terminal-grid DOM
 
 This is the easiest browser backend.
 
@@ -3362,10 +3230,9 @@ Disadvantages:
 
 For this project, this is the correct first web renderer.
 
-___________
+---
 
-HTML renderer option 2: semantic DOM
-====================================
+# HTML renderer option 2: semantic DOM
 
 This would try to map:
 
@@ -3395,10 +3262,9 @@ semantic renderer = reinterpret high-level widgetsgrid/canvas renderer = faithfu
 
 I would not target semantic HTML first.
 
-___________
+---
 
-Canvas renderer
-===============
+# Canvas renderer
 
 Canvas is probably the cleanest non-terminal backend.
 
@@ -3436,10 +3302,9 @@ Canvas disadvantages:
 
 If I were making a web preview for this framework, I’d probably start with canvas.
 
-___________
+---
 
-The runtime abstraction
-=======================
+# The runtime abstraction
 
 You need to split “host” from “renderer”.
 
@@ -3467,10 +3332,9 @@ The app runtime does not care.
 Program.run host program
 ```
 
-___________
+---
 
-Event shimming
-==============
+# Event shimming
 
 Events are not impossible to share. They just need translation.
 
@@ -3508,10 +3372,9 @@ For canvas/HTML grid, this is easy.
 
 For semantic HTML, you might instead route through DOM element IDs, but that is a different event model.
 
-___________
+---
 
-Input text / IME is the annoying bit
-====================================
+# Input text / IME is the annoying bit
 
 Keyboard events are not enough for real text input.
 
@@ -3541,10 +3404,9 @@ InputText of stringCompositionStartedCompositionUpdated of stringCompositionComm
 
 The terminal backend may not have the same richness, but the internal event model can.
 
-___________
+---
 
-What stays shared?
-==================
+# What stays shared?
 
 A lot.
 
@@ -3562,10 +3424,9 @@ Terminal:  raw mode  alternate screen  ANSI/Kitty escape sequences  terminal cur
 
 So yes, the center of the engine can absolutely stay the same.
 
-___________
+---
 
-Backend trait sketch
-====================
+# Backend trait sketch
 
 Maybe split it like this:
 
@@ -3585,10 +3446,9 @@ Canvas host implements `Present` as canvas draw.
 
 HTML host implements `Present` as DOM patch.
 
-___________
+---
 
-But maybe DisplayList is better than Surface for web?
-=====================================================
+# But maybe DisplayList is better than Surface for web?
 
 There are two reasonable output levels:
 
@@ -3624,10 +3484,9 @@ Arrange  ↓DisplayList  ├─ Terminal path: DisplayList → Surface → ANSI 
 
 This is probably the best architecture.
 
-___________
+---
 
-Recommended architecture
-========================
+# Recommended architecture
 
 ```
 Core engine emits DisplayList, not ANSI.Terminal backend:  DisplayList    ↓  Surface compositor    ↓  Surface differ    ↓  ANSI/Kitty writerCanvas backend:  DisplayList    ↓  Canvas draw calls    ↓  optional dirty rect redrawHTML grid backend:  DisplayList or Surface    ↓  DOM patching
@@ -3639,10 +3498,9 @@ So the “renderer” is really multiple layers:
 Arranger:  Node tree → layout boxes + regionsScene builder:  arranged widgets → DisplayListCompositor:  DisplayList → SurfacePresenter:  Surface/DisplayList → actual backend
 ```
 
-___________
+---
 
-What about scroll views?
-========================
+# What about scroll views?
 
 Keep scroll internal to the framework.
 
@@ -3664,10 +3522,9 @@ So for portable engine:
 Framework-owned scrolling.Backend only reports wheel/pointer/key events.
 ```
 
-___________
+---
 
-What about focus?
-=================
+# What about focus?
 
 Same answer.
 
@@ -3687,10 +3544,9 @@ Tab  ↓framework focus manager  ↓active region changes  ↓renderer draws foc
 
 This gives same behavior everywhere.
 
-___________
+---
 
-What about text selection?
-==========================
+# What about text selection?
 
 This is where terminal/canvas/browser diverge.
 
@@ -3702,10 +3558,9 @@ v1:  no native selection, app-level copy commands onlyv2:  framework-owned selec
 
 For a portable engine, own selection yourself.
 
-___________
+---
 
-What about accessibility?
-=========================
+# What about accessibility?
 
 Terminal and canvas both have poor native accessibility.
 
@@ -3725,10 +3580,9 @@ Terminal:  ignore or expose metadataCanvas:  mirror into hidden DOM/accessibilit
 
 But this is another subsystem.
 
-___________
+---
 
-Example: same Skill Explorer, three outputs
-===========================================
+# Example: same Skill Explorer, three outputs
 
 The app code:
 
@@ -3774,10 +3628,9 @@ or:
 Program.run BrowserHost.htmlGrid program
 ```
 
-___________
+---
 
-Why this could be genuinely useful
-==================================
+# Why this could be genuinely useful
 
 This architecture gives you:
 
@@ -3795,10 +3648,9 @@ Run the coding agent locally in GhosttyExpose the same UI over localhost as a we
 
 Same engine. Different host.
 
-___________
+---
 
-The caveat
-==========
+# The caveat
 
 If you make the core layout cell-based, the web renderer is not “a web app renderer”.
 
@@ -3820,10 +3672,9 @@ then you either need:
 
 That’s not impossible, but it is much harder.
 
-___________
+---
 
-The version I would build
-=========================
+# The version I would build
 
 I would explicitly support these backend classes:
 
@@ -3839,10 +3690,9 @@ Not initially:
 
 The first three all share the same cell layout engine.
 
-___________
+---
 
-Core engine shape
-=================
+# Core engine shape
 
 ```
 type Engine<'model, 'msg> =    {        Program : Program<'model, 'msg>        Host : IHost        Layout : LayoutEngine        SceneBuilder : SceneBuilder        Dispatcher : EventDispatcher<'msg>    }
@@ -3872,10 +3722,9 @@ HTML grid host:
 member _.Present frame =    domRenderer.Patch frame.Scene frame.Damage
 ```
 
-___________
+---
 
-My answer
-=========
+# My answer
 
 Yes, absolutely.
 
@@ -3906,4 +3755,3 @@ Semantic/native HTML
 because then you are no longer just changing what it draws to; you are changing who owns layout, scroll, focus, selection, and accessibility.
 
 For this framework, I’d make **cell-based terminal UI** the semantic core, and let web/canvas emulate that faithfully. That gives you a beautifully testable, portable engine without turning it into two frameworks in a trench coat.
-

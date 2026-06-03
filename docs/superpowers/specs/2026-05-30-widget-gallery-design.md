@@ -77,20 +77,20 @@ showcase.
 
 Per-entry content:
 
-| Demo           | Renders                                                                       | Interactive |
-| -------------- | ----------------------------------------------------------------------------- | ----------- |
-| `TextDemo`     | A few `Text.text`/`title`/`dimText` lines incl. a multi-line (`\n`) string.   | no          |
-| `FilledDemo`   | `Backdrop.solid` swatches in several styles (opaque color blocks).            | no          |
-| `BoxDemo`      | `Box.panel` with a title and nested children.                                 | no          |
-| `StatusBarDemo`| `StatusBar.statusBar` with left/center/right groups.                          | no          |
-| `StackDemo`    | An `hstack` of three cells and a `vstackOf` mixing `Cells`/`Fill`/`Content`.  | no          |
-| `DockDemo`     | A small `Dock` with top/fill/bottom (and/or left/right) regions labelled.     | no          |
-| `ScrollDemo`   | A `Scroll.vertical` over a tall `vstack`, driven by `Model.ScrollOffset`.     | yes         |
-| `OverlayDemo`  | Background rows + `Backdrop.solid` + a "MODAL" box (the dump-D composition).  | no          |
-| `ListViewDemo` | `ListView.view` over sample labels, selection = `Model.ListSel`.              | yes         |
-| `InputDemo`    | `Input.render` over `Model.Input` (block cursor, focused when detail-focused).| yes         |
-| `StylesDemo`   | The predefined `Style` palette as labelled swatches (success/warning/danger/  | no          |
-|                | info/title/dim/key/counter/highlight).                                        |             |
+| Demo            | Renders                                                                        | Interactive |
+| --------------- | ------------------------------------------------------------------------------ | ----------- |
+| `TextDemo`      | A few `Text.text`/`title`/`dimText` lines incl. a multi-line (`\n`) string.    | no          |
+| `FilledDemo`    | `Backdrop.solid` swatches in several styles (opaque color blocks).             | no          |
+| `BoxDemo`       | `Box.panel` with a title and nested children.                                  | no          |
+| `StatusBarDemo` | `StatusBar.statusBar` with left/center/right groups.                           | no          |
+| `StackDemo`     | An `hstack` of three cells and a `vstackOf` mixing `Cells`/`Fill`/`Content`.   | no          |
+| `DockDemo`      | A small `Dock` with top/fill/bottom (and/or left/right) regions labelled.      | no          |
+| `ScrollDemo`    | A `Scroll.vertical` over a tall `vstack`, driven by `Model.ScrollOffset`.      | yes         |
+| `OverlayDemo`   | Background rows + `Backdrop.solid` + a "MODAL" box (the dump-D composition).   | no          |
+| `ListViewDemo`  | `ListView.view` over sample labels, selection = `Model.ListSel`.               | yes         |
+| `InputDemo`     | `Input.render` over `Model.Input` (block cursor, focused when detail-focused). | yes         |
+| `StylesDemo`    | The predefined `Style` palette as labelled swatches (success/warning/danger/   | no          |
+|                 | info/title/dim/key/counter/highlight).                                         |             |
 
 ### MVU wiring (`view` / `update` / `mapInput`)
 
@@ -183,4 +183,7 @@ pure helper worth covering is introduced.
   modal.
 - Sidebar width is fixed at 20 cells; long entry names are caller-truncated by
   `ListView` to the available width.
+
+```
+
 ```

@@ -52,29 +52,29 @@ type Program<'model, 'msg> =
 model → view tree → layout → surface → diff → terminal
 ```
 
-The difference from web UI: there is no browser. Mire *is* the browser — it owns layout, scroll state, focus routing, input normalization, and terminal protocol control as first-class concerns.
+The difference from web UI: there is no browser. Mire _is_ the browser — it owns layout, scroll state, focus routing, input normalization, and terminal protocol control as first-class concerns.
 
 ## Architecture
 
 Four projects (`Mire.slnx`):
 
-| Project | Depends on | What it holds |
-|---|---|---|
-| **Mire** | — | The framework, one assembly layered by folder (below). |
-| **Mire.Demo** | Mire | A runnable example (`Exe`) — a scrollable list. |
-| **Mire.AgentDemo** | Mire | A runnable agent-shell demo (`Exe`) and feature testbed; agent-domain UI built at the app level, not in the framework. |
-| **Mire.Tests** | Mire | [Expecto](https://github.com/haf/expecto) tests for the pure functions (`Layout.measure`, `Diff.compute`, `Grapheme` width, `InputParser`). |
+| Project            | Depends on | What it holds                                                                                                                               |
+| ------------------ | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Mire**           | —          | The framework, one assembly layered by folder (below).                                                                                      |
+| **Mire.Demo**      | Mire       | A runnable example (`Exe`) — a scrollable list.                                                                                             |
+| **Mire.AgentDemo** | Mire       | A runnable agent-shell demo (`Exe`) and feature testbed; agent-domain UI built at the app level, not in the framework.                      |
+| **Mire.Tests**     | Mire       | [Expecto](https://github.com/haf/expecto) tests for the pure functions (`Layout.measure`, `Diff.compute`, `Grapheme` width, `InputParser`). |
 
 The framework is a single assembly organized by folder; the folder order is the layering, enforced by the `<Compile>` order in `Mire/Mire.fsproj`. Each folder is also its namespace, so you still `open Mire.Layout`, `open Mire.Widgets`, etc.
 
-| Folder (namespace) | Depends on | What it holds |
-|---|---|---|
-| **Mire/Core** | — | Pure value types: `Point`, `Size`, `Rect`, `Color`, `Style`, `Cell`, `Region`, `Grapheme`, and input events. All structs / immutable records. |
-| **Mire/Protocol** | Core | `ANSI` escape sequence strings; `TerminalMode` (raw mode setup via `stty` + libc `poll`/`read`); `InputParser` (raw bytes → `InputEvent`). |
-| **Mire/Renderer** | Core, Protocol | `Surface` (a `Width × Height` grid of `Cell`s with drawing primitives) and `Diff` (computes minimal `DiffRun`s between two surfaces and writes them out). |
-| **Mire/Layout** | Core, Renderer | `LayoutNode<'msg>` tree (`Dock`, `Stack`, `Box`, `Text`, `Filled`, `Scroll`, `Overlay`) plus `measure` (assign rects) and `render` (paint to a surface). |
-| **Mire/Widgets** | Core, Layout | Convenience widgets: `Text`, `Box`, `Panel`, `StatusBar`, `Spacer`, `Dock`, `Stack`, `Scroll`, `Backdrop` helpers, and predefined semantic styles. |
-| **Mire/App** | Core, Protocol, Renderer, Layout | The runtime: `Cmd<'msg>`, `Sub<'msg>`, `Program<'model,'msg>`, `Program` builders, and `Runtime.run`. |
+| Folder (namespace) | Depends on                       | What it holds                                                                                                                                             |
+| ------------------ | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Mire/Core**      | —                                | Pure value types: `Point`, `Size`, `Rect`, `Color`, `Style`, `Cell`, `Region`, `Grapheme`, and input events. All structs / immutable records.             |
+| **Mire/Protocol**  | Core                             | `ANSI` escape sequence strings; `TerminalMode` (raw mode setup via `stty` + libc `poll`/`read`); `InputParser` (raw bytes → `InputEvent`).                |
+| **Mire/Renderer**  | Core, Protocol                   | `Surface` (a `Width × Height` grid of `Cell`s with drawing primitives) and `Diff` (computes minimal `DiffRun`s between two surfaces and writes them out). |
+| **Mire/Layout**    | Core, Renderer                   | `LayoutNode<'msg>` tree (`Dock`, `Stack`, `Box`, `Text`, `Filled`, `Scroll`, `Overlay`) plus `measure` (assign rects) and `render` (paint to a surface).  |
+| **Mire/Widgets**   | Core, Layout                     | Convenience widgets: `Text`, `Box`, `Panel`, `StatusBar`, `Spacer`, `Dock`, `Stack`, `Scroll`, `Backdrop` helpers, and predefined semantic styles.        |
+| **Mire/App**       | Core, Protocol, Renderer, Layout | The runtime: `Cmd<'msg>`, `Sub<'msg>`, `Program<'model,'msg>`, `Program` builders, and `Runtime.run`.                                                     |
 
 The layering is deliberate: **Core** is pure types, **Protocol** is terminal I/O, **Renderer** turns a virtual screen into a terminal diff, **Layout** turns a node tree into positioned draw calls, and **App** ties it together with an Elmish loop. The widget layer sits on Layout; an (optional) agent-domain layer would sit on top in the design — the base framework should never need to know what an LLM is. It's one assembly today because the whole framework is ~1.5k lines; the folder seams (and `<Compile>` order) keep the layering honest without six `.fsproj` files of ceremony.
 
@@ -109,15 +109,15 @@ This repo is the foundation, not the full framework. What works today:
 
 Not yet implemented (described in `SPEC.md` as the target):
 
-- ⏳ Focus manager (tab order, focus trapping) and overlay *positioning* (centering/anchoring); `Overlay` z-orders and `Filled` occludes, but overlay layers still take the full area
-- ⏳ Mouse, paste, and focus-event decoding (the sequences are *enabled* but `InputParser` only handles keys)
+- ⏳ Focus manager (tab order, focus trapping) and overlay _positioning_ (centering/anchoring); `Overlay` z-orders and `Filled` occludes, but overlay layers still take the full area
+- ⏳ Mouse, paste, and focus-event decoding (the sequences are _enabled_ but `InputParser` only handles keys)
 - ⏳ Rich widget library (tables, lists, modals, toasts, text input, markdown, command palette, …)
 - ⏳ The agent-domain components (chat transcript, tool-call views, diff viewer, file tree, prompt box)
 
 ## Roadmap & design document
 
 - [`ROADMAP.md`](ROADMAP.md) is the plan of record: a widget/node reference table with status, and the phased plan (v0.1–v0.5) with checkboxes. Start here to see what's next.
-- [`SPEC.md`](SPEC.md) is the full design exploration — the rationale, the region model, the layout primitives, the widget and agent component catalogs, and the API shape Mire is aiming for. Read it for the *why* and the intended destination; read the code for *what's built*.
+- [`SPEC.md`](SPEC.md) is the full design exploration — the rationale, the region model, the layout primitives, the widget and agent component catalogs, and the API shape Mire is aiming for. Read it for the _why_ and the intended destination; read the code for _what's built_.
 
 ## License
 

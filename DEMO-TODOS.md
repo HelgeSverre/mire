@@ -1,11 +1,11 @@
 # AgentDemo — demo TODOs
 
 What the `Mire.AgentDemo` demo can and can't do yet. The demo deliberately renders
-the *shape* of agentic-TUI features even where the framework doesn't support them, so this
+the _shape_ of agentic-TUI features even where the framework doesn't support them, so this
 file tracks which parts are real and which are faked/blocked. Each gap links to the
 [`ROADMAP.md`](ROADMAP.md) item that would make it real.
 
-> The harness builds agent-domain UI at the *app level* (it must — `CLAUDE.md`/ROADMAP keep
+> The harness builds agent-domain UI at the _app level_ (it must — `CLAUDE.md`/ROADMAP keep
 > agent concepts out of the core libraries). So "done" here means "works in the demo", not
 > "exists as a reusable widget". The widget/agent boxes in ROADMAP stay ⬜ regardless.
 
@@ -60,4 +60,4 @@ file tracks which parts are real and which are faked/blocked. Each gap links to 
 - When the framework gets a focus manager + overlay anchoring, the `centered`/`opaque`
   helpers and the manual key routing in `Program.update` collapse into framework calls.
 - The HTML/Alpine prototype (`prototype/agent-harness.html`) is the design reference — it
-  shows the *intended* behavior (real buttons, mouse clicks, `<dialog>`) the TUI is chasing.
+  shows the _intended_ behavior (real buttons, mouse clicks, `<dialog>`) the TUI is chasing.

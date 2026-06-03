@@ -5,17 +5,17 @@ for a second font or a second color, stop and reconsider.
 
 ## Files
 
-| File | What | When |
-|---|---|---|
-| `symbol.svg` | Emerald corner on transparent | The one place the accent appears (loading, error, hero mark) |
-| `symbol-mono.svg` | `currentColor` corner | Headers, footers, anywhere it coexists with text |
-| `favicon.svg` | Hand-tuned 16×16 | Browser tab |
-| `palette.json` | Canonical color source | Build tooling — edit this, regenerate the rest |
-| `palette.css` | CSS custom properties, light + dark | Web app, marketing site |
-| `palette.fs` | F# module (`Mire.Brand.Palette`) | TUI rendering |
-| `typography.md` | JetBrains Mono + sizes | Writing CSS or terminal output |
-| `voice.md` | The five voice rules | Any copy you write |
-| `USAGE.md` | This file | Onboarding |
+| File              | What                                | When                                                         |
+| ----------------- | ----------------------------------- | ------------------------------------------------------------ |
+| `symbol.svg`      | Emerald corner on transparent       | The one place the accent appears (loading, error, hero mark) |
+| `symbol-mono.svg` | `currentColor` corner               | Headers, footers, anywhere it coexists with text             |
+| `favicon.svg`     | Hand-tuned 16×16                    | Browser tab                                                  |
+| `palette.json`    | Canonical color source              | Build tooling — edit this, regenerate the rest               |
+| `palette.css`     | CSS custom properties, light + dark | Web app, marketing site                                      |
+| `palette.fs`      | F# module (`Mire.Brand.Palette`)    | TUI rendering                                                |
+| `typography.md`   | JetBrains Mono + sizes              | Writing CSS or terminal output                               |
+| `voice.md`        | The five voice rules                | Any copy you write                                           |
+| `USAGE.md`        | This file                           | Onboarding                                                   |
 
 ## The mark
 
@@ -23,11 +23,13 @@ The symbol is a box-drawing corner `└` — the framing primitive Mire renders 
 It is not a literal "M" and never should be.
 
 **Do**
+
 - Use `symbol-mono.svg` wherever the context sets the color.
 - Use `symbol.svg` (emerald) for the single accent moment on a surface.
 - Preserve the 2px safe padding. Keep the aspect ratio.
 
 **Don't**
+
 - Frame it in a circle or rounded square. The mark is the mark.
 - Recolor outside the palette. Add no shadow, glow, outline, or gradient.
 - Resize below 16×16 — use `favicon.svg`.
@@ -65,15 +67,15 @@ The `└` (and only it) is emerald. Everything else is `--fg`.
 
 ### Color discipline in the TUI
 
-| Element | Token |
-|---|---|
-| Body text | `--fg` |
-| Comments / muted | `--fg-muted` |
-| Hints / completions | `--fg-subtle` |
-| Borders / box-drawing | `--border` |
-| Active / focused line | `--bg-elevated` (background) |
-| Selection | inverse video, not a color shift |
-| The one accent moment (prompt glyph, cursor counter) | `--accent` |
+| Element                                              | Token                            |
+| ---------------------------------------------------- | -------------------------------- |
+| Body text                                            | `--fg`                           |
+| Comments / muted                                     | `--fg-muted`                     |
+| Hints / completions                                  | `--fg-subtle`                    |
+| Borders / box-drawing                                | `--border`                       |
+| Active / focused line                                | `--bg-elevated` (background)     |
+| Selection                                            | inverse video, not a color shift |
+| The one accent moment (prompt glyph, cursor counter) | `--accent`                       |
 
 Allowed effects: bold (sparingly), dim, inverse. Banned: blink, italic,
 underline-for-emphasis (underline is links only).
