@@ -297,6 +297,71 @@ let layoutTests =
               Expect.isTrue ((rowText surf 1).StartsWith "r3") "second visible row is r3"
           } ]
 
+// Positioned (overlay placement) -------------------------------------------
+
+let positionedTests =
+    let avail = Rect.Create(0, 0, 20, 10)
+
+    // Measure a Positioned node and return the rect its child was assigned.
+    let placedRect (p: Placement) (w: Length) (h: Length) (child: LayoutNode<unit>) : Rect =
+        match Layout.measure avail (LayoutNode.Positioned(Rect.Create(0, 0, 0, 0), p, w, h, child)) with
+        | LayoutNode.Positioned(_, _, _, _, c) ->
+            match c with
+            | LayoutNode.Filled(r, _) -> r
+            | LayoutNode.Text(r, _, _) -> r
+            | _ -> Rect.Create(0, 0, 0, 0)
+        | _ -> Rect.Create(0, 0, 0, 0)
+
+    let box: LayoutNode<unit> = LayoutNode.Filled(Rect.Create(0, 0, 0, 0), Style.Default)
+    let tup (r: Rect) = (r.X, r.Y, r.Width, r.Height)
+
+    testList
+        "Positioned"
+        [ test "Center centers a fixed-size child" {
+              Expect.equal (tup (placedRect Center (Cells 6) (Cells 4) box)) (7, 3, 6, 4) "centered in 20×10"
+          }
+          test "TopLeft sits at the origin" {
+              Expect.equal (tup (placedRect TopLeft (Cells 6) (Cells 4) box)) (0, 0, 6, 4) "origin"
+          }
+          test "TopRight pins to the top-right corner" {
+              Expect.equal (tup (placedRect TopRight (Cells 6) (Cells 4) box)) (14, 0, 6, 4) "x=20-6, y=0"
+          }
+          test "BottomRight pins to the bottom-right corner" {
+              Expect.equal (tup (placedRect BottomRight (Cells 6) (Cells 4) box)) (14, 6, 6, 4) "x=14, y=10-4"
+          }
+          test "BottomCenter pins to the bottom edge, centered horizontally" {
+              Expect.equal (tup (placedRect BottomCenter (Cells 6) (Cells 4) box)) (7, 6, 6, 4) "x=7, y=6"
+          }
+          test "CenterLeft pins to the left edge, centered vertically" {
+              Expect.equal (tup (placedRect CenterLeft (Cells 6) (Cells 4) box)) (0, 3, 6, 4) "x=0, y=3"
+          }
+          test "Content sizes the child to its intrinsic extent, then places it" {
+              let txt = LayoutNode.Text(Rect.Create(0, 0, 0, 0), "hello", Style.Default) // 5×1
+              Expect.equal (tup (placedRect Center Length.Content Length.Content txt)) (7, 4, 5, 1) "5 wide, 1 tall, centered"
+          }
+          test "oversized child clamps to the area without a negative origin" {
+              Expect.equal (tup (placedRect Center (Cells 100) (Cells 100) box)) (0, 0, 20, 10) "clamped to 20×10 at origin"
+          }
+          test "render draws a centered Filled in the middle, not the corner" {
+              let bg = Color.Rgb(0x40uy, 0x40uy, 0x40uy)
+              let style = Style.Default.WithBackground bg
+
+              let node: LayoutNode<unit> =
+                  LayoutNode.Positioned(
+                      Rect.Create(0, 0, 0, 0),
+                      Center,
+                      Cells 2,
+                      Cells 2,
+                      LayoutNode.Filled(Rect.Create(0, 0, 0, 0), style)
+                  )
+
+              let surf = Surface(Size.Create(6, 4))
+              Layout.measure (Rect.Create(0, 0, 6, 4)) node |> Layout.render surf
+              // child rect = (2,1,2,2)
+              Expect.equal surf.[2, 1].Style.Background (Some bg) "centered cell carries the fill"
+              Expect.isTrue surf.[0, 0].Style.Background.IsNone "corner cell left unfilled"
+          } ]
+
 // Widgets ------------------------------------------------------------------
 
 let widgetTests =
@@ -327,6 +392,23 @@ let widgetTests =
               Layout.measure (Rect.Create(0, 0, 10, 3)) node |> Layout.render surf
               Expect.equal surf.[8, 1].Style.Background (Some selBg) "selected row (beta) filled full width"
               Expect.notEqual surf.[8, 0].Style.Background (Some selBg) "unselected row (alpha) left unfilled"
+          }
+          test "Modal fills the backdrop and centers its box over the base tree" {
+              let backdropBg = Color.Rgb(0x06uy, 0x08uy, 0x0Buy)
+              let backdrop = Style.Default.WithBackground backdropBg
+              let border = Style.Default.WithForeground Color.White
+              let titleStyle = Style.Default.WithForeground Color.White
+
+              let body: LayoutNode<unit> = Mire.Widgets.Text.text "body" Style.Default
+              // 10×5 box centered in 20×10 → top-left border at (5,2)
+              let m = Mire.Widgets.Modal.modal backdrop border titleStyle 10 5 "Hi" body
+
+              let surf = Surface(Size.Create(20, 10))
+              Layout.measure (Rect.Create(0, 0, 20, 10)) m |> Layout.render surf
+              Expect.equal surf.[0, 0].Style.Background (Some backdropBg) "backdrop fills the corner (occludes the base)"
+              Expect.equal surf.[19, 9].Style.Background (Some backdropBg) "backdrop fills the far corner too"
+              Expect.isFalse (System.String.IsNullOrEmpty surf.[5, 2].Grapheme) "box border drawn at the centered top-left (5,2)"
+              Expect.notEqual surf.[5, 2].Grapheme " " "centered corner is a border glyph, not blank"
           } ]
 
 // TextBuffer (pure edit ops) -------------------------------------------------
@@ -563,6 +645,7 @@ let all =
           inputTests
           diffTests
           layoutTests
+          positionedTests
           widgetTests
           textBufferTests
           inputViewTests

@@ -521,18 +521,6 @@ let private panel (heading: string) (content: LayoutNode<Msg>) : LayoutNode<Msg>
               [ Stack.sized (Length.Cells 1) (Text.text (" " + heading) sAccent)
                 Stack.sized Length.Fill content ] ]
 
-/// Center a w×h node within `size` by insetting it with margin spacers.
-let private centered (w: int) (h: int) (size: Size) (node: LayoutNode<Msg>) : LayoutNode<Msg> =
-    let lm = max 0 ((size.Width - w) / 2)
-    let tm = max 0 ((size.Height - h) / 2)
-
-    Dock.dock
-        [ Dock.top tm Spacer.spacer
-          Dock.bottom tm Spacer.spacer
-          Dock.left lm Spacer.spacer
-          Dock.right lm Spacer.spacer
-          Dock.fill node ]
-
 let private statusText (m: Model) : string =
     let loading = m.Feeds |> List.filter (fun f -> f.Status = FLoading) |> List.length
 
@@ -610,10 +598,9 @@ let private addModalLayer (m: Model) (ms: AddModalState) (w: int) (h: int) : Lay
         | Some(LoadFailedErr _) -> Text.text " ( ! ) Could not load feed" sErr
         | None -> Spacer.spacer
 
-    let content =
+    let body =
         Stack.vstackOf
-            [ Stack.sized (Length.Cells 1) (Text.text " Add feed" sAccent)
-              Stack.sized (Length.Cells 1) Spacer.spacer
+            [ Stack.sized (Length.Cells 1) Spacer.spacer
               Stack.sized (Length.Cells 1) (Text.text " Feed URL:" sDim)
               Stack.sized (Length.Cells 1) (Text.text (" ❯ " + ms.Input + "▏") sBody)
               Stack.sized (Length.Cells 1) errLine
@@ -621,10 +608,7 @@ let private addModalLayer (m: Model) (ms: AddModalState) (w: int) (h: int) : Lay
               Stack.sized (Length.Cells 1) (Text.text ("  " + buttonLabel) sAccent)
               Stack.sized (Length.Cells 1) (Text.text " Enter add · Esc cancel" sDim) ]
 
-    let box =
-        LayoutNode.Overlay(rect0, [ Backdrop.solid sModalBg; Box.box sBorder [ content ] ])
-
-    LayoutNode.Overlay(rect0, [ Backdrop.solid sModalBg; centered mw mh (Size.Create(w, h)) box ])
+    Modal.modal sModalBg sBorder sAccent mw mh "Add feed" body
 
 let private filterLayer (m: Model) (fs: FilterState) (w: int) (h: int) : LayoutNode<Msg> =
     let n = List.length m.Feeds
@@ -642,16 +626,12 @@ let private filterLayer (m: Model) (fs: FilterState) (w: int) (h: int) : LayoutN
                 let name = if f.Name = "" then f.Url else f.Name
                 sprintf " %s %s" mark name)
 
-    let content =
+    let body =
         Stack.vstackOf
-            [ Stack.sized (Length.Cells 1) (Text.text " Filter feeds" sAccent)
-              Stack.sized Length.Fill (ListView.view listH sSel sRow fs.Cursor rows)
+            [ Stack.sized Length.Fill (ListView.view listH sSel sRow fs.Cursor rows)
               Stack.sized (Length.Cells 1) (Text.text " Space toggle · a all · Enter apply · Esc cancel" sDim) ]
 
-    let box =
-        LayoutNode.Overlay(rect0, [ Backdrop.solid sModalBg; Box.box sBorder [ content ] ])
-
-    LayoutNode.Overlay(rect0, [ Backdrop.solid sModalBg; centered mw mh (Size.Create(w, h)) box ])
+    Modal.modal sModalBg sBorder sAccent mw mh "Filter feeds" body
 
 let view (m: Model) : LayoutNode<Msg> =
     let w = max 24 m.Size.Width

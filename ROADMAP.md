@@ -20,16 +20,16 @@ agent widgets are the (not-yet-created) `Mire.Agent` layer.
 
 ### Layout nodes — `Mire.Layout` (`LayoutNode<'msg>`)
 
-| Node      | Status | Notes                                                                                                                    |
-| --------- | ------ | ------------------------------------------------------------------------------------------------------------------------ |
-| `Empty`   | ✅     | No-op.                                                                                                                   |
-| `Text`    | ✅     | Multi-line via `\n`; grapheme-width aware; clipped to rect.                                                              |
-| `Filled`  | ✅     | Opaque rectangle (style-filled). Backdrop / highlight / modal backing.                                                   |
-| `Box`     | 🟡     | Border + children. Children all share the inner rect (multi-child overlaps — nest a `Stack`).                            |
-| `Dock`    | ✅     | `Cells`/`Fraction`/`Content`/`Fill` on `Top`/`Bottom`/`Left`/`Right`/`Fill`.                                             |
-| `Stack`   | ✅     | Vertical/horizontal flow; per-child `Cells`/`Fraction`/`Content`/`Fill`.                                                 |
-| `Scroll`  | 🟡     | Offset + viewport clipping via off-screen blit. No scrollbar / follow-tail / virtualization yet (→ `ScrollView` widget). |
-| `Overlay` | 🟡     | Z-orders (list order) and `Filled` occludes, but layers take the full area — no anchoring/centering.                     |
+| Node      | Status | Notes                                                                                                                                                                   |
+| --------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Empty`   | ✅     | No-op.                                                                                                                                                                  |
+| `Text`    | ✅     | Multi-line via `\n`; grapheme-width aware; clipped to rect.                                                                                                             |
+| `Filled`  | ✅     | Opaque rectangle (style-filled). Backdrop / highlight / modal backing.                                                                                                  |
+| `Box`     | 🟡     | Border + children. Children all share the inner rect (multi-child overlaps — nest a `Stack`).                                                                           |
+| `Dock`    | ✅     | `Cells`/`Fraction`/`Content`/`Fill` on `Top`/`Bottom`/`Left`/`Right`/`Fill`.                                                                                            |
+| `Stack`   | ✅     | Vertical/horizontal flow; per-child `Cells`/`Fraction`/`Content`/`Fill`.                                                                                                |
+| `Scroll`  | 🟡     | Offset + viewport clipping via off-screen blit. No scrollbar / follow-tail / virtualization yet (→ `ScrollView` widget).                                                |
+| `Overlay` | 🟡     | Z-orders (list order) and `Filled` occludes; the sibling `Positioned` node now sizes + places a layer (9-point) within the area. Cursor/region anchoring still pending. |
 
 ### Base widgets — `Mire.Widgets`
 
@@ -53,7 +53,7 @@ agent widgets are the (not-yet-created) `Mire.Agent` layer.
 | `Table`                           | ⬜     | Virtualized rows, sticky header, column sizing, selection. (`Mire.SpreadsheetDemo` and `Mire.MinesweeperDemo` both hand-roll a grid from nested `Stack`s — motivates this.)                                                      |
 | `Input` (single-line)             | 🟡     | `Mire.Core.TextBuffer` (pure insert/delete/cursor ops) + `Widgets.Input.render` (block cursor + scroll-to-cursor) ship; used by `Mire.SpreadsheetDemo`. Still no selection, and `Mire.AgentDemo`'s `PromptInput` not yet ported. |
 | `TextArea` (multi-line)           | ⬜     | Multiline editing, shift-enter newline.                                                                                                                                                                                          |
-| `Modal`                           | ⬜     | Centered, focus-trapping, with actions.                                                                                                                                                                                          |
+| `Modal`                           | 🟡     | Layout half shipped: `Widgets.Modal.modal` (centered box + opaque backdrop + title + body slot, on `Positioned`). Focus-trapping + actions pending the focus manager.                                                            |
 | `Toast`                           | ⬜     | Auto-dismissing notification stack.                                                                                                                                                                                              |
 | `CommandPalette`                  | ⬜     | Global fuzzy command surface.                                                                                                                                                                                                    |
 | `Completion`                      | ⬜     | Cursor/anchor-positioned completion list.                                                                                                                                                                                        |
@@ -98,8 +98,8 @@ The whole pipeline runs end-to-end: `model → view → layout → surface → d
 - [ ] **Input decoding** — mouse (SGR 1006), bracketed paste, focus events, Kitty release/repeat event types. _Done:_ the Kitty **`CSI u`** modifier form is now decoded (`ESC [ <codepoint> ; <mod> u` → `Char`/named key + `KeyModifiers`, super→`Meta`), so **Ctrl/Alt/Shift/Super chords work** (Ctrl+P, Ctrl+O, …); modified navigation keys (`ESC [ 1 ; <mod> A/B/C/D/H/F`, `ESC [ <n> ; <mod> ~`) decode too — alongside the legacy `Ctrl+letter`, `Shift+Tab`, F-keys, and arrows in **both** normal (`ESC [ A`) and application-cursor (`ESC O A`, DECCKM — what JediTerm sends) modes. _Still pending:_ mouse/focus sequences are enabled by `Runtime.run` but unparsed; **bracketed paste is neither enabled nor parsed** (`ANSI.enableBracketedPaste` is never written); release/repeat events aren't requested (only the disambiguate flag `CSI > 1 u` is pushed, not "report event types"), so the parser still only emits `Key … Press`. The `Mouse`/`Paste`/`FocusGained`/`FocusLost` `InputEvent` cases exist but aren't produced.
 - [ ] **Runtime: quit-from-update** — a `Cmd.quit` (or `Quit` message convention) so apps can exit cleanly without relying on the hard-coded Ctrl+C intercept
 - [ ] **Focus manager** — focusable node IDs, tab order, focus trap; route key/scroll events to the focused region first
-- [ ] **Overlay positioning** — anchor (`Screen`/`Region`/`Cursor`) + placement (center, above/below, corners); the missing half of `Overlay`
-- [ ] **`Modal`** widget — centered, focus-trapping, opaque backdrop (built on `Filled` + overlay positioning + focus trap)
+- [x] **Overlay positioning** — `Positioned` layout node: 9-point placement (center + 4 corners + 4 edge-centers) within the assigned rect, child sized via `Length`. _Deferred:_ cursor/point and sub-rect anchoring (for `Completion`/`Tooltip`).
+- [ ] **`Modal`** widget — _layout half shipped_ (`Widgets.Modal.modal`: centered box + opaque backdrop + title + body slot, on `Positioned`; dogfooded by FeedDemo's add/filter modals); focus-trapping still pending the focus manager
 - [ ] **`Toast`** stack — top-right, auto-dismiss via a `Sub` timer
 - [ ] **`ScrollView`** widget — `Scroll` + scrollbar + follow-tail + jump-to-bottom
 - [ ] **`Spacer`** — real flex spacer (`Fill`-based) instead of `Empty`

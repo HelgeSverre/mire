@@ -20,6 +20,19 @@ type DockPosition =
     | Right of Length
     | Fill
 
+/// Where a `Positioned` layer sits within its assigned rect — the 3×3 grid of
+/// {Start, Center, End} on each axis (the empty center slot is `Center`).
+type Placement =
+    | Center
+    | TopLeft
+    | TopCenter
+    | TopRight
+    | CenterLeft
+    | CenterRight
+    | BottomLeft
+    | BottomCenter
+    | BottomRight
+
 type LayoutNode<'msg> =
     | Empty
     | Text of Rect * string * Style
@@ -32,6 +45,11 @@ type LayoutNode<'msg> =
     | Stack of Rect * Direction * StackChild<'msg> list
     | Scroll of Rect * ScrollState * LayoutNode<'msg>
     | Overlay of Rect * LayoutNode<'msg> list
+    /// Sizes `child` to (`width`, `height`) and places it at `placement` within
+    /// the rect `measure` assigns. Composes with `Overlay` (backdrop + a centered
+    /// box) and works standalone (a corner badge). For a top-level `Overlay`
+    /// layer the assigned rect is the screen.
+    | Positioned of Rect * Placement * Length * Length * LayoutNode<'msg>
 
 and DockChild<'msg> =
     { Position: DockPosition
@@ -85,6 +103,7 @@ module Layout =
                 0
             else
                 children |> List.map (contentExtent dir) |> List.max
+        | Positioned(_, _, _, _, child) -> contentExtent dir child
 
     /// The size of the virtual content surface a `Scroll` lays its child onto.
     /// At least the viewport size, expanded to the child's intrinsic extent so
@@ -94,6 +113,15 @@ module Layout =
         let w = max viewport.Width (contentExtent Horizontal child)
         let h = max viewport.Height (contentExtent Vertical child)
         Size.Create(max 1 w, max 1 h)
+
+    /// Resolve a `Length` to a cell count along an axis of `total` cells, using
+    /// `child`'s intrinsic extent for `Content`. Shared by `Dock` and `Positioned`.
+    let private resolveLength (len: Length) (total: int) (dir: Direction) (child: LayoutNode<'msg>) : int =
+        match len with
+        | Cells n -> max 0 (min n total)
+        | Fraction f -> max 0 (min total (int (float total * f)))
+        | Length.Content -> max 0 (min total (contentExtent dir child))
+        | Length.Fill -> max 0 total
 
     let rec measure (available: Rect) (node: LayoutNode<'msg>) : LayoutNode<'msg> =
         match node with
@@ -112,11 +140,7 @@ module Layout =
                 |> List.map (fun child ->
                     // How many cells this child consumes along its axis.
                     let extentOf (len: Length) (axis: int) (dir: Direction) =
-                        match len with
-                        | Cells n -> max 0 (min n axis)
-                        | Fraction f -> max 0 (min axis (int (float axis * f)))
-                        | Length.Content -> max 0 (min axis (contentExtent dir child.Child))
-                        | Length.Fill -> max 0 axis
+                        resolveLength len axis dir child.Child
 
                     let childRect =
                         match child.Position with
@@ -243,6 +267,36 @@ module Layout =
             // Each layer measured against the full area; z-order = list order.
             let laidOut = children |> List.map (measure available)
             Overlay(available, laidOut)
+        | Positioned(_, placement, width, height, child) ->
+            // Size the child, then place its box within the available rect.
+            let w = resolveLength width available.Width Horizontal child
+            let h = resolveLength height available.Height Vertical child
+
+            let x =
+                match placement with
+                | TopLeft
+                | CenterLeft
+                | BottomLeft -> available.Left
+                | Center
+                | TopCenter
+                | BottomCenter -> available.Left + (available.Width - w) / 2
+                | TopRight
+                | CenterRight
+                | BottomRight -> max available.Left (available.Right - w + 1)
+
+            let y =
+                match placement with
+                | TopLeft
+                | TopCenter
+                | TopRight -> available.Top
+                | Center
+                | CenterLeft
+                | CenterRight -> available.Top + (available.Height - h) / 2
+                | BottomLeft
+                | BottomCenter
+                | BottomRight -> max available.Top (available.Bottom - h + 1)
+
+            Positioned(available, placement, width, height, measure (Rect.Create(x, y, w, h)) child)
 
     let rec render (surface: Surface) (node: LayoutNode<'msg>) : unit =
         match node with
@@ -266,6 +320,7 @@ module Layout =
         | Overlay(_, children) ->
             for child in children do
                 render surface child
+        | Positioned(_, _, _, _, child) -> render surface child
 
     /// Renders a scroll child onto an off-screen content surface, then blits the
     /// window selected by the scroll offset into the viewport. Offsets are clamped

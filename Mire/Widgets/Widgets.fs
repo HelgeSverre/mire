@@ -141,6 +141,44 @@ module Backdrop =
     let behind (style: Style) (child: LayoutNode<'msg>) : LayoutNode<'msg> =
         LayoutNode.Overlay(Rect.Create(0, 0, 0, 0), [ LayoutNode.Filled(Rect.Create(0, 0, 0, 0), style); child ])
 
+/// Place a sized child within the overlay/screen area, on the `Positioned`
+/// layout node. Composes with `Backdrop`/`Filled` layers inside a
+/// `LayoutNode.Overlay`.
+module Overlay =
+    /// Place `child`, sized to (`width`, `height`), at `placement` within the area.
+    let positioned (placement: Placement) (width: Length) (height: Length) (child: LayoutNode<'msg>) : LayoutNode<'msg> =
+        LayoutNode.Positioned(Rect.Create(0, 0, 0, 0), placement, width, height, child)
+
+    /// Center a child of explicit cell size within the area.
+    let centered (width: int) (height: int) (child: LayoutNode<'msg>) : LayoutNode<'msg> =
+        positioned Center (Cells width) (Cells height) child
+
+/// A centered modal: an opaque backdrop behind a bordered `width`×`height` box
+/// with a title row above a `body` slot. The *layout half* of the modal pattern —
+/// focus-trapping arrives with the focus manager. Returns a single node to drop
+/// over a base tree: `Overlay(rect0, [ baseTree; Modal.modal … ])`.
+module Modal =
+    let modal
+        (backdropStyle: Style)
+        (borderStyle: Style)
+        (titleStyle: Style)
+        (width: int)
+        (height: int)
+        (title: string)
+        (body: LayoutNode<'msg>)
+        : LayoutNode<'msg> =
+        let titledBox =
+            Box.box
+                borderStyle
+                [ Stack.vstackOf
+                      [ Stack.sized (Cells 1) (Text.text (" " + title) titleStyle)
+                        Stack.sized Length.Fill body ] ]
+
+        LayoutNode.Overlay(
+            Rect.Create(0, 0, 0, 0),
+            [ Backdrop.solid backdropStyle; Overlay.centered width height titledBox ]
+        )
+
 /// Single-selection, scrollable list of text rows. The selected row gets a
 /// full-width highlight (via `Backdrop.behind`), auto-scrolled to stay visible.
 /// Labels are caller-truncated to the available width. (Not yet virtualized.)
