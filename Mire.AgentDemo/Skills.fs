@@ -9,11 +9,11 @@ type Skill =
 
 module Skills =
 
-    let all : Skill list =
+    let all: Skill list =
         [ { Name = "brainstorming"
             Summary = "ideas → designs"
             Markdown =
-                "# Brainstorming\n\
+              "# Brainstorming\n\
                  Turn ideas into fully-formed designs through collaborative dialogue.\n\n\
                  ## When to use\n\
                  - starting any new feature\n\
@@ -28,7 +28,7 @@ module Skills =
           { Name = "writing-plans"
             Summary = "design → plan"
             Markdown =
-                "# Writing plans\n\
+              "# Writing plans\n\
                  Turn an approved design into an executable, reviewable plan.\n\n\
                  - one task per discrete step\n\
                  - name the **critical files** to touch\n\
@@ -40,7 +40,7 @@ module Skills =
           { Name = "debugging"
             Summary = "root cause, not symptom"
             Markdown =
-                "# Debugging\n\
+              "# Debugging\n\
                  Find the *root cause*, never patch the symptom.\n\n\
                  ## The loop\n\
                  1. reproduce reliably\n\
@@ -51,7 +51,7 @@ module Skills =
           { Name = "test-driven"
             Summary = "red → green → refactor"
             Markdown =
-                "# Test-driven\n\
+              "# Test-driven\n\
                  Write the failing test first.\n\n\
                  - **red** — a test that fails for the right reason\n\
                  - **green** — the simplest code that passes\n\
@@ -60,7 +60,7 @@ module Skills =
           { Name = "code-review"
             Summary = "review against intent"
             Markdown =
-                "# Code review\n\
+              "# Code review\n\
                  Review against intent, not personal taste.\n\n\
                  1. correctness first\n\
                  2. then maintainability\n\
@@ -69,7 +69,7 @@ module Skills =
           { Name = "using-git"
             Summary = "small, honest commits"
             Markdown =
-                "# Using git\n\
+              "# Using git\n\
                  Small commits with honest messages.\n\n\
                  - branch off the default branch\n\
                  - commit only when the user asks\n\
@@ -78,7 +78,7 @@ module Skills =
           { Name = "subagents"
             Summary = "delegate & verify"
             Markdown =
-                "# Subagents\n\
+              "# Subagents\n\
                  Delegate independent work to parallel agents.\n\n\
                  - **fan out** for breadth\n\
                  - **verify adversarially** before trusting a finding\n\

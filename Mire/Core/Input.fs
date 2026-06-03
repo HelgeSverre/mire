@@ -25,8 +25,12 @@ type KeyModifiers =
       Ctrl: bool
       Alt: bool
       Meta: bool }
-    
-    static member None = { Shift = false; Ctrl = false; Alt = false; Meta = false }
+
+    static member None =
+        { Shift = false
+          Ctrl = false
+          Alt = false
+          Meta = false }
 
 type KeyEventType =
     | Press

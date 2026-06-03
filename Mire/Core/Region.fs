@@ -7,10 +7,12 @@ type ScrollState =
       OffsetY: int
       ContentWidth: int
       ContentHeight: int }
-    
+
     static member Empty =
-        { OffsetX = 0; OffsetY = 0
-          ContentWidth = 0; ContentHeight = 0 }
+        { OffsetX = 0
+          OffsetY = 0
+          ContentWidth = 0
+          ContentHeight = 0 }
 
 type RenderMode =
     | Normal
@@ -27,7 +29,7 @@ type Region =
       Scroll: ScrollState option
       Focusable: bool
       RenderMode: RenderMode }
-    
+
     static member Create(id: string, rect: Rect) =
         { Id = RegionId id
           Rect = rect

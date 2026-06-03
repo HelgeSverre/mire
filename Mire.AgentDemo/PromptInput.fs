@@ -17,15 +17,27 @@ module PromptInput =
     let append (s: string) (p: PromptInput) = { p with Value = p.Value + s }
 
     let backspace (p: PromptInput) =
-        if p.Value.Length = 0 then p
-        else { p with Value = p.Value.Substring(0, p.Value.Length - 1) }
+        if p.Value.Length = 0 then
+            p
+        else
+            { p with
+                Value = p.Value.Substring(0, p.Value.Length - 1) }
 
     /// Render the prompt line: an accent glyph, then the value with a block cursor,
     /// or the placeholder when empty.
-    let render (glyphStyle: Style) (textStyle: Style) (placeholderStyle: Style) (placeholder: string) (p: PromptInput) : LayoutNode<'msg> =
+    let render
+        (glyphStyle: Style)
+        (textStyle: Style)
+        (placeholderStyle: Style)
+        (placeholder: string)
+        (p: PromptInput)
+        : LayoutNode<'msg> =
         let body =
-            if p.Value = "" then Text.text placeholder placeholderStyle
-            else Text.text (p.Value + "▏") textStyle
+            if p.Value = "" then
+                Text.text placeholder placeholderStyle
+            else
+                Text.text (p.Value + "▏") textStyle
+
         Stack.hstackOf
             [ Stack.sized (Length.Cells 2) (Text.text "❯ " glyphStyle)
               Stack.sized Length.Fill body ]

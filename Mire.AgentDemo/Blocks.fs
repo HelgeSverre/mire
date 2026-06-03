@@ -11,7 +11,7 @@ type ToolStatus =
     | Failed
 
 type DiffLine =
-    { Sign: char   // '+', '-', or ' '
+    { Sign: char // '+', '-', or ' '
       Text: string }
 
 /// The agent-domain transcript blocks. These live in the demo, NOT the framework —
@@ -33,7 +33,9 @@ type Block =
 module Blocks =
 
     let spinnerFrames = [| "⠋"; "⠙"; "⠹"; "⠸"; "⠼"; "⠴"; "⠦"; "⠧"; "⠇"; "⠏" |]
-    let spinner (frame: int) = spinnerFrames.[((frame % spinnerFrames.Length) + spinnerFrames.Length) % spinnerFrames.Length]
+
+    let spinner (frame: int) =
+        spinnerFrames.[((frame % spinnerFrames.Length) + spinnerFrames.Length) % spinnerFrames.Length]
 
     let statusGlyph (frame: int) (s: ToolStatus) =
         match s with
@@ -66,25 +68,28 @@ module Blocks =
 
     let private cellTone (v: string) =
         match v.ToLowerInvariant() with
-        | "done" | "ok" | "ready" | "passed" -> Theme.okStyle
-        | "open" | "todo" | "pending" | "queued" -> Theme.warnStyle
-        | "fail" | "failed" | "error" -> Theme.errStyle
+        | "done"
+        | "ok"
+        | "ready"
+        | "passed" -> Theme.okStyle
+        | "open"
+        | "todo"
+        | "pending"
+        | "queued" -> Theme.warnStyle
+        | "fail"
+        | "failed"
+        | "error" -> Theme.errStyle
         | _ -> Theme.text
 
     /// Render one block to a Content-sized node. `wrapWidth` is the transcript inner
     /// width; `frame` drives the running-tool spinner.
     let renderBlock (wrapWidth: int) (frame: int) (block: Block) : LayoutNode<'msg> =
         match block with
-        | UserMsg s ->
-            Stack.vstack
-                [ Text.text "❯ you" Theme.subtle
-                  Markdown.wrap wrapWidth Theme.text s ]
-        | AssistantMd s ->
-            Stack.vstack
-                [ Text.text "◆ assistant" Theme.subtle
-                  Markdown.render wrapWidth s ]
+        | UserMsg s -> Stack.vstack [ Text.text "❯ you" Theme.subtle; Markdown.wrap wrapWidth Theme.text s ]
+        | AssistantMd s -> Stack.vstack [ Text.text "◆ assistant" Theme.subtle; Markdown.render wrapWidth s ]
         | Thinking s ->
-            card Theme.borderStyle
+            card
+                Theme.borderStyle
                 [ Text.text "thinking" Theme.subtle
                   Markdown.wrap (wrapWidth - 2) Theme.italic s ]
         | ToolCall(name, cmd, status, meta, output) ->
@@ -93,13 +98,20 @@ module Blocks =
                 | Running -> sprintf "%s running…" (spinner frame)
                 | Succeeded -> sprintf "✓ %s" meta
                 | Failed -> sprintf "✗ %s" meta
+
             let header =
                 headerRow
                     (Text.text (sprintf "%s · %s" name cmd) Theme.muted)
                     (Text.text statusText (statusStyle status))
+
             let outLines =
-                if output = "" then []
-                else output.Split('\n') |> Array.toList |> List.map (fun l -> Text.text l Theme.subtle)
+                if output = "" then
+                    []
+                else
+                    output.Split('\n')
+                    |> Array.toList
+                    |> List.map (fun l -> Text.text l Theme.subtle)
+
             card Theme.borderStyle (header :: outLines)
         | DiffBlock(file, lines) ->
             let body =
@@ -110,38 +122,63 @@ module Blocks =
                         | '+' -> Theme.okStyle
                         | '-' -> Theme.errStyle
                         | _ -> Theme.subtle
+
                     Text.text (sprintf "%c %s" dl.Sign dl.Text) style)
+
             card Theme.borderStyle (Text.text file Theme.subtle :: body)
         | TableBlock(headers, rows) ->
             let cols = headers.Length
+
             let widths =
                 Array.init cols (fun c ->
                     let hw = Grapheme.stringWidth headers.[c]
-                    let rw = rows |> List.fold (fun mx r -> if c < r.Length then max mx (Grapheme.stringWidth r.[c]) else mx) 0
+
+                    let rw =
+                        rows
+                        |> List.fold
+                            (fun mx r ->
+                                if c < r.Length then
+                                    max mx (Grapheme.stringWidth r.[c])
+                                else
+                                    mx)
+                            0
+
                     (max hw rw) + 2)
+
             let cellNode (c: int) (v: string) (style: Style) =
                 Stack.sized (Length.Cells widths.[c]) (Text.text (padRight widths.[c] v) style)
-            let headerNode = Stack.hstackOf (headers |> List.mapi (fun c h -> cellNode c h Theme.subtle))
+
+            let headerNode =
+                Stack.hstackOf (headers |> List.mapi (fun c h -> cellNode c h Theme.subtle))
+
             let rowNode (r: string list) =
                 Stack.hstackOf (r |> List.mapi (fun c v -> cellNode c v (cellTone v)))
+
             card Theme.borderStyle (headerNode :: (rows |> List.map rowNode))
         | ErrorBlock s ->
-            card Theme.errStyle
-                [ Text.text "error" Theme.errStyle
-                  Markdown.wrap (wrapWidth - 2) Theme.text s ]
+            card Theme.errStyle [ Text.text "error" Theme.errStyle; Markdown.wrap (wrapWidth - 2) Theme.text s ]
         | Notice(tone, s) ->
-            card (Theme.toneStyle tone)
+            card
+                (Theme.toneStyle tone)
                 [ Text.text "notice" (Theme.toneStyle tone)
                   Markdown.wrap (wrapWidth - 2) Theme.muted s ]
         | FileTree paths ->
-            card Theme.borderStyle
-                (Text.text "workspace" Theme.subtle :: (paths |> List.map (fun p -> Text.text p Theme.muted)))
+            card
+                Theme.borderStyle
+                (Text.text "workspace" Theme.subtle
+                 :: (paths |> List.map (fun p -> Text.text p Theme.muted)))
         | TaskTimeline items ->
-            card Theme.borderStyle
+            card
+                Theme.borderStyle
                 (Text.text "tasks" Theme.subtle
-                 :: (items |> List.map (fun (n, s) -> Text.text (sprintf " %s %s" (statusGlyph frame s) n) (statusStyle s))))
+                 :: (items
+                     |> List.map (fun (n, s) -> Text.text (sprintf " %s %s" (statusGlyph frame s) n) (statusStyle s))))
         | PlanBlock steps ->
-            card Theme.borderStyle
+            card
+                Theme.borderStyle
                 (Text.text "plan" Theme.subtle
-                 :: (steps |> List.map (fun (d, t) ->
-                        Text.text (sprintf "%s %s" (if d then "[x]" else "[ ]") t) (if d then Theme.subtle else Theme.text))))
+                 :: (steps
+                     |> List.map (fun (d, t) ->
+                         Text.text
+                             (sprintf "%s %s" (if d then "[x]" else "[ ]") t)
+                             (if d then Theme.subtle else Theme.text))))

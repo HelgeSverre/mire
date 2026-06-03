@@ -4,7 +4,7 @@ namespace Mire.Core
 type Color =
     | Rgb of r: byte * g: byte * b: byte
     | Default
-    
+
     static member Black = Rgb(0uy, 0uy, 0uy)
     static member White = Rgb(255uy, 255uy, 255uy)
     static member Red = Rgb(239uy, 83uy, 80uy)
@@ -16,17 +16,17 @@ type Color =
     static member Gray = Rgb(120uy, 120uy, 120uy)
     static member DarkGray = Rgb(60uy, 60uy, 60uy)
     static member LightGray = Rgb(180uy, 180uy, 180uy)
-    
+
     member this.ToHex() =
         match this with
         | Rgb(r, g, b) -> $"#{r:X2}{g:X2}{b:X2}"
         | Default -> ""
-    
+
     member this.ToAnsiFg() =
         match this with
         | Rgb(r, g, b) -> $"\x1b[38;2;{r};{g};{b}m"
         | Default -> "\x1b[39m"
-    
+
     member this.ToAnsiBg() =
         match this with
         | Rgb(r, g, b) -> $"\x1b[48;2;{r};{g};{b}m"

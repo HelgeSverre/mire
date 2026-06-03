@@ -18,13 +18,12 @@ module Cmd =
     let batch cmds = Batch cmds
     let ofAsync (f: ('msg -> unit) -> Async<unit>) = AsyncCmd f
     let ofMsg msg = OfMsg msg
-    
+
     let rec dispatch (send: 'msg -> unit) (cmd: Cmd<'msg>) : unit =
         match cmd with
         | NoOp -> ()
         | Batch cmds -> cmds |> List.iter (dispatch send)
-        | AsyncCmd f ->
-            Async.Start(f send)
+        | AsyncCmd f -> Async.Start(f send)
         | OfMsg msg -> send msg
 
 type Sub<'msg> =
@@ -40,24 +39,24 @@ type Program<'model, 'msg> =
       OnError: exn -> unit }
 
 module Program =
-    let mkProgram (init: unit -> 'model * Cmd<'msg>)
-                  (update: 'msg -> 'model -> 'model * Cmd<'msg>)
-                  (view: 'model -> LayoutNode<'msg>) : Program<'model, 'msg> =
+    let mkProgram
+        (init: unit -> 'model * Cmd<'msg>)
+        (update: 'msg -> 'model -> 'model * Cmd<'msg>)
+        (view: 'model -> LayoutNode<'msg>)
+        : Program<'model, 'msg> =
         { Init = init
           Update = update
           View = view
           MapInput = fun _ -> None
           Subscriptions = fun _ -> []
           OnError = fun ex -> eprintfn "Mire runtime error: %O" ex }
-    
-    let withMapInput (f: InputEvent -> 'msg option) (program: Program<'model, 'msg>) =
-        { program with MapInput = f }
-    
+
+    let withMapInput (f: InputEvent -> 'msg option) (program: Program<'model, 'msg>) = { program with MapInput = f }
+
     let withSubscriptions (subs: 'model -> Sub<'msg> list) (program: Program<'model, 'msg>) =
         { program with Subscriptions = subs }
-    
-    let withOnError (handler: exn -> unit) (program: Program<'model, 'msg>) =
-        { program with OnError = handler }
+
+    let withOnError (handler: exn -> unit) (program: Program<'model, 'msg>) = { program with OnError = handler }
 
 type RuntimeState<'model, 'msg> =
     { Model: 'model
@@ -67,61 +66,69 @@ type RuntimeState<'model, 'msg> =
       LastSize: Size }
 
 module Runtime =
-    
+
     let private renderFrame (view: LayoutNode<'msg>) (size: Size) =
         let surface = Surface(size)
         let laidOut = Layout.measure (Rect.FromOrigin(size)) view
         Layout.render surface laidOut
         surface
-    
+
     let run (program: Program<'model, 'msg>) =
         // Setup terminal
-        TerminalMode.setupRawMode()
+        TerminalMode.setupRawMode ()
         Console.Out.Write(ANSI.enterAltScreen)
         Console.Out.Write(ANSI.clearScreen)
         Console.Out.Write(ANSI.enableMouse)
         Console.Out.Write(ANSI.enableFocusEvents)
         Console.Out.Write(ANSI.enableKittyKeyboard)
         Console.Out.Flush()
-        
+
         let initialModel, initialCmd = program.Init()
-        let mutable state = 
+
+        let mutable state =
             { Model = initialModel
               PreviousSurface = None
               Running = true
               NeedsRender = true
-              LastSize = TerminalMode.getTerminalSize() |> Option.defaultValue (Size.Create(80, 24)) }
-        
+              LastSize = TerminalMode.getTerminalSize () |> Option.defaultValue (Size.Create(80, 24)) }
+
         let msgQueue = Collections.Generic.Queue<'msg>()
-        let queueLock = obj()
-        
+        let queueLock = obj ()
+
         let sendMsg msg =
             lock queueLock (fun () -> msgQueue.Enqueue(msg))
-        
+
         // Dispatch initial command
         Cmd.dispatch sendMsg initialCmd
-        
+
         let sw = Diagnostics.Stopwatch.StartNew()
         let mutable lastTick = TimeSpan.Zero
         let frameInterval = TimeSpan.FromMilliseconds(33.0) // ~30 FPS
-        
+
         try
             while state.Running do
                 try
                     let loopStart = sw.Elapsed
-                    
+
                     // Check for resize
-                    let currentSize = TerminalMode.getTerminalSize() |> Option.defaultValue state.LastSize
+                    let currentSize =
+                        TerminalMode.getTerminalSize () |> Option.defaultValue state.LastSize
+
                     if currentSize <> state.LastSize then
-                        state <- { state with LastSize = currentSize; NeedsRender = true }
+                        state <-
+                            { state with
+                                LastSize = currentSize
+                                NeedsRender = true }
+
                         let subs = program.Subscriptions state.Model
+
                         for sub in subs do
                             match sub with
                             | TerminalResize f -> sendMsg (f currentSize)
                             | _ -> ()
-                    
+
                     // Process input
-                    match InputParser.readEvent() with
+                    match InputParser.readEvent () with
                     | Some inputEvent ->
                         match inputEvent with
                         | Key keyEvent when keyEvent.Key = Key.Char "c" && keyEvent.Modifiers.Ctrl ->
@@ -131,76 +138,103 @@ module Runtime =
                             | Some msg -> sendMsg msg
                             | None -> ()
                     | None -> ()
-                    
+
                     // Process messages
                     let mutable hasMsgs = true
+
                     while hasMsgs do
                         let msg =
                             lock queueLock (fun () ->
                                 if msgQueue.Count > 0 then
-                                    Some (msgQueue.Dequeue())
+                                    Some(msgQueue.Dequeue())
                                 else
-                                    None
-                            )
+                                    None)
+
                         match msg with
                         | Some m ->
                             let newModel, cmd = program.Update m state.Model
-                            state <- { state with Model = newModel; NeedsRender = true }
+
+                            state <-
+                                { state with
+                                    Model = newModel
+                                    NeedsRender = true }
+
                             Cmd.dispatch sendMsg cmd
                         | None -> hasMsgs <- false
-                    
+
                     // Render if needed
                     if state.NeedsRender then
                         let view = program.View state.Model
                         let surface = renderFrame view state.LastSize
                         let diff = Diff.compute state.PreviousSurface surface
-                        
+
                         match state.PreviousSurface with
                         | None ->
                             Diff.clearScreen Console.Out
+
                             let allRuns =
                                 let runs = ResizeArray<DiffRun>()
+
                                 for y in 0 .. surface.Size.Height - 1 do
                                     let mutable x = 0
+
                                     while x < surface.Size.Width do
                                         let cell = surface.[x, y]
+
                                         if not cell.IsEmpty then
                                             let style = cell.Style
                                             let startX = x
                                             let sb = Text.StringBuilder()
-                                            while x < surface.Size.Width && surface.[x, y].Style = style && not surface.[x, y].IsEmpty do
+
+                                            while x < surface.Size.Width
+                                                  && surface.[x, y].Style = style
+                                                  && not surface.[x, y].IsEmpty do
                                                 sb.Append(surface.[x, y].Grapheme) |> ignore
                                                 x <- x + 1
-                                            runs.Add { X = startX; Y = y; Text = sb.ToString(); Style = style }
+
+                                            runs.Add
+                                                { X = startX
+                                                  Y = y
+                                                  Text = sb.ToString()
+                                                  Style = style }
                                         else
                                             x <- x + 1
+
                                 runs |> Seq.toList
+
                             Diff.renderToTerminal allRuns Console.Out
-                        | Some _ ->
-                            Diff.renderToTerminal diff Console.Out
-                        
-                        state <- { state with PreviousSurface = Some surface; NeedsRender = false }
-                    
+                        | Some _ -> Diff.renderToTerminal diff Console.Out
+
+                        state <-
+                            { state with
+                                PreviousSurface = Some surface
+                                NeedsRender = false }
+
                     // Throttle to ~30 FPS
                     let elapsed = sw.Elapsed - loopStart
+
                     if elapsed < frameInterval then
                         Thread.Sleep(frameInterval - elapsed)
-                    
+
                     // Tick subscriptions
                     let currentTick = sw.Elapsed
                     let dt = currentTick - lastTick
                     lastTick <- currentTick
                     let subs = program.Subscriptions state.Model
+
                     for sub in subs do
                         match sub with
-                        | Every (interval, f) ->
-                            if int (currentTick.TotalMilliseconds / interval.TotalMilliseconds) > 
-                               int ((currentTick - dt).TotalMilliseconds / interval.TotalMilliseconds) then
-                                sendMsg (f())
+                        | Every(interval, f) ->
+                            if
+                                int (currentTick.TotalMilliseconds / interval.TotalMilliseconds) > int (
+                                    (currentTick - dt).TotalMilliseconds / interval.TotalMilliseconds
+                                )
+                            then
+                                sendMsg (f ())
                         | _ -> ()
                 with ex ->
                     program.OnError ex
-                    
+
         finally
             // Cleanup
             Console.Out.Write(ANSI.disableKittyKeyboard)
@@ -210,6 +244,6 @@ module Runtime =
             Console.Out.Write(ANSI.cursorShow)
             Console.Out.Write(ANSI.resetStyle)
             Console.Out.Flush()
-            TerminalMode.restoreMode()
+            TerminalMode.restoreMode ()
             Console.WriteLine()
             Console.WriteLine("Mire exited.")
