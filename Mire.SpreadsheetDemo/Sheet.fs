@@ -9,19 +9,30 @@ open System.Text.RegularExpressions
 /// and cycle detection.
 module Sheet =
 
-    let cols = 8 // A..H
-    let rows = 30
+    /// A cell coordinate, `(row, column)` — both 0-based. (An abbreviation, so it
+    /// stays a plain tuple: usable as a `Map` key and with `fst`/`snd`.)
+    type CellRef = int * int
 
-    let colLetter (c: int) : string = string (char (int 'A' + c))
-    let name (r: int) (c: int) : string = sprintf "%s%d" (colLetter c) (r + 1)
+    let columnCount = 26 // A..Z
+    let rowCount = 100
 
-    /// Parse an "A1" reference to a 0-based (row, col).
-    let parseRef (s: string) : (int * int) option =
+    let columnLabel (col: int) : string = string (char (int 'A' + col))
+
+    let cellName (row: int) (col: int) : string =
+        sprintf "%s%d" (columnLabel col) (row + 1)
+
+    /// Parse an "A1" reference into a 0-based `CellRef`.
+    let parseCellRef (s: string) : CellRef option =
         let m = Regex.Match(s.Trim().ToUpperInvariant(), @"^([A-Z]+)(\d+)$")
+
         if not m.Success then
             None
         else
-            let col = (m.Groups.[1].Value |> Seq.fold (fun a ch -> a * 26 + (int ch - int 'A' + 1)) 0) - 1
+            let col =
+                (m.Groups.[1].Value
+                 |> Seq.fold (fun acc ch -> acc * 26 + (int ch - int 'A' + 1)) 0)
+                - 1
+
             let row = (int m.Groups.[2].Value) - 1
             Some(row, col)
 
@@ -33,185 +44,269 @@ module Sheet =
 
     // --- tokenizer + recursive-descent evaluator -------------------------
 
-    type private Tok =
+    type private Token =
         | TNum of float
-        | TRef of (int * int)
-        | TRange of (int * int) * (int * int)
+        | TRef of CellRef
+        | TRange of CellRef * CellRef
         | TFn of string
         | TOp of char
         | TLParen
         | TRParen
         | TComma
 
-    exception private EvalErr of string
+    exception private EvalError of string
 
-    let private lex (s: string) : Tok list option =
+    let private tokenize (s: string) : Token list option =
         let n = s.Length
-        let toks = ResizeArray<Tok>()
+        let tokens = ResizeArray<Token>()
         let mutable i = 0
         let mutable ok = true
+
         while ok && i < n do
             let c = s.[i]
-            if Char.IsWhiteSpace c then i <- i + 1
-            elif c = '(' then toks.Add TLParen; i <- i + 1
-            elif c = ')' then toks.Add TRParen; i <- i + 1
-            elif c = ',' then toks.Add TComma; i <- i + 1
-            elif c = '+' || c = '-' || c = '*' || c = '/' then toks.Add(TOp c); i <- i + 1
+
+            if Char.IsWhiteSpace c then
+                i <- i + 1
+            elif c = '(' then
+                tokens.Add TLParen
+                i <- i + 1
+            elif c = ')' then
+                tokens.Add TRParen
+                i <- i + 1
+            elif c = ',' then
+                tokens.Add TComma
+                i <- i + 1
+            elif c = '+' || c = '-' || c = '*' || c = '/' then
+                tokens.Add(TOp c)
+                i <- i + 1
             elif Char.IsDigit c || c = '.' then
                 let start = i
-                while i < n && (Char.IsDigit s.[i] || s.[i] = '.') do i <- i + 1
+
+                while i < n && (Char.IsDigit s.[i] || s.[i] = '.') do
+                    i <- i + 1
+
                 match Double.TryParse(s.Substring(start, i - start), Globalization.CultureInfo.InvariantCulture) with
-                | true, v -> toks.Add(TNum v)
+                | true, v -> tokens.Add(TNum v)
                 | _ -> ok <- false
             elif Char.IsLetter c then
                 let start = i
-                while i < n && Char.IsLetterOrDigit s.[i] do i <- i + 1
+
+                while i < n && Char.IsLetterOrDigit s.[i] do
+                    i <- i + 1
+
                 let word = s.Substring(start, i - start)
+
                 if i < n && s.[i] = '(' then
-                    toks.Add(TFn(word.ToUpperInvariant()))
+                    tokens.Add(TFn(word.ToUpperInvariant()))
                 else
-                    match parseRef word with
-                    | Some a ->
+                    match parseCellRef word with
+                    | Some first ->
                         if i < n && s.[i] = ':' then
                             i <- i + 1
-                            let s2 = i
-                            while i < n && Char.IsLetterOrDigit s.[i] do i <- i + 1
-                            match parseRef (s.Substring(s2, i - s2)) with
-                            | Some b -> toks.Add(TRange(a, b))
+                            let rangeStart = i
+
+                            while i < n && Char.IsLetterOrDigit s.[i] do
+                                i <- i + 1
+
+                            match parseCellRef (s.Substring(rangeStart, i - rangeStart)) with
+                            | Some last -> tokens.Add(TRange(first, last))
                             | None -> ok <- false
                         else
-                            toks.Add(TRef a)
+                            tokens.Add(TRef first)
                     | None -> ok <- false
             else
                 ok <- false
-        if ok then Some(List.ofSeq toks) else None
 
-    let private rangeCells ((r1, c1): int * int) ((r2, c2): int * int) =
-        [ for r in min r1 r2 .. max r1 r2 do
-              for c in min c1 c2 .. max c1 c2 -> (r, c) ]
+        if ok then Some(List.ofSeq tokens) else None
 
-    /// Evaluate a formula body (without the leading '='). `resolve` returns the
-    /// numeric value of a referenced cell (or raises EvalErr for #CYCLE/etc).
-    let private evalFormula (resolve: int * int -> float) (body: string) : Value =
-        match lex body with
+    let private cellsInRange ((r1, c1): CellRef) ((r2, c2): CellRef) : CellRef list =
+        [ for row in min r1 r2 .. max r1 r2 do
+              for col in min c1 c2 .. max c1 c2 -> (row, col) ]
+
+    /// Cells a raw input depends on (ranges expanded). [] for non-formulas/unparseable.
+    let referencesOf (input: string) : CellRef list =
+        if not (input.StartsWith "=") then
+            []
+        else
+            match tokenize (input.Substring 1) with
+            | None -> []
+            | Some toks ->
+                toks
+                |> List.collect (function
+                    | TRef c -> [ c ]
+                    | TRange(a, b) -> cellsInRange a b
+                    | _ -> [])
+                |> List.distinct
+
+    /// Evaluate a formula body (without the leading '='). `resolveCell` returns the
+    /// numeric value of a referenced cell (or raises EvalError for #CYCLE/etc).
+    let private evaluateFormula (resolveCell: CellRef -> float) (body: string) : Value =
+        match tokenize body with
         | None -> Err "#SYNTAX"
-        | Some toks ->
-            let mutable rest = toks
-            let peek () = match rest with t :: _ -> Some t | [] -> None
+        | Some tokens ->
+            let mutable remaining = tokens
+
+            let peek () =
+                match remaining with
+                | t :: _ -> Some t
+                | [] -> None
+
             let advance () =
-                match rest with
-                | t :: tl -> rest <- tl; t
-                | [] -> raise (EvalErr "#SYNTAX")
+                match remaining with
+                | t :: rest ->
+                    remaining <- rest
+                    t
+                | [] -> raise (EvalError "#SYNTAX")
 
             let rec expr () =
-                let mutable v = term ()
+                let mutable value = term ()
                 let mutable go = true
+
                 while go do
                     match peek () with
-                    | Some(TOp '+') -> advance () |> ignore; v <- v + term ()
-                    | Some(TOp '-') -> advance () |> ignore; v <- v - term ()
+                    | Some(TOp '+') ->
+                        advance () |> ignore
+                        value <- value + term ()
+                    | Some(TOp '-') ->
+                        advance () |> ignore
+                        value <- value - term ()
                     | _ -> go <- false
-                v
+
+                value
 
             and term () =
-                let mutable v = factor ()
+                let mutable value = factor ()
                 let mutable go = true
+
                 while go do
                     match peek () with
-                    | Some(TOp '*') -> advance () |> ignore; v <- v * factor ()
+                    | Some(TOp '*') ->
+                        advance () |> ignore
+                        value <- value * factor ()
                     | Some(TOp '/') ->
                         advance () |> ignore
-                        let d = factor ()
-                        if d = 0.0 then raise (EvalErr "#DIV/0")
-                        v <- v / d
+                        let divisor = factor ()
+
+                        if divisor = 0.0 then
+                            raise (EvalError "#DIV/0")
+
+                        value <- value / divisor
                     | _ -> go <- false
-                v
+
+                value
 
             and factor () =
                 match advance () with
                 | TNum v -> v
-                | TRef rc -> resolve rc
+                | TRef cell -> resolveCell cell
                 | TOp '-' -> -(factor ())
                 | TLParen ->
-                    let v = expr ()
+                    let value = expr ()
+
                     match advance () with
-                    | TRParen -> v
-                    | _ -> raise (EvalErr "#SYNTAX")
+                    | TRParen -> value
+                    | _ -> raise (EvalError "#SYNTAX")
                 | TFn fn ->
                     (match advance () with
                      | TLParen -> ()
-                     | _ -> raise (EvalErr "#SYNTAX"))
+                     | _ -> raise (EvalError "#SYNTAX"))
+
                     let args = ResizeArray<float>()
                     let mutable more = (peek () <> Some TRParen)
+
                     while more do
                         match peek () with
-                        | Some(TRange(a, b)) ->
+                        | Some(TRange(first, last)) ->
                             advance () |> ignore
-                            for cell in rangeCells a b do args.Add(resolve cell)
+
+                            for cell in cellsInRange first last do
+                                args.Add(resolveCell cell)
                         | _ -> args.Add(expr ())
+
                         match peek () with
                         | Some TComma -> advance () |> ignore
                         | _ -> more <- false
+
                     (match advance () with
                      | TRParen -> ()
-                     | _ -> raise (EvalErr "#SYNTAX"))
-                    let xs = List.ofSeq args
+                     | _ -> raise (EvalError "#SYNTAX"))
+
+                    let values = List.ofSeq args
+
                     match fn with
-                    | "SUM" -> List.sum xs
-                    | "AVG" | "AVERAGE" -> if List.isEmpty xs then 0.0 else List.sum xs / float xs.Length
-                    | "MIN" -> if List.isEmpty xs then 0.0 else List.min xs
-                    | "MAX" -> if List.isEmpty xs then 0.0 else List.max xs
-                    | "COUNT" -> float xs.Length
-                    | _ -> raise (EvalErr "#NAME")
-                | _ -> raise (EvalErr "#SYNTAX")
+                    | "SUM" -> List.sum values
+                    | "AVG"
+                    | "AVERAGE" ->
+                        if List.isEmpty values then
+                            0.0
+                        else
+                            List.sum values / float values.Length
+                    | "MIN" -> if List.isEmpty values then 0.0 else List.min values
+                    | "MAX" -> if List.isEmpty values then 0.0 else List.max values
+                    | "COUNT" -> float values.Length
+                    | _ -> raise (EvalError "#NAME")
+                | _ -> raise (EvalError "#SYNTAX")
 
             try
-                let v = expr ()
-                match peek () with
-                | None -> Num v
-                | Some _ -> Err "#SYNTAX"
-            with EvalErr e -> Err e
+                let value = expr ()
 
-    /// Recompute every non-empty cell from the raw inputs (memoized, cycle-safe).
-    let compute (raw: Map<int * int, string>) : Map<int * int, Value> =
-        let cache = Collections.Generic.Dictionary<int * int, Value>()
-        let visiting = Collections.Generic.HashSet<int * int>()
-        let rec valueAt (rc: int * int) : Value =
-            match cache.TryGetValue rc with
+                match peek () with
+                | None -> Num value
+                | Some _ -> Err "#SYNTAX"
+            with EvalError e ->
+                Err e
+
+    /// Recompute every non-empty cell from the raw `inputs` (memoized, cycle-safe).
+    let recalculate (inputs: Map<CellRef, string>) : Map<CellRef, Value> =
+        let cache = Collections.Generic.Dictionary<CellRef, Value>()
+        let visiting = Collections.Generic.HashSet<CellRef>()
+
+        let rec valueAt (cell: CellRef) : Value =
+            match cache.TryGetValue cell with
             | true, v -> v
             | _ ->
-                if not (visiting.Add rc) then
+                if not (visiting.Add cell) then
                     Err "#CYCLE"
                 else
-                    let v =
-                        match Map.tryFind rc raw with
+                    let value =
+                        match Map.tryFind cell inputs with
                         | None -> Blank
                         | Some s when s.StartsWith "=" ->
-                            let resolve ref =
+                            let resolveCell ref =
                                 match valueAt ref with
                                 | Num n -> n
                                 | Blank -> 0.0
                                 | Str _ -> 0.0
-                                | Err e -> raise (EvalErr e)
-                            evalFormula resolve (s.Substring 1)
+                                | Err e -> raise (EvalError e)
+
+                            evaluateFormula resolveCell (s.Substring 1)
                         | Some s ->
-                            match Double.TryParse(s, Globalization.NumberStyles.Any, Globalization.CultureInfo.InvariantCulture) with
+                            match
+                                Double.TryParse(
+                                    s,
+                                    Globalization.NumberStyles.Any,
+                                    Globalization.CultureInfo.InvariantCulture
+                                )
+                            with
                             | true, n -> Num n
                             | _ -> Str s
-                    visiting.Remove rc |> ignore
-                    cache.[rc] <- v
-                    v
-        raw |> Map.fold (fun acc k _ -> Map.add k (valueAt k) acc) Map.empty
 
-    /// Render a value for display in a cell.
-    let show (v: Value) : string =
+                    visiting.Remove cell |> ignore
+                    cache.[cell] <- value
+                    value
+
+        inputs |> Map.fold (fun acc cell _ -> Map.add cell (valueAt cell) acc) Map.empty
+
+    /// Format a computed value for display in a cell.
+    let formatValue (v: Value) : string =
         match v with
         | Blank -> ""
         | Str s -> s
         | Err e -> e
         | Num n ->
-            if Double.IsNaN n || Double.IsInfinity n then "#NUM"
-            elif n = Math.Floor n && abs n < 1e15 then sprintf "%d" (int64 n)
+            if Double.IsNaN n || Double.IsInfinity n then
+                "#NUM"
+            elif n = Math.Floor n && abs n < 1e15 then
+                sprintf "%d" (int64 n)
             else
-                let s = n.ToString("0.####", Globalization.CultureInfo.InvariantCulture)
-                s
+                n.ToString("0.####", Globalization.CultureInfo.InvariantCulture)
