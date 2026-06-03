@@ -25,6 +25,12 @@
 
   <ItemGroup>
     <ProjectReference Include="../Mire/Mire.fsproj" />
+    <!-- FeedDemo is an Exe, but referencing it lets us unit-test its pure Feed
+         helpers (parseDate, isValidUrl); the referenced entry point is ignored. -->
+    <ProjectReference Include="../Mire.FeedDemo/Mire.FeedDemo.fsproj" />
+    <!-- MinesweeperDemo is an Exe; referencing it lets us unit-test the pure
+         Board game logic. The referenced entry point is ignored. -->
+    <ProjectReference Include="../Mire.MinesweeperDemo/Mire.MinesweeperDemo.fsproj" />
   </ItemGroup>
 
 </Project>
