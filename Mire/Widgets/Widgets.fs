@@ -218,6 +218,34 @@ module Modal =
             [ Backdrop.solid backdropStyle; Overlay.centered width height titledBox ]
         )
 
+/// Auto-dismissing notifications. The layout half: render a column of cards and
+/// place it (top-right by default) over a base tree, on `Positioned`. The app
+/// owns the toast list and expires entries with a `Sub` timer.
+module Toast =
+    /// A toast card — a bordered box with a toned title line above a body line.
+    let card (border: Style) (titleStyle: Style) (bodyStyle: Style) (title: string) (body: string) : LayoutNode<'msg> =
+        Box.box
+            border
+            [ Stack.vstackOf
+                  [ Stack.sized (Length.Cells 1) (Text.text (" " + title) titleStyle)
+                    Stack.sized (Length.Cells 1) (Text.text (" " + body) bodyStyle) ] ]
+
+    /// Place a column of toast `cards` at `placement` (`TopRight` for the usual
+    /// stack), `width` cells wide and each `cardHeight` tall, separated by a blank
+    /// row. Returns an overlay layer to drop over a base tree; empty ⇒ nothing.
+    let stack (placement: Placement) (width: int) (cardHeight: int) (cards: LayoutNode<'msg> list) : LayoutNode<'msg> =
+        if List.isEmpty cards then
+            Spacer.spacer
+        else
+            let rows =
+                cards
+                |> List.collect (fun c ->
+                    [ Stack.sized (Length.Cells cardHeight) c
+                      Stack.sized (Length.Cells 1) Spacer.spacer ])
+
+            let height = List.length cards * (cardHeight + 1)
+            Overlay.positioned placement (Length.Cells width) (Length.Cells height) (Stack.vstackOf rows)
+
 /// Single-selection, scrollable list of text rows. The selected row gets a
 /// full-width highlight (via `Backdrop.behind`), auto-scrolled to stay visible.
 /// Labels are caller-truncated to the available width. (Not yet virtualized.)

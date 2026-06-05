@@ -517,6 +517,19 @@ let widgetTests =
               Layout.measure (Rect.Create(0, 0, 12, 5)) p |> Layout.render surf
               Expect.stringContains (rowText surf 1) "Ttl" "title on the first inner row"
               Expect.stringContains (rowText surf 2) "body" "body stacked on the next row (not overlapping the title)"
+          }
+          test "Toast.stack places cards top-right, stacked and not overlapping" {
+              let mk (s: string) : LayoutNode<unit> = Mire.Widgets.Text.text s Style.Default
+
+              let node: LayoutNode<unit> =
+                  Mire.Widgets.Toast.stack TopRight 10 1 [ mk "AAAAAAAA"; mk "BBBBBBBB" ]
+
+              let surf = Surface(Size.Create(30, 8))
+              Layout.measure (Rect.Create(0, 0, 30, 8)) node |> Layout.render surf
+              // width 10 placed TopRight in 30 wide → x 20..29; height 2*(1+1)=4 → rows 0..3
+              Expect.stringContains (rowText surf 0) "AAAAAAAA" "first card on the top row"
+              Expect.stringContains (rowText surf 2) "BBBBBBBB" "second card stacked below a blank row"
+              Expect.equal ((rowText surf 0).Substring(0, 20).Trim()) "" "cards are right-aligned (left region empty)"
           } ]
 
 // TextBuffer (pure edit ops) -------------------------------------------------

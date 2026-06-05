@@ -1042,14 +1042,9 @@ let private renderToast (t: Toast) : LayoutNode<Msg> =
               Text.text (" " + t.Body) Theme.muted ])
 
 let private toastLayer (m: Model) : LayoutNode<Msg> =
-    let cards =
-        m.Toasts
-        |> List.collect (fun t ->
-            [ Stack.sized (Length.Cells 4) (renderToast t)
-              Stack.sized (Length.Cells 1) Spacer.spacer ])
-
-    let col = Dock.dock [ Dock.top 1 Spacer.spacer; Dock.fill (Stack.vstackOf cards) ]
-    Dock.dock [ Dock.right 2 Spacer.spacer; Dock.right 28 col; Dock.fill Spacer.spacer ]
+    // top-right stack via the Positioned-based widget (fully-qualified: the local
+    // `type Toast` would otherwise shadow the `Mire.Widgets.Toast` module).
+    Mire.Widgets.Toast.stack TopRight 28 4 (m.Toasts |> List.map renderToast)
 
 /// The completion popup (@mentions or /slash commands), floated above the prompt.
 let private completionPopup (kind: CompletionKind) (sel: int) (m: Model) : LayoutNode<Msg> =
