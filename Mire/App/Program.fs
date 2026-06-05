@@ -12,6 +12,10 @@ type Cmd<'msg> =
     | Batch of Cmd<'msg> list
     | AsyncCmd of (('msg -> unit) -> Async<unit>)
     | OfMsg of 'msg
+    /// Request a clean shutdown of the runtime loop from `update`. The runtime
+    /// recognizes this and breaks its loop so the normal teardown (alt-screen
+    /// exit, raw-mode restore) runs — the same exit path as the Ctrl+C intercept.
+    | Quit
 
 module Cmd =
     let none = NoOp
@@ -19,12 +23,18 @@ module Cmd =
     let ofAsync (f: ('msg -> unit) -> Async<unit>) = AsyncCmd f
     let ofMsg msg = OfMsg msg
 
-    let rec dispatch (send: 'msg -> unit) (cmd: Cmd<'msg>) : unit =
+    /// Request a clean exit of the runtime loop from `update`.
+    let quit: Cmd<'msg> = Quit
+
+    /// Execute a command. `requestQuit` is the runtime's hook for `Cmd.quit`; it
+    /// lets a command signal the loop to stop without abrupt control flow.
+    let rec dispatch (requestQuit: unit -> unit) (send: 'msg -> unit) (cmd: Cmd<'msg>) : unit =
         match cmd with
         | NoOp -> ()
-        | Batch cmds -> cmds |> List.iter (dispatch send)
+        | Batch cmds -> cmds |> List.iter (dispatch requestQuit send)
         | AsyncCmd f -> Async.Start(f send)
         | OfMsg msg -> send msg
+        | Quit -> requestQuit ()
 
 type Sub<'msg> =
     | TerminalResize of (Size -> 'msg)
@@ -98,8 +108,16 @@ module Runtime =
         let sendMsg msg =
             lock queueLock (fun () -> msgQueue.Enqueue(msg))
 
+        // Set by `Cmd.quit`. The loop folds it into `state.Running` *after* the
+        // message pump rather than here, because `dispatch` runs inside the pump
+        // where `state` is reassigned per message — a direct `Running <- false`
+        // would be clobbered by the next message's update. Same flag-then-fold
+        // shape as the Ctrl+C intercept.
+        let mutable quitRequested = false
+        let requestQuit () = quitRequested <- true
+
         // Dispatch initial command
-        Cmd.dispatch sendMsg initialCmd
+        Cmd.dispatch requestQuit sendMsg initialCmd
 
         let sw = Diagnostics.Stopwatch.StartNew()
         let mutable lastTick = TimeSpan.Zero
@@ -115,9 +133,16 @@ module Runtime =
                         TerminalMode.getTerminalSize () |> Option.defaultValue state.LastSize
 
                     if currentSize <> state.LastSize then
+                        // Drop the previous surface so the render block takes the
+                        // no-previous full-repaint path. `Diff.compute` only diffs
+                        // the min(old,new) overlap, so a grow would otherwise leave
+                        // the newly-exposed rows/cols unpainted (and a shrink leaves
+                        // stale cells past the new edge). Repainting from scratch at
+                        // the new size fixes both.
                         state <-
                             { state with
                                 LastSize = currentSize
+                                PreviousSurface = None
                                 NeedsRender = true }
 
                         let subs = program.Subscriptions state.Model
@@ -159,8 +184,15 @@ module Runtime =
                                     Model = newModel
                                     NeedsRender = true }
 
-                            Cmd.dispatch sendMsg cmd
+                            Cmd.dispatch requestQuit sendMsg cmd
                         | None -> hasMsgs <- false
+
+                    // A command (or the initial cmd) requested shutdown. Fold it in
+                    // now so this frame still renders the final state; the
+                    // `while state.Running` check then exits on the next iteration
+                    // and the `finally` teardown runs.
+                    if quitRequested then
+                        state <- { state with Running = false }
 
                     // Render if needed
                     if state.NeedsRender then

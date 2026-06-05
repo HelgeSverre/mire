@@ -5,6 +5,7 @@ open Mire.Core
 open Mire.Protocol
 open Mire.Renderer
 open Mire.Layout
+open Mire.App
 open Mire.FeedDemo
 open Mire.MinesweeperDemo
 
@@ -200,6 +201,42 @@ let diffTests =
 
               Expect.equal moves 1 "only the initial cursorTo is emitted; the wide run advances X by 2"
               Expect.isFalse (out.Contains(ANSI.cursorTo (2, 0))) "no redundant move before the second run"
+          }
+          // Characterization of the resize-repaint premise: diffing against a
+          // smaller previous surface misses the newly-exposed region, whereas the
+          // no-previous path (which the runtime now selects on resize by clearing
+          // PreviousSurface) emits all of it. The runtime branch itself needs a tty
+          // to exercise; these pin the Diff.compute behaviour that motivates it.
+          test "growing: overlap-diff leaves the newly-exposed column unpainted" {
+              let prev = Surface(Size.Create(1, 1))
+              let next = Surface(Size.Create(2, 1))
+              next.Write(0, 0, "A", Style.Default)
+              next.Write(1, 0, "B", Style.Default)
+
+              let overlapText =
+                  Diff.compute (Some prev) next |> List.map (fun r -> r.Text) |> String.concat ""
+
+              Expect.isFalse (overlapText.Contains "B") "overlap-diff misses the newly-exposed column (the bug)"
+
+              let fullText =
+                  Diff.compute None next |> List.map (fun r -> r.Text) |> String.concat ""
+
+              Expect.stringContains fullText "A" "full repaint emits the original column"
+              Expect.stringContains fullText "B" "full repaint emits the newly-exposed column"
+          }
+          test "growing: overlap-diff leaves the newly-exposed row unpainted" {
+              let prev = Surface(Size.Create(1, 1))
+              let next = Surface(Size.Create(1, 2))
+              next.Write(0, 0, "A", Style.Default)
+              next.Write(0, 1, "B", Style.Default)
+
+              Expect.isFalse
+                  (Diff.compute (Some prev) next |> List.exists (fun r -> r.Y = 1))
+                  "overlap-diff produces no run for the newly-exposed row (the bug)"
+
+              Expect.isTrue
+                  (Diff.compute None next |> List.exists (fun r -> r.Y = 1 && r.Text = "B"))
+                  "full repaint emits a run for the newly-exposed row"
           } ]
 
 // Layout -------------------------------------------------------------------
@@ -409,6 +446,77 @@ let widgetTests =
               Expect.equal surf.[19, 9].Style.Background (Some backdropBg) "backdrop fills the far corner too"
               Expect.isFalse (System.String.IsNullOrEmpty surf.[5, 2].Grapheme) "box border drawn at the centered top-left (5,2)"
               Expect.notEqual surf.[5, 2].Grapheme " " "centered corner is a border glyph, not blank"
+          }
+          test "flexSpacer in a vstack pushes the last child to the bottom" {
+              let a: LayoutNode<unit> = Mire.Widgets.Text.text "top" Style.Default
+              let b: LayoutNode<unit> = Mire.Widgets.Text.text "bot" Style.Default
+
+              let node: LayoutNode<unit> =
+                  Mire.Widgets.Stack.vstackOf
+                      [ Mire.Widgets.Stack.sized Length.Content a
+                        Mire.Widgets.Spacer.flexSpacer
+                        Mire.Widgets.Stack.sized Length.Content b ]
+
+              let ys =
+                  match Layout.measure (Rect.Create(0, 0, 6, 10)) node with
+                  | LayoutNode.Stack(_, _, kids) ->
+                      kids
+                      |> List.choose (fun c ->
+                          match c.Child with
+                          | LayoutNode.Text(r, _, _) -> Some r.Y
+                          | _ -> None)
+                  | _ -> []
+
+              Expect.equal ys [ 0; 9 ] "first child at the top (y=0), last child at the bottom row (y=9)"
+
+              let surf = Surface(Size.Create(6, 10))
+              Layout.measure (Rect.Create(0, 0, 6, 10)) node |> Layout.render surf
+              Expect.isTrue ((rowText surf 0).StartsWith "top") "top text on the first row"
+              Expect.isTrue ((rowText surf 9).StartsWith "bot") "bottom text pushed to the last row"
+          }
+          test "two flexSpacers center the middle child" {
+              let mid: LayoutNode<unit> = Mire.Widgets.Text.text "m" Style.Default
+
+              let node: LayoutNode<unit> =
+                  Mire.Widgets.Stack.vstackOf
+                      [ Mire.Widgets.Stack.flex
+                        Mire.Widgets.Stack.sized (Length.Cells 1) mid
+                        Mire.Widgets.Stack.flex ]
+
+              let y =
+                  match Layout.measure (Rect.Create(0, 0, 4, 10)) node with
+                  | LayoutNode.Stack(_, _, kids) ->
+                      kids
+                      |> List.tryPick (fun c ->
+                          match c.Child with
+                          | LayoutNode.Text(r, _, _) -> Some r.Y
+                          | _ -> None)
+                  | _ -> None
+              // total 10, fixed 1, remaining 9 over 2 Fill slots; the remainder row
+              // goes to the first Fill slot, so the first flex is 5 and mid sits at y=5.
+              Expect.equal y (Some 5) "middle child centered (remainder row to the first Fill slot)"
+          }
+          test "statusBar lays its items horizontally, not overlapping" {
+              let bar: LayoutNode<unit> =
+                  Mire.Widgets.StatusBar.statusBar
+                      [ Mire.Widgets.Text.text "AA" Style.Default ]
+                      []
+                      [ Mire.Widgets.Text.text "BB" Style.Default ]
+
+              let surf = Surface(Size.Create(20, 3))
+              Layout.measure (Rect.Create(0, 0, 20, 3)) bar |> Layout.render surf
+              let row = rowText surf 1
+              Expect.stringContains row "AA" "left item rendered"
+              Expect.stringContains row "BB" "right item rendered side-by-side (not overwritten by overlap)"
+          }
+          test "panel stacks its title above its body, not overlapping" {
+              let p: LayoutNode<unit> =
+                  Mire.Widgets.Box.panel "Ttl" Style.Default [ Mire.Widgets.Text.text "body" Style.Default ]
+
+              let surf = Surface(Size.Create(12, 5))
+              Layout.measure (Rect.Create(0, 0, 12, 5)) p |> Layout.render surf
+              Expect.stringContains (rowText surf 1) "Ttl" "title on the first inner row"
+              Expect.stringContains (rowText surf 2) "body" "body stacked on the next row (not overlapping the title)"
           } ]
 
 // TextBuffer (pure edit ops) -------------------------------------------------
@@ -637,6 +745,41 @@ let minesweeperTests =
               Expect.equal (Board.minesRemaining b) 9 "one flag → 9 remaining"
           } ]
 
+// Cmd.quit (quit-from-update) ----------------------------------------------
+
+let cmdQuitTests =
+    testList
+        "Cmd.quit"
+        [ test "Cmd.quit triggers requestQuit and sends no message" {
+              let mutable quit = false
+              let sent = ResizeArray<int>()
+              Cmd.dispatch (fun () -> quit <- true) (fun (m: int) -> sent.Add m) Cmd.quit
+              Expect.isTrue quit "Cmd.quit invokes the runtime's requestQuit callback"
+              Expect.isEmpty sent "Cmd.quit does not enqueue any message"
+          }
+          test "Cmd.none / Cmd.ofMsg do not request quit" {
+              let mutable quit = false
+              let sent = ResizeArray<int>()
+              let rq () = quit <- true
+              let send (m: int) = sent.Add m
+              Cmd.dispatch rq send Cmd.none
+              Cmd.dispatch rq send (Cmd.ofMsg 7)
+              Expect.isFalse quit "neither none nor ofMsg requests quit"
+              Expect.sequenceEqual sent (seq { 7 }) "ofMsg still delivers its message"
+          }
+          test "Cmd.batch propagates a nested Cmd.quit and still sends siblings" {
+              let mutable quitCount = 0
+              let sent = ResizeArray<int>()
+
+              Cmd.dispatch
+                  (fun () -> quitCount <- quitCount + 1)
+                  (fun (m: int) -> sent.Add m)
+                  (Cmd.batch [ Cmd.ofMsg 1; Cmd.quit; Cmd.ofMsg 2 ])
+
+              Expect.equal quitCount 1 "a Cmd.quit anywhere in a batch requests quit exactly once"
+              Expect.sequenceEqual sent (seq { 1; 2 }) "sibling ofMsg commands in the batch still fire"
+          } ]
+
 [<Tests>]
 let all =
     testList
@@ -650,4 +793,5 @@ let all =
           textBufferTests
           inputViewTests
           feedTests
-          minesweeperTests ]
+          minesweeperTests
+          cmdQuitTests ]

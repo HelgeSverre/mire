@@ -41,9 +41,20 @@ module Box =
 
     let boxDefault (children: LayoutNode<'msg> list) : LayoutNode<'msg> = box Style.border children
 
+    // A `Box` renders a single child filling its inner rect; multiple children
+    // would overlap (flow is `Stack`'s job). `panel` therefore flows its children
+    // through an explicit vertical Stack, built inline because the `Stack` module
+    // compiles after `Box` in this file.
+    let private vflow (children: LayoutNode<'msg> list) : LayoutNode<'msg> =
+        LayoutNode.Stack(
+            Rect.Create(0, 0, 0, 0),
+            Direction.Vertical,
+            children |> List.map (fun c -> { Length = Length.Content; Child = c })
+        )
+
     let panel (title: string) (style: Style) (children: LayoutNode<'msg> list) : LayoutNode<'msg> =
         let titleNode = Text.text ($" {title} ") Style.title
-        box style (titleNode :: children)
+        box style [ vflow (titleNode :: children) ]
 
     let panelDefault (title: string) (children: LayoutNode<'msg> list) : LayoutNode<'msg> =
         panel title Style.border children
@@ -61,14 +72,35 @@ module StatusBar =
             @ [ Text.text " " Style.dim ]
             @ rightItems
 
-        Box.box Style.border allItems
+        // Box renders one child filling its inner rect; flow the items through an
+        // explicit horizontal Stack so they sit side-by-side instead of overlapping.
+        Box.box
+            Style.border
+            [ LayoutNode.Stack(
+                  Rect.Create(0, 0, 0, 0),
+                  Direction.Horizontal,
+                  allItems |> List.map (fun c -> { Length = Length.Content; Child = c })
+              ) ]
 
     let statusBarSimple (items: string list) : LayoutNode<'msg> =
         let nodes = items |> List.map (fun s -> Text.textDefault s)
         statusBar nodes [] []
 
 module Spacer =
+    /// A zero-extent placeholder. Use it in an *explicit-length* slot —
+    /// `Stack.sized (Cells n) Spacer.spacer` or `Dock.fill Spacer.spacer`. On its
+    /// own in a `vstack`/`hstack` (which wrap every child in `Content`) it
+    /// collapses to nothing and can't push siblings apart — use `flexSpacer`.
     let spacer: LayoutNode<'msg> = LayoutNode.Empty
+
+    /// A flexible spacer that absorbs a stack's leftover space, pushing the
+    /// siblings on either side to opposite ends. A `StackChild` (its flex lives in
+    /// `Length.Fill`, which only `Stack` distributes), so use it in
+    /// `Stack.vstackOf`/`hstackOf`. Two of them split the slack, centering the
+    /// child between.
+    let flexSpacer: StackChild<'msg> =
+        { Length = Length.Fill
+          Child = LayoutNode.Empty }
 
 module Dock =
     let dock (children: DockChild<'msg> list) : LayoutNode<'msg> =
@@ -97,6 +129,11 @@ module Dock =
 module Stack =
     /// Pair a child with an explicit length along the stack axis.
     let sized (length: Length) (child: LayoutNode<'msg>) : StackChild<'msg> = { Length = length; Child = child }
+
+    /// A flexible spacer slot that soaks up the stack's leftover space, pushing the
+    /// siblings around it to opposite ends. Drop it between explicitly-sized
+    /// children of a `vstackOf`/`hstackOf`. (Alias of `Spacer.flexSpacer`.)
+    let flex: StackChild<'msg> = Spacer.flexSpacer
 
     /// Build a stack from explicitly-sized children.
     let stackOf (direction: Direction) (children: StackChild<'msg> list) : LayoutNode<'msg> =

@@ -856,7 +856,7 @@ let private header (m: Model) : LayoutNode<Msg> =
         Theme.borderStyle
         [ Stack.hstackOf
               [ Stack.sized Length.Content (Text.text "└ mire · agent" Theme.title)
-                Stack.sized Length.Fill Spacer.spacer
+                Stack.flex
                 Stack.sized Length.Content (Text.text (sprintf "[%s]" (modeLabel m.Mode)) (modeStyle m.Mode))
                 Stack.sized (Length.Cells 2) (Text.text "  " Theme.subtle)
                 Stack.sized Length.Content (Text.text (sprintf "opus-4.8 · %d tok" m.Tokens) Theme.subtle) ] ]

@@ -55,11 +55,11 @@ module Blocks =
         Box.box border [ Stack.vstack rows ]
 
     /// A header row with a left label and a right-aligned status, separated by a
-    /// `Fill` spacer (a working flex spacer, unlike the no-op `Spacer.spacer`).
+    /// `Stack.flex` spacer that pushes them to opposite ends.
     let private headerRow (left: LayoutNode<'msg>) (right: LayoutNode<'msg>) : LayoutNode<'msg> =
         Stack.hstackOf
             [ Stack.sized Length.Content left
-              Stack.sized Length.Fill Spacer.spacer
+              Stack.flex
               Stack.sized Length.Content right ]
 
     let private padRight (w: int) (s: string) =

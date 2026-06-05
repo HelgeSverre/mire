@@ -247,17 +247,17 @@ module Detail =
                         Text.text "bordered container" Style.text
                         Text.dimText "title + body via a nested Stack" ] ]
         | StatusBarDemo ->
-            // NOTE: StatusBar.statusBar flattens its groups into one Box, whose
-            // children share the inner rect and overlap — so only the last group
-            // survives. Until that builder flows via a Stack, compose the bar
-            // here with an explicit hstack to show the left/center/right intent.
+            // StatusBar.statusBar now flows its groups horizontally (it wraps them
+            // in a Stack), but separates them with single spaces. To show the
+            // left/center/right spread, compose explicitly with `Stack.flex` spacers
+            // pushing the groups to the edges.
             Box.box
                 Style.border
                 [ Stack.hstackOf
                       [ Stack.sized Length.Content (Text.text " gallery " Style.title)
-                        Stack.sized Length.Fill (Text.text "" Style.text)
+                        Stack.flex
                         Stack.sized Length.Content (Text.text " center " Style.text)
-                        Stack.sized Length.Fill (Text.text "" Style.text)
+                        Stack.flex
                         Stack.sized Length.Content (Text.text " right " Style.highlight) ] ]
         | StackDemo ->
             Stack.vstack

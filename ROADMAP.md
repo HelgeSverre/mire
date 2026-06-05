@@ -42,7 +42,7 @@ agent widgets are the (not-yet-created) `Mire.Agent` layer.
 | `Stack.*` helpers                 | ✅     | `vstack`/`hstack` (Content) + `*Of` / `sized` for explicit lengths.                                                                                                                                                              |
 | `Scroll.vertical` / `scrollState` | ✅     | Thin wrapper over the `Scroll` node.                                                                                                                                                                                             |
 | `Backdrop.solid` / `behind`       | ✅     | `solid` = `Filled` wrapper; `behind style child` fills the rect then draws the child on top (full-bleed row/cell highlight).                                                                                                     |
-| `Spacer.spacer`                   | 🟡     | Currently `Empty` → 0 extent in a stack. Needs a `Fill`-based flex spacer.                                                                                                                                                       |
+| `Spacer.spacer` / `flexSpacer`    | ✅     | `spacer` = zero-extent placeholder (explicit-length slots); `flexSpacer` / `Stack.flex` = `Fill`-based flex spacer that absorbs a stack's slack.                                                                                 |
 | Predefined styles                 | ✅     | `border`/`title`/`text`/`dim`/`success`/`warning`/`danger`/`info`/…                                                                                                                                                              |
 | `Separator`                       | ⬜     | Horizontal/vertical rule.                                                                                                                                                                                                        |
 | `Badge`                           | ⬜     | Toned pill (`Tone.Success "done"`).                                                                                                                                                                                              |
@@ -96,14 +96,14 @@ The whole pipeline runs end-to-end: `model → view → layout → surface → d
 - [x] **Layout engine complete** — real `Stack` flow, `Scroll` offset+clipping, `Content`/`Fill` dock lengths, `Filled` opaque node
 - [x] Headless `--dump` verification mode
 - [ ] **Input decoding** — mouse (SGR 1006), bracketed paste, focus events, Kitty release/repeat event types. _Done:_ the Kitty **`CSI u`** modifier form is now decoded (`ESC [ <codepoint> ; <mod> u` → `Char`/named key + `KeyModifiers`, super→`Meta`), so **Ctrl/Alt/Shift/Super chords work** (Ctrl+P, Ctrl+O, …); modified navigation keys (`ESC [ 1 ; <mod> A/B/C/D/H/F`, `ESC [ <n> ; <mod> ~`) decode too — alongside the legacy `Ctrl+letter`, `Shift+Tab`, F-keys, and arrows in **both** normal (`ESC [ A`) and application-cursor (`ESC O A`, DECCKM — what JediTerm sends) modes. _Still pending:_ mouse/focus sequences are enabled by `Runtime.run` but unparsed; **bracketed paste is neither enabled nor parsed** (`ANSI.enableBracketedPaste` is never written); release/repeat events aren't requested (only the disambiguate flag `CSI > 1 u` is pushed, not "report event types"), so the parser still only emits `Key … Press`. The `Mouse`/`Paste`/`FocusGained`/`FocusLost` `InputEvent` cases exist but aren't produced.
-- [ ] **Runtime: quit-from-update** — a `Cmd.quit` (or `Quit` message convention) so apps can exit cleanly without relying on the hard-coded Ctrl+C intercept
+- [x] **Runtime: quit-from-update** — `Cmd.quit` (a `Quit` command the runtime folds into `Running = false` after the message pump, then exits through the normal teardown) lets `update` exit cleanly without the Ctrl+C intercept
 - [ ] **Focus manager** — focusable node IDs, tab order, focus trap; route key/scroll events to the focused region first
 - [x] **Overlay positioning** — `Positioned` layout node: 9-point placement (center + 4 corners + 4 edge-centers) within the assigned rect, child sized via `Length`. _Deferred:_ cursor/point and sub-rect anchoring (for `Completion`/`Tooltip`).
 - [ ] **`Modal`** widget — _layout half shipped_ (`Widgets.Modal.modal`: centered box + opaque backdrop + title + body slot, on `Positioned`; dogfooded by FeedDemo's add/filter modals); focus-trapping still pending the focus manager
 - [ ] **`Toast`** stack — top-right, auto-dismiss via a `Sub` timer
 - [ ] **`ScrollView`** widget — `Scroll` + scrollbar + follow-tail + jump-to-bottom
-- [ ] **`Spacer`** — real flex spacer (`Fill`-based) instead of `Empty`
-- [ ] Fix `Box` multi-child layout (flow children instead of overlapping at inner rect)
+- [x] **`Spacer`** — `Spacer.flexSpacer` / `Stack.flex` (a `Fill`-length `StackChild`) absorb a stack's slack to push siblings apart; `Spacer.spacer` stays the zero-extent placeholder for explicit-length slots
+- [x] Fix `Box` multi-child layout — kept `Box` a single-child container (one child fills the inner rect) and fixed the `panel`/`statusBar` helpers to flow their children through an explicit `Stack` (vertical / horizontal) instead of overlapping
 
 ### v0.3 — Core widgets ⬜
 
@@ -173,13 +173,9 @@ From `SPEC.md`'s optimization tiers. Do these _when they hurt_, not before.
 
 Things that work "well enough" today but have a sharp edge worth remembering:
 
-- **`Box` children overlap.** All children are measured at the same inner rect; multi-child boxes overdraw. Workaround: nest a `Stack`. (v0.2 fix listed above.)
-- **`Spacer` is a no-op in stacks.** It maps to `Empty` (0 extent). A real flex spacer needs `Fill`.
-- **No quit from `update`.** The runtime only exits on its hard-coded Ctrl+C intercept; `update` can't request exit. (Old counter demo's `q` silently did nothing.)
+- **`Box` is single-child by design.** A `Box` renders one child filling its inner rect; passing multiple children overlaps them — flow is `Stack`'s job, so nest a `Stack` (the `panel`/`statusBar` helpers now do this internally).
 - **Input is keys-only.** Keyboard is solid now — including Kitty `CSI u` modifier chords (Ctrl/Alt/Shift/Super) and legacy fallbacks — but mouse and focus sequences are _enabled_ by the runtime yet ignored by `InputParser`, and **bracketed paste is not even enabled** (the `ANSI.enableBracketedPaste` sequence is never written). The `Mouse`/`Paste`/`FocusGained`/`FocusLost` `InputEvent` cases are defined but never produced. Key **release/repeat** events aren't requested either (only the disambiguate flag is pushed).
 - **`Scroll` has no scrollbar / follow-tail / virtualization** — it's the primitive, not the `ScrollView` widget.
-- **`Overlay` can't position layers** — every layer fills the area; modals need anchoring/centering.
-- **Resize doesn't force a full repaint.** On size change `Runtime.run` sets `NeedsRender` but keeps the previous `Surface`; `Diff.compute` then only diffs the `min(old, new)` overlap, so _growing_ the terminal leaves the newly-exposed rows/columns unpainted until a later full redraw. Fix: reset `PreviousSurface` to `None` when the size changes (forcing the no-previous full-render path).
 - **Wide-char rendering is BMP-only and leaves a trailing cell.** `Grapheme.charWidth` works per UTF-16 `char`, so the `0x20000–0x2A6DF` CJK-Ext-B branch in `isWide` is unreachable and astral-plane / emoji-ZWJ clusters aren't handled. `Cell.FromChar` always sets `Width = 1` while `Surface.Write` advances the cursor by the glyph width _without blanking the wide glyph's trailing cell_ — so a wide glyph overwriting narrower content can leave an artifact.
 - **Dead scaffolding & externs.** `Region`/`RegionId`/`RenderMode` (and the `Focusable`/`ZIndex`/`Clip` fields) are defined in `Core/Region.fs` but wired to nothing — forward declarations for the unbuilt focus manager / overlay positioning / z-ordering. The `tcgetattr`/`tcsetattr`/`ioctl` libc externs in `TerminalMode` are also unused (raw mode uses the `stty` subprocess; size uses `Console.WindowWidth/Height`); the "For now, use Console APIs" comment in `setupRawMode` is stale.
 - **Solution file is `Mire.slnx`** (modern XML format), not `Mire.sln`.
