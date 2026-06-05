@@ -51,9 +51,15 @@ let private sModalBg =
 let private spinnerFrames = [| "⠋"; "⠙"; "⠹"; "⠸"; "⠼"; "⠴"; "⠦"; "⠧"; "⠇"; "⠏" |]
 
 // model --------------------------------------------------------------------
-type Pane =
-    | ListPane
-    | ReaderPane
+
+/// Focusable region ids — a base ring of the two panes, plus one id per overlay
+/// pushed as a modal trap. Named bindings keep the `update`/`view` matches typo-safe.
+module private Ids =
+    let list = RegionId "list"
+    let reader = RegionId "reader"
+    let feeds = RegionId "feeds"
+    let add = RegionId "add"
+    let filter = RegionId "filter"
 
 /// Why an add attempt failed. `InvalidUrl`/`Duplicate` are decided instantly;
 /// `LoadFailedErr` arrives after the fetch spinner.
@@ -73,20 +79,19 @@ type FeedsPanelState = { Cursor: int }
 /// Working copy of the filter; applied to `Model.Selected` only on Enter.
 type FilterState = { Checked: Set<string>; Cursor: int }
 
-type OverlayState =
-    | NoOverlay
-    | FeedsPanel of FeedsPanelState
-    | AddModal of AddModalState
-    | Filter of FilterState
-
 type Model =
     { Feeds: Feed list
       Selected: Set<string> // feed URLs shown; empty ⇒ all
       Sel: int
-      Pane: Pane
       ReaderScroll: int
       Spinner: int
-      Overlay: OverlayState
+      // Keyboard focus drives routing: a base ring [list; reader]; each overlay
+      // pushes a trap ring (feeds/add/filter) whose data lives in the matching
+      // option field below. `Focus.current` names the active region.
+      Focus: Focus
+      FeedsPanel: FeedsPanelState option
+      AddModal: AddModalState option
+      Filter: FilterState option
       Size: Size }
 
 /// One terminal key, normalised so `update` can route it per-overlay.
@@ -150,10 +155,12 @@ let init () =
     { Feeds = feeds
       Selected = Set.empty
       Sel = 0
-      Pane = ListPane
       ReaderScroll = 0
       Spinner = 0
-      Overlay = NoOverlay
+      Focus = Focus.ofOrder [ Ids.list; Ids.reader ]
+      FeedsPanel = None
+      AddModal = None
+      Filter = None
       Size = Size.Create(100, 30) },
     Cmd.batch (seedUrls |> List.map loadFeedCmd)
 
@@ -174,9 +181,9 @@ let private mergedArticles (m: Model) : Article list =
 
 let private anyLoading (m: Model) : bool =
     (m.Feeds |> List.exists (fun f -> f.Status = FLoading))
-    || (match m.Overlay with
-        | AddModal ms -> ms.Submitting
-        | _ -> false)
+    || (match m.AddModal with
+        | Some ms -> ms.Submitting
+        | None -> false)
 
 // update -------------------------------------------------------------------
 
@@ -185,11 +192,13 @@ let private setSourceFeed (name: string) (items: Article list) : Article list =
 
 let private updateBase (k: Key2) (m: Model) : Model * Cmd<Msg> =
     let count = List.length (mergedArticles m)
+    let onList = Focus.isFocused Ids.list m.Focus
 
     match k with
     | KCtrlU ->
         { m with
-            Overlay = FeedsPanel { Cursor = 0 } },
+            Focus = Focus.pushTrap [ Ids.feeds ] m.Focus
+            FeedsPanel = Some { Cursor = 0 } },
         Cmd.none
     | KChar "f"
     | KChar "F" ->
@@ -197,8 +206,9 @@ let private updateBase (k: Key2) (m: Model) : Model * Cmd<Msg> =
         // current subset; only the unfiltered state (Selected empty ⇒ show all)
         // falls back to every feed checked.
         { m with
-            Overlay =
-                Filter
+            Focus = Focus.pushTrap [ Ids.filter ] m.Focus
+            Filter =
+                Some
                     { Checked =
                         if Set.isEmpty m.Selected then
                             m.Feeds |> List.map (fun f -> f.Url) |> Set.ofList
@@ -211,89 +221,70 @@ let private updateBase (k: Key2) (m: Model) : Model * Cmd<Msg> =
         { m with
             Feeds = m.Feeds |> List.map (fun f -> { f with Status = FLoading }) },
         Cmd.batch (m.Feeds |> List.map (fun f -> loadFeedCmd f.Url))
-    | KTab ->
-        { m with
-            Pane = (if m.Pane = ListPane then ReaderPane else ListPane) },
-        Cmd.none
-    | KEnter -> { m with Pane = ReaderPane }, Cmd.none
+    | KTab -> { m with Focus = Focus.next m.Focus }, Cmd.none // switch pane
+    | KEnter -> { m with Focus = Focus.focus Ids.reader m.Focus }, Cmd.none
     | KUp
     | KChar "k" ->
-        match m.Pane with
-        | ListPane ->
+        if onList then
             { m with
                 Sel = clamp 0 (max 0 (count - 1)) (m.Sel - 1)
                 ReaderScroll = 0 },
             Cmd.none
-        | ReaderPane ->
-            { m with
-                ReaderScroll = max 0 (m.ReaderScroll - 1) },
-            Cmd.none
+        else
+            { m with ReaderScroll = max 0 (m.ReaderScroll - 1) }, Cmd.none
     | KDown
     | KChar "j" ->
-        match m.Pane with
-        | ListPane ->
+        if onList then
             { m with
                 Sel = clamp 0 (max 0 (count - 1)) (m.Sel + 1)
                 ReaderScroll = 0 },
             Cmd.none
-        | ReaderPane ->
-            { m with
-                ReaderScroll = m.ReaderScroll + 1 },
-            Cmd.none
+        else
+            { m with ReaderScroll = m.ReaderScroll + 1 }, Cmd.none
     | KPageUp ->
-        match m.Pane with
-        | ListPane ->
+        if onList then
             { m with
                 Sel = clamp 0 (max 0 (count - 1)) (m.Sel - 5)
                 ReaderScroll = 0 },
             Cmd.none
-        | ReaderPane ->
-            { m with
-                ReaderScroll = max 0 (m.ReaderScroll - 10) },
-            Cmd.none
+        else
+            { m with ReaderScroll = max 0 (m.ReaderScroll - 10) }, Cmd.none
     | KPageDown ->
-        match m.Pane with
-        | ListPane ->
+        if onList then
             { m with
                 Sel = clamp 0 (max 0 (count - 1)) (m.Sel + 5)
                 ReaderScroll = 0 },
             Cmd.none
-        | ReaderPane ->
-            { m with
-                ReaderScroll = m.ReaderScroll + 10 },
-            Cmd.none
+        else
+            { m with ReaderScroll = m.ReaderScroll + 10 }, Cmd.none
     | _ -> m, Cmd.none
 
 let private updatePanel (k: Key2) (ps: FeedsPanelState) (m: Model) : Model * Cmd<Msg> =
     let n = List.length m.Feeds
+    let setCursor c = { m with FeedsPanel = Some { Cursor = c } }
 
-    let setCursor c =
+    let openAdd () =
         { m with
-            Overlay = FeedsPanel { Cursor = c } }
+            Focus = Focus.pushTrap [ Ids.add ] m.Focus
+            AddModal =
+                Some
+                    { Input = ""
+                      Error = None
+                      Submitting = false } }
 
     match k with
     | KEsc
-    | KCtrlU -> { m with Overlay = NoOverlay }, Cmd.none
+    | KCtrlU ->
+        { m with
+            Focus = Focus.popTrap m.Focus
+            FeedsPanel = None },
+        Cmd.none
     | KUp
     | KChar "k" -> setCursor (max 0 (ps.Cursor - 1)), Cmd.none
     | KDown
     | KChar "j" -> setCursor (min n (ps.Cursor + 1)), Cmd.none
-    | KChar "a" ->
-        { m with
-            Overlay =
-                AddModal
-                    { Input = ""
-                      Error = None
-                      Submitting = false } },
-        Cmd.none
-    | KEnter when ps.Cursor = 0 ->
-        { m with
-            Overlay =
-                AddModal
-                    { Input = ""
-                      Error = None
-                      Submitting = false } },
-        Cmd.none
+    | KChar "a" -> openAdd (), Cmd.none
+    | KEnter when ps.Cursor = 0 -> openAdd (), Cmd.none
     | KChar "d"
     | KChar "x" ->
         if ps.Cursor >= 1 && ps.Cursor <= n then
@@ -304,7 +295,7 @@ let private updatePanel (k: Key2) (ps: FeedsPanelState) (m: Model) : Model * Cmd
                 Feeds = feeds
                 Selected = Set.remove url m.Selected
                 Sel = 0
-                Overlay = FeedsPanel { Cursor = clamp 0 (List.length feeds) ps.Cursor } },
+                FeedsPanel = Some { Cursor = clamp 0 (List.length feeds) ps.Cursor } },
             Cmd.none
         else
             m, Cmd.none
@@ -322,12 +313,14 @@ let private updatePanel (k: Key2) (ps: FeedsPanelState) (m: Model) : Model * Cmd
     | _ -> m, Cmd.none
 
 let private updateAddModal (k: Key2) (ms: AddModalState) (m: Model) : Model * Cmd<Msg> =
-    let setM s = { m with Overlay = AddModal s }
+    let setM s = { m with AddModal = Some s }
 
     match k with
     | KEsc ->
+        // pop the add trap back to the feeds panel beneath it (still open)
         { m with
-            Overlay = FeedsPanel { Cursor = 0 } },
+            Focus = Focus.popTrap m.Focus
+            AddModal = None },
         Cmd.none
     | _ when ms.Submitting -> m, Cmd.none // ignore input while a fetch is in flight
     | KChar c ->
@@ -363,10 +356,14 @@ let private updateAddModal (k: Key2) (ms: AddModalState) (m: Model) : Model * Cm
 let private updateFilter (k: Key2) (fs: FilterState) (m: Model) : Model * Cmd<Msg> =
     let urls = m.Feeds |> List.map (fun f -> f.Url)
     let n = List.length urls
-    let setF s = { m with Overlay = Filter s }
+    let setF s = { m with Filter = Some s }
 
     match k with
-    | KEsc -> { m with Overlay = NoOverlay }, Cmd.none // cancel: Selected unchanged
+    | KEsc ->
+        { m with
+            Focus = Focus.popTrap m.Focus
+            Filter = None },
+        Cmd.none // cancel: Selected unchanged
     | KUp
     | KChar "k" ->
         setF
@@ -409,7 +406,8 @@ let private updateFilter (k: Key2) (fs: FilterState) (m: Model) : Model * Cmd<Ms
 
         { m with
             Selected = sel
-            Overlay = NoOverlay
+            Focus = Focus.popTrap m.Focus
+            Filter = None
             Sel = 0
             ReaderScroll = 0 },
         Cmd.none
@@ -443,8 +441,8 @@ let update (msg: Msg) (m: Model) : Model * Cmd<Msg> =
                 |> List.map (fun f -> if f.Url = url then { f with Status = FFailed e } else f) },
         Cmd.none
     | AddFetched(url, result) ->
-        match m.Overlay with
-        | AddModal ms ->
+        match m.AddModal with
+        | Some ms ->
             match result with
             | Ok(title, items) ->
                 let nf =
@@ -454,6 +452,7 @@ let update (msg: Msg) (m: Model) : Model * Cmd<Msg> =
                       Articles = setSourceFeed title items
                       Status = FReady }
 
+                // success: pop the add trap back to the feeds panel, cursor on the new feed
                 { m with
                     Feeds = nf :: m.Feeds // newest at top
                     Selected =
@@ -462,23 +461,32 @@ let update (msg: Msg) (m: Model) : Model * Cmd<Msg> =
                          else
                              Set.add url m.Selected)
                     Sel = 0
-                    Overlay = FeedsPanel { Cursor = 1 } },
+                    Focus = Focus.popTrap m.Focus
+                    AddModal = None
+                    FeedsPanel = Some { Cursor = 1 } },
                 Cmd.none
             | Error e ->
                 { m with
-                    Overlay =
-                        AddModal
+                    AddModal =
+                        Some
                             { ms with
                                 Submitting = false
                                 Error = Some(LoadFailedErr e) } },
                 Cmd.none
-        | _ -> m, Cmd.none // modal was dismissed mid-fetch
+        | None -> m, Cmd.none // modal was dismissed mid-fetch
     | KeyMsg k ->
-        match m.Overlay with
-        | NoOverlay -> updateBase k m
-        | FeedsPanel ps -> updatePanel k ps m
-        | AddModal ms -> updateAddModal k ms m
-        | Filter fs -> updateFilter k fs m
+        // route by the focused region; an open overlay is the innermost trap ring
+        match Focus.current m.Focus with
+        | Some id when id = Ids.feeds -> updatePanel k (Option.defaultValue { Cursor = 0 } m.FeedsPanel) m
+        | Some id when id = Ids.add ->
+            match m.AddModal with
+            | Some ms -> updateAddModal k ms m
+            | None -> m, Cmd.none
+        | Some id when id = Ids.filter ->
+            match m.Filter with
+            | Some fs -> updateFilter k fs m
+            | None -> m, Cmd.none
+        | _ -> updateBase k m
 
 // view helpers -------------------------------------------------------------
 
@@ -651,7 +659,7 @@ let view (m: Model) : LayoutNode<Msg> =
 
     // article list
     let labels = merged |> List.map (fun a -> truncate (listInnerW - 1) a.Title)
-    let listBorder = if m.Pane = ListPane then "Articles ▸" else "Articles"
+    let listBorder = if Focus.isFocused Ids.list m.Focus then "Articles ▸" else "Articles"
 
     let listPane =
         panel (sprintf "%s (%d)" listBorder count) (ListView.view listInnerH sSel sRow m.Sel labels)
@@ -686,7 +694,7 @@ let view (m: Model) : LayoutNode<Msg> =
                             Dock.right 1 Spacer.spacer
                             Dock.fill (Scroll.vertical m.ReaderScroll (Stack.vstack bodyLines)) ]) ]
 
-    let readerHeading = if m.Pane = ReaderPane then "Reading ▸" else "Reading"
+    let readerHeading = if Focus.isFocused Ids.reader m.Focus then "Reading ▸" else "Reading"
     let readerPane = panel readerHeading readerContent
 
     let body =
@@ -699,11 +707,21 @@ let view (m: Model) : LayoutNode<Msg> =
 
     let baseTree = Dock.dock [ Dock.top 3 header; Dock.bottom 1 footer; Dock.fill body ]
 
-    match m.Overlay with
-    | NoOverlay -> baseTree
-    | FeedsPanel ps -> LayoutNode.Overlay(rect0, [ baseTree; feedsPanelLayer m ps w h ])
-    | AddModal ms -> LayoutNode.Overlay(rect0, [ baseTree; addModalLayer m ms w h ])
-    | Filter fs -> LayoutNode.Overlay(rect0, [ baseTree; filterLayer m fs w h ])
+    // the active overlay = the innermost focus trap; render its layer over the base
+    match Focus.current m.Focus with
+    | Some id when id = Ids.feeds ->
+        match m.FeedsPanel with
+        | Some ps -> LayoutNode.Overlay(rect0, [ baseTree; feedsPanelLayer m ps w h ])
+        | None -> baseTree
+    | Some id when id = Ids.add ->
+        match m.AddModal with
+        | Some ms -> LayoutNode.Overlay(rect0, [ baseTree; addModalLayer m ms w h ])
+        | None -> baseTree
+    | Some id when id = Ids.filter ->
+        match m.Filter with
+        | Some fs -> LayoutNode.Overlay(rect0, [ baseTree; filterLayer m fs w h ])
+        | None -> baseTree
+    | _ -> baseTree
 
 let mapInput (e: InputEvent) : Msg option =
     match e with
@@ -817,14 +835,16 @@ let private runDump () =
         size
         "feeds panel (Ctrl+U)"
         { model with
-            Overlay = FeedsPanel { Cursor = 0 } }
+            Focus = Focus.pushTrap [ Ids.feeds ] model.Focus
+            FeedsPanel = Some { Cursor = 0 } }
 
     renderModel
         size
         "add modal"
         { model with
-            Overlay =
-                AddModal
+            Focus = Focus.pushTrap [ Ids.add ] model.Focus
+            AddModal =
+                Some
                     { Input = "https://example.com/feed.xml"
                       Error = None
                       Submitting = false } }
@@ -833,8 +853,9 @@ let private runDump () =
         size
         "add modal — error"
         { model with
-            Overlay =
-                AddModal
+            Focus = Focus.pushTrap [ Ids.add ] model.Focus
+            AddModal =
+                Some
                     { Input = "notaurl"
                       Error = Some InvalidUrl
                       Submitting = false } }
@@ -843,8 +864,9 @@ let private runDump () =
         size
         "filter picker (f)"
         { model with
-            Overlay =
-                Filter
+            Focus = Focus.pushTrap [ Ids.filter ] model.Focus
+            Filter =
+                Some
                     { Checked = Set.ofList [ realFeed.Url ]
                       Cursor = 0 } }
 
