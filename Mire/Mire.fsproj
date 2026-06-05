@@ -39,6 +39,7 @@
 
     <!-- Layout — node tree, measure, render -->
     <Compile Include="Layout/Layout.fs" />
+    <Compile Include="Layout/Focus.fs" />
 
     <!-- Widgets — convenience builders over Layout -->
     <Compile Include="Widgets/Widgets.fs" />

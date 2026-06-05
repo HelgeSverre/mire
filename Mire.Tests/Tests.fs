@@ -780,6 +780,82 @@ let cmdQuitTests =
               Expect.sequenceEqual sent (seq { 1; 2 }) "sibling ofMsg commands in the batch still fire"
           } ]
 
+// Focus (keyboard focus ring + modal trap) ----------------------------------
+
+let focusTests =
+    let a = RegionId "a"
+    let b = RegionId "b"
+    let c = RegionId "c"
+    let ring = Focus.ofOrder [ a; b; c ]
+
+    testList
+        "Focus"
+        [ test "ofOrder focuses the first id" {
+              Expect.equal (Focus.current ring) (Some a) "current = first id"
+          }
+          test "ofOrder of an empty list has no current" {
+              Expect.equal (Focus.current (Focus.ofOrder [])) None "empty ring → no current"
+          }
+          test "next advances and wraps" {
+              Expect.equal (Focus.current (Focus.next ring)) (Some b) "a → b"
+              Expect.equal (Focus.current (ring |> Focus.next |> Focus.next)) (Some c) "→ c"
+              Expect.equal (Focus.current (ring |> Focus.next |> Focus.next |> Focus.next)) (Some a) "c wraps to a"
+          }
+          test "prev retreats and wraps" {
+              Expect.equal (Focus.current (Focus.prev ring)) (Some c) "a wraps back to c"
+              Expect.equal (Focus.current (ring |> Focus.prev |> Focus.prev)) (Some b) "→ b"
+          }
+          test "next/prev are no-ops on a single-id ring" {
+              let one = Focus.ofOrder [ a ]
+              Expect.equal (Focus.current (Focus.next one)) (Some a) "next single = same"
+              Expect.equal (Focus.current (Focus.prev one)) (Some a) "prev single = same"
+          }
+          test "next on an empty ring stays empty" {
+              Expect.equal (Focus.current (Focus.next Focus.empty)) None "next empty = none"
+          }
+          test "focus sets current when the id is in the ring" {
+              Expect.equal (Focus.current (Focus.focus c ring)) (Some c) "focus c → current c"
+          }
+          test "focus is a no-op when the id is absent" {
+              Expect.equal (Focus.current (Focus.focus (RegionId "z") ring)) (Some a) "absent id ignored, current unchanged"
+          }
+          test "isFocused matches the current id only" {
+              Expect.isTrue (Focus.isFocused a ring) "a is focused"
+              Expect.isFalse (Focus.isFocused b ring) "b is not focused"
+          }
+          test "pushTrap confines focus to the trap ring" {
+              let t = ring |> Focus.next |> Focus.pushTrap [ RegionId "ok"; RegionId "cancel" ]
+              Expect.isTrue (Focus.isTrapped t) "trapped"
+              Expect.equal (Focus.current t) (Some(RegionId "ok")) "current = first trap id"
+              Expect.equal (Focus.current (Focus.next t)) (Some(RegionId "cancel")) "next stays within the trap ring"
+              Expect.equal (Focus.current (t |> Focus.next |> Focus.next)) (Some(RegionId "ok")) "wraps within the trap ring, never escapes to base"
+          }
+          test "popTrap restores the base ring exactly where focus was" {
+              let t = ring |> Focus.next |> Focus.pushTrap [ RegionId "ok" ] // base was on b
+              let back = Focus.popTrap t
+              Expect.isFalse (Focus.isTrapped back) "no longer trapped"
+              Expect.equal (Focus.current back) (Some b) "base.Current preserved across the trap (was on b)"
+          }
+          test "popTrap is a no-op at depth 0" {
+              Expect.equal (Focus.popTrap ring) ring "popping with no trap leaves focus untouched"
+              Expect.isFalse (Focus.isTrapped (Focus.popTrap ring)) "still not trapped"
+          }
+          test "nested traps push and pop one level at a time" {
+              let t =
+                  ring
+                  |> Focus.pushTrap [ RegionId "m1" ]
+                  |> Focus.pushTrap [ RegionId "m2a"; RegionId "m2b" ]
+
+              Expect.equal (Focus.current t) (Some(RegionId "m2a")) "innermost trap active"
+              let popped = Focus.popTrap t
+              Expect.equal (Focus.current popped) (Some(RegionId "m1")) "pop returns to the middle ring"
+              Expect.isTrue (Focus.isTrapped popped) "still trapped (one level remains)"
+          }
+          test "empty focus has no current and isn't trapped" {
+              Expect.equal (Focus.current Focus.empty) None "empty → none"
+              Expect.isFalse (Focus.isTrapped Focus.empty) "empty → not trapped"
+          } ]
+
 [<Tests>]
 let all =
     testList
@@ -789,6 +865,7 @@ let all =
           diffTests
           layoutTests
           positionedTests
+          focusTests
           widgetTests
           textBufferTests
           inputViewTests

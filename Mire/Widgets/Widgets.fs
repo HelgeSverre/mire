@@ -191,9 +191,11 @@ module Overlay =
         positioned Center (Cells width) (Cells height) child
 
 /// A centered modal: an opaque backdrop behind a bordered `width`×`height` box
-/// with a title row above a `body` slot. The *layout half* of the modal pattern —
-/// focus-trapping arrives with the focus manager. Returns a single node to drop
-/// over a base tree: `Overlay(rect0, [ baseTree; Modal.modal … ])`.
+/// with a title row above a `body` slot — the *layout half* of the modal pattern.
+/// For the keyboard focus-trap, pair the open/close with `Focus.pushTrap`/`popTrap`
+/// (see `Mire.Layout.Focus`): push the modal's button ids on open, pop on close.
+/// Returns a single node to drop over a base tree:
+/// `Overlay(rect0, [ baseTree; Modal.modal … ])`.
 module Modal =
     let modal
         (backdropStyle: Style)
