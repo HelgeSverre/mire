@@ -530,6 +530,33 @@ let widgetTests =
               Expect.stringContains (rowText surf 0) "AAAAAAAA" "first card on the top row"
               Expect.stringContains (rowText surf 2) "BBBBBBBB" "second card stacked below a blank row"
               Expect.equal ((rowText surf 0).Substring(0, 20).Trim()) "" "cards are right-aligned (left region empty)"
+          }
+          test "ScrollView offset helpers clamp and detect the bottom" {
+              Expect.equal (Mire.Widgets.ScrollView.toBottom 4 8) 4 "bottom offset = contentH - viewportH"
+              Expect.equal (Mire.Widgets.ScrollView.toBottom 4 2) 0 "content fits → bottom is 0"
+              Expect.equal (Mire.Widgets.ScrollView.clampOffset 4 8 10) 4 "over-scroll clamps to the bottom"
+              Expect.equal (Mire.Widgets.ScrollView.clampOffset 4 8 -3) 0 "under-scroll clamps to 0"
+              Expect.isTrue (Mire.Widgets.ScrollView.atBottom 4 8 4) "offset 4 is at the bottom"
+              Expect.isFalse (Mire.Widgets.ScrollView.atBottom 4 8 0) "offset 0 is not at the bottom"
+          }
+          test "ScrollView draws a proportional scrollbar thumb at the offset" {
+              let track = Style.Default.WithForeground(Color.Rgb(0x33uy, 0x33uy, 0x33uy))
+              let thumb = Style.Default.WithForeground Color.White
+
+              let barColumn (offset: int) : string list =
+                  let content: LayoutNode<unit> =
+                      Mire.Widgets.Stack.vstack [ for i in 1..8 -> Mire.Widgets.Text.text (sprintf "row%d" i) Style.Default ]
+
+                  let node: LayoutNode<unit> =
+                      Mire.Widgets.ScrollView.vertical 4 8 offset track thumb content
+
+                  let surf = Surface(Size.Create(10, 4))
+                  Layout.measure (Rect.Create(0, 0, 10, 4)) node |> Layout.render surf
+                  [ for y in 0..3 -> surf.[9, y].Grapheme ] // rightmost column = the scrollbar
+
+              // viewport 4 / content 8 → thumbHeight = 4*4/8 = 2
+              Expect.equal (barColumn 0) [ "█"; "█"; "│"; "│" ] "offset 0 → thumb at the top"
+              Expect.equal (barColumn 4) [ "│"; "│"; "█"; "█" ] "offset 4 (bottom) → thumb at the bottom"
           } ]
 
 // TextBuffer (pure edit ops) -------------------------------------------------

@@ -677,6 +677,9 @@ let view (m: Model) : LayoutNode<Msg> =
         | Some a ->
             let titleLines = Feed.wrap readerInnerW a.Title
             let bodyLines = Feed.wrap bodyW a.Body |> List.map (fun l -> Text.text l sBody)
+            // viewport rows for the body scroller: reader content (bodyH - 3) minus
+            // the title lines and the meta/link/rule rows.
+            let readerBodyH = max 1 (bodyH - 6 - titleLines.Length)
 
             Stack.vstackOf
                 [ Stack.sized (Length.Cells(max 1 titleLines.Length)) (Text.text (String.concat "\n" titleLines) sTitle)
@@ -691,8 +694,9 @@ let view (m: Model) : LayoutNode<Msg> =
                       Length.Fill
                       (Dock.dock
                           [ Dock.left 1 Spacer.spacer
-                            Dock.right 1 Spacer.spacer
-                            Dock.fill (Scroll.vertical m.ReaderScroll (Stack.vstack bodyLines)) ]) ]
+                            Dock.fill (
+                                ScrollView.vertical readerBodyH bodyLines.Length m.ReaderScroll sBorder sAccent (Stack.vstack bodyLines)
+                            ) ]) ]
 
     let readerHeading = if Focus.isFocused Ids.reader m.Focus then "Reading ▸" else "Reading"
     let readerPane = panel readerHeading readerContent

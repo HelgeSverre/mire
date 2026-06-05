@@ -268,6 +268,57 @@ module ListView =
         |> Stack.vstack
         |> Scroll.vertical off
 
+/// A vertically-scrolling viewport with a track/thumb scrollbar. The app owns the
+/// offset (like `Scroll.vertical`); the pure helpers make jump-to-bottom,
+/// follow-tail, and paging one-liners in `update`:
+///   `clampOffset` keeps an offset in range · `toBottom` is the jump-to-bottom /
+///   follow-tail offset · `atBottom` decides whether to keep following the tail.
+module ScrollView =
+    /// The offset that scrolls to the bottom (also the jump-to-bottom / follow-tail offset).
+    let toBottom (viewportH: int) (contentH: int) : int = max 0 (contentH - viewportH)
+
+    /// Clamp an offset to `0 .. toBottom`.
+    let clampOffset (viewportH: int) (contentH: int) (offset: int) : int =
+        max 0 (min offset (toBottom viewportH contentH))
+
+    /// True when `offset` is scrolled all the way down — keep this true to follow the tail.
+    let atBottom (viewportH: int) (contentH: int) (offset: int) : bool =
+        offset >= toBottom viewportH contentH
+
+    /// A 1-cell scrollbar column: a proportional thumb over a track.
+    let private scrollbar (viewportH: int) (contentH: int) (offset: int) (trackStyle: Style) (thumbStyle: Style) : LayoutNode<'msg> =
+        let thumbH, thumbPos =
+            if contentH <= viewportH || viewportH <= 0 then
+                0, 0 // content fits: just the track, no thumb
+            else
+                let th = max 1 (viewportH * viewportH / contentH)
+                let span = contentH - viewportH
+                let pos = clampOffset viewportH contentH offset * (viewportH - th) / span
+                th, pos
+
+        Stack.vstackOf
+            [ for y in 0 .. viewportH - 1 ->
+                  let isThumb = y >= thumbPos && y < thumbPos + thumbH
+
+                  Stack.sized
+                      (Length.Cells 1)
+                      (Text.text (if isThumb then "█" else "│") (if isThumb then thumbStyle else trackStyle)) ]
+
+    /// `content` in a `viewportH`-tall viewport scrolled to `offset`, with a 1-cell
+    /// track/thumb scrollbar on the right. `contentH` is the content's total height
+    /// (the caller knows it, or `Layout.contentExtent Vertical`).
+    let vertical
+        (viewportH: int)
+        (contentH: int)
+        (offset: int)
+        (trackStyle: Style)
+        (thumbStyle: Style)
+        (content: LayoutNode<'msg>)
+        : LayoutNode<'msg> =
+        Stack.hstackOf
+            [ Stack.sized Length.Fill (Scroll.vertical (clampOffset viewportH contentH offset) content)
+              Stack.sized (Length.Cells 1) (scrollbar viewportH contentH offset trackStyle thumbStyle) ]
+
 /// Single-line text editor view over a `TextBuffer`. Pure edit logic lives in
 /// `Mire.Core.TextBuffer`; this only renders. When `focused`, a block cursor is
 /// drawn (the cell under the cursor in `cursorStyle`) and the view scrolls
