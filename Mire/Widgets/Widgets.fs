@@ -271,16 +271,31 @@ module ListView =
         else
             Text.text label rowStyle
 
-    /// A scrollable list `height` rows tall, auto-scrolled to keep `sel` centred
-    /// and in view.
-    let view (height: int) (selStyle: Style) (rowStyle: Style) (sel: int) (labels: string list) : LayoutNode<'msg> =
+    /// A virtualized list `height` rows tall: only the visible window is built
+    /// (not the whole list), auto-scrolled to keep `scrollTo` in view. `isSelected`
+    /// decides each row's highlight, so it supports single- *or* multi-selection —
+    /// the app owns the selection state and key handling (MVU).
+    let viewWith
+        (height: int)
+        (selStyle: Style)
+        (rowStyle: Style)
+        (isSelected: int -> bool)
+        (scrollTo: int)
+        (labels: string list)
+        : LayoutNode<'msg> =
         let n = List.length labels
-        let off = max 0 (min (max 0 (n - height)) (sel - height / 2))
+        let off = max 0 (min (max 0 (n - height)) (scrollTo - height / 2))
 
         labels
-        |> List.mapi (fun i l -> row selStyle rowStyle (i = sel) l)
+        |> List.indexed
+        |> List.skip (min off n)
+        |> List.truncate (max 0 height)
+        |> List.map (fun (i, l) -> row selStyle rowStyle (isSelected i) l)
         |> Stack.vstack
-        |> Scroll.vertical off
+
+    /// Single-selection convenience: highlight + auto-scroll to `sel`.
+    let view (height: int) (selStyle: Style) (rowStyle: Style) (sel: int) (labels: string list) : LayoutNode<'msg> =
+        viewWith height selStyle rowStyle (fun i -> i = sel) sel labels
 
 /// A vertically-scrolling viewport with a track/thumb scrollbar. The app owns the
 /// offset (like `Scroll.vertical`); the pure helpers make jump-to-bottom,
@@ -400,13 +415,14 @@ module Table =
         (headerStyle: Style)
         (selStyle: Style)
         (topRow: int)
-        (selected: int option)
+        (isSelected: int -> bool)
         (columns: Column<'row, 'msg> list)
         (rows: 'row list)
         : LayoutNode<'msg> =
         let headerRow =
             Stack.hstackOf [ for c in columns -> Stack.sized c.Width (Text.text c.Header headerStyle) ]
 
+        // only the visible window of rows is built (virtualized by `topRow`/`height`)
         let start = max 0 (min topRow (List.length rows))
 
         let bodyRows =
@@ -418,7 +434,7 @@ module Table =
                 let cells =
                     Stack.hstackOf [ for c in columns -> Stack.sized c.Width (c.Render row) ]
 
-                if selected = Some i then Backdrop.behind selStyle cells else cells)
+                if isSelected i then Backdrop.behind selStyle cells else cells)
 
         Stack.vstackOf
             [ Stack.sized (Length.Cells 1) headerRow
@@ -429,22 +445,39 @@ module Table =
 /// reused by `Completion`); the app holds the query + selection, filters the
 /// items, and pairs the open/close with `Focus.pushTrap`/`popTrap`.
 module CommandPalette =
-    /// Case-insensitive subsequence match: do `query`'s characters appear, in
-    /// order, somewhere in `text`? An empty query matches everything.
-    let matches (query: string) (text: string) : bool =
+    /// Greedy subsequence score: `Some (firstMatchIndex, span)` (span = last −
+    /// first matched index) when `query` is a subsequence of `text`, else `None`.
+    /// Lower `(firstMatchIndex, span)` ranks better — earlier, tighter matches win.
+    let private score (query: string) (text: string) : (int * int) option =
         let q = query.ToLowerInvariant()
         let t = text.ToLowerInvariant()
-        let mutable qi = 0
 
-        for ti in 0 .. t.Length - 1 do
-            if qi < q.Length && t.[ti] = q.[qi] then
-                qi <- qi + 1
+        if q = "" then
+            Some(0, 0)
+        else
+            let mutable qi = 0
+            let mutable first = -1
+            let mutable last = -1
 
-        qi = q.Length
+            for ti in 0 .. t.Length - 1 do
+                if qi < q.Length && t.[ti] = q.[qi] then
+                    if first < 0 then first <- ti
+                    last <- ti
+                    qi <- qi + 1
 
-    /// Keep the items whose text fuzzy-`matches` the query (order preserved).
+            if qi = q.Length then Some(first, last - first) else None
+
+    /// Case-insensitive subsequence match: do `query`'s characters appear, in
+    /// order, somewhere in `text`? An empty query matches everything.
+    let matches (query: string) (text: string) : bool = (score query text).IsSome
+
+    /// Items that fuzzy-`matches` the query, ranked best-first (earlier, tighter
+    /// matches lead); ties keep their original order.
     let filter (query: string) (items: string list) : string list =
-        items |> List.filter (matches query)
+        items
+        |> List.choose (fun it -> score query it |> Option.map (fun s -> s, it))
+        |> List.sortBy fst
+        |> List.map snd
 
     /// A centered palette: a title, a `❯ query` line, and the fuzzy-filtered,
     /// selectable `items` list. Pass the already-`filter`ed items.
@@ -491,6 +524,9 @@ module Completion =
         (items: string list)
         : LayoutNode<'msg> =
         let rows = max 1 (min (List.length items) (max 1 maxRows))
+        let h = rows + 2 // border top + bottom
         let box = Box.box borderStyle [ ListView.view rows selStyle rowStyle selected items ]
-        // anchor just below the point; atPoint clamps it back on-screen near edges
-        Overlay.atPoint anchorX (anchorY + 1) width (rows + 2) areaW areaH box
+        // place just below the caret if it fits; otherwise flip above it
+        let below = anchorY + 1
+        let y = if below + h <= areaH then below else max 0 (anchorY - h)
+        Overlay.atPoint anchorX y width h areaW areaH box

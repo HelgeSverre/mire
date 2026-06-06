@@ -617,7 +617,7 @@ let widgetTests =
 
               // 2-row window starting at topRow 1 (beta, gamma); select row 2 (gamma)
               let node: LayoutNode<unit> =
-                  Mire.Widgets.Table.view 2 Style.Default sel 1 (Some 2) cols rows
+                  Mire.Widgets.Table.view 2 Style.Default sel 1 (fun i -> i = 2) cols rows
 
               let surf = Surface(Size.Create(10, 5))
               Layout.measure (Rect.Create(0, 0, 10, 5)) node |> Layout.render surf
@@ -633,13 +633,13 @@ let widgetTests =
               Expect.isFalse (Mire.Widgets.CommandPalette.matches "px" "ToolPanel") "no 'x' after 'p'"
               Expect.isFalse (Mire.Widgets.CommandPalette.matches "pool" "Panel") "not a subsequence"
           }
-          test "CommandPalette.filter keeps the fuzzy matches in order" {
+          test "CommandPalette.filter ranks fuzzy matches best-first" {
               let items = [ "Open File"; "Close File"; "Toggle Theme"; "Find" ]
 
               Expect.equal
                   (Mire.Widgets.CommandPalette.filter "fi" items)
-                  [ "Open File"; "Close File"; "Find" ]
-                  "items with f…i as a subsequence (Toggle Theme has no 'f')"
+                  [ "Find"; "Open File"; "Close File" ]
+                  "Find (f…i at index 0) ranks before the File items; Toggle Theme has no 'f'"
           }
           test "CommandPalette.view shows the query line and the items" {
               let dim = Style.Default.WithForeground(Color.Rgb(0x88uy, 0x88uy, 0x88uy))
@@ -686,6 +686,46 @@ let widgetTests =
               let whole = String.concat "\n" [ for y in 0 .. 11 -> rowText surf y ]
               Expect.stringContains whole "foo()" "a candidate is rendered"
               Expect.stringContains whole "format" "the other candidate is rendered"
+          }
+          test "ListView.viewWith virtualizes the window and supports multi-select" {
+              let selBg = Color.Rgb(0x4Cuy, 0xAFuy, 0x50uy)
+              let sel = Style.Default.WithBackground selBg
+              let row = Style.Default.WithForeground Color.White
+              let labels = [ for i in 0..99 -> sprintf "row%d" i ]
+              // height 3, scroll to row 50 → window centred near 50; rows 49 & 51 selected
+              let selected = Set.ofList [ 49; 51 ]
+
+              let node: LayoutNode<unit> =
+                  Mire.Widgets.ListView.viewWith 3 sel row selected.Contains 50 labels
+
+              // only the 3 visible rows are built (virtualized), not all 100
+              let built =
+                  match node with
+                  | LayoutNode.Stack(_, _, kids) -> List.length kids
+                  | _ -> -1
+
+              Expect.equal built 3 "only the visible window of rows is materialised"
+
+              let surf = Surface(Size.Create(12, 3))
+              Layout.measure (Rect.Create(0, 0, 12, 3)) node |> Layout.render surf
+              // window is rows 49..51 (off = 50 - 3/2 = 49)
+              Expect.stringContains (rowText surf 0) "row49" "window starts at row 49"
+              Expect.equal surf.[8, 0].Style.Background (Some selBg) "row 49 selected (multi)"
+              Expect.notEqual surf.[8, 1].Style.Background (Some selBg) "row 50 not selected"
+              Expect.equal surf.[8, 2].Style.Background (Some selBg) "row 51 selected (multi)"
+          }
+          test "Completion flips above the caret when there's no room below" {
+              let dim = Style.Default.WithForeground(Color.Rgb(0x88uy, 0x88uy, 0x88uy))
+              let sel = Style.Default.WithBackground(Color.Rgb(0x4Cuy, 0xAFuy, 0x50uy))
+              // caret near the bottom (y=10 of 12); a 2-item popup (h=4) can't fit below
+              let node: LayoutNode<unit> =
+                  Mire.Widgets.Completion.view 40 12 2 10 14 5 dim sel dim 0 [ "foo()"; "format" ]
+
+              let surf = Surface(Size.Create(40, 12))
+              Layout.measure (Rect.Create(0, 0, 40, 12)) node |> Layout.render surf
+              // flipped above → top at anchorY - h = 6; nothing rendered on the caret row (10) or below
+              Expect.stringContains (String.concat "\n" [ for y in 6..9 -> rowText surf y ]) "foo()" "popup sits above the caret"
+              Expect.isTrue (System.String.IsNullOrWhiteSpace(rowText surf 11)) "nothing at the bottom (didn't overflow below)"
           } ]
 
 // TextBuffer (pure edit ops) -------------------------------------------------
