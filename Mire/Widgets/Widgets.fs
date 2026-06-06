@@ -530,3 +530,27 @@ module Completion =
         let below = anchorY + 1
         let y = if below + h <= areaH then below else max 0 (anchorY - h)
         Overlay.atPoint anchorX y width h areaW areaH box
+
+/// A horizontal or vertical rule.
+module Separator =
+    /// A `width`-cell horizontal rule (`─`).
+    let horizontal (width: int) (style: Style) : LayoutNode<'msg> =
+        Text.text (String.replicate (max 0 width) "─") style
+
+    /// A `height`-cell vertical rule (`│`).
+    let vertical (height: int) (style: Style) : LayoutNode<'msg> =
+        Stack.vstack [ for _ in 1 .. max 0 height -> Text.text "│" style ]
+
+/// A small toned pill — a padded, styled label. The caller supplies the tone via
+/// `style` (e.g. `Style.success`); a background-bearing style fills the chip.
+module Badge =
+    let badge (style: Style) (label: string) : LayoutNode<'msg> =
+        Text.text (sprintf " %s " label) style
+
+/// A key-hint chip: a styled key glyph followed by a label (e.g. `Ctrl+P palette`)
+/// for status bars / footers.
+module KeyHint =
+    let hint (keyStyle: Style) (labelStyle: Style) (key: string) (label: string) : LayoutNode<'msg> =
+        Stack.hstackOf
+            [ Stack.sized Length.Content (Text.text key keyStyle)
+              Stack.sized Length.Content (Text.text (" " + label) labelStyle) ]

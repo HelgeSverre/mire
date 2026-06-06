@@ -44,9 +44,9 @@ agent widgets are the (not-yet-created) `Mire.Agent` layer.
 | `Backdrop.solid` / `behind`       | ✅     | `solid` = `Filled` wrapper; `behind style child` fills the rect then draws the child on top (full-bleed row/cell highlight).                                                                                                     |
 | `Spacer.spacer` / `flexSpacer`    | ✅     | `spacer` = zero-extent placeholder (explicit-length slots); `flexSpacer` / `Stack.flex` = `Fill`-based flex spacer that absorbs a stack's slack.                                                                                 |
 | Predefined styles                 | ✅     | `border`/`title`/`text`/`dim`/`success`/`warning`/`danger`/`info`/…                                                                                                                                                              |
-| `Separator`                       | ⬜     | Horizontal/vertical rule.                                                                                                                                                                                                        |
-| `Badge`                           | ⬜     | Toned pill (`Tone.Success "done"`).                                                                                                                                                                                              |
-| `KeyHint`                         | ⬜     | `Ctrl+P` → label chips for status bars.                                                                                                                                                                                          |
+| `Separator`                       | ✅     | `Separator.horizontal width` (`─`) / `vertical height` (`│`).                                                                                                                                                                    |
+| `Badge`                           | ✅     | `Badge.badge style label` — a padded, toned pill (the caller supplies the tone via `style`).                                                                                                                                     |
+| `KeyHint`                         | ✅     | `KeyHint.hint keyStyle labelStyle key label` — a styled key glyph + label chip for status bars.                                                                                                                                  |
 | `Scrollbar`                       | ✅     | Track + thumb, built into `ScrollView` (proportional thumb sized/positioned from viewport + content height).                                                                                                                     |
 | `ScrollView`                      | 🟡     | `ScrollView.vertical` (viewport + scrollbar) + `clampOffset`/`toBottom`/`atBottom` helpers for follow-tail/jump-to-bottom/paging. No virtualization yet.                                                                         |
 | `List` / `ListView`               | ✅     | `ListView.view` (single-select) + `viewWith` (predicate → multi-select), both **virtualized** (only the visible window is built) + auto-scroll-to-selection. Key handling is app-side (MVU).                                     |
@@ -107,7 +107,7 @@ The whole pipeline runs end-to-end: `model → view → layout → surface → d
 
 ### v0.3 — Core widgets 🟡 ← _current phase_
 
-- [ ] `Separator`, `Badge`, `KeyHint` (small, unblock richer status bars/panels)
+- [x] `Separator` (`horizontal`/`vertical` rule), `Badge` (toned pill), `KeyHint` (key+label chip)
 - [x] `Input` (single-line) — `Mire.Core.TextBuffer` + `Widgets.Input.render` (block cursor, scroll-to-cursor) ship; used by `Mire.SpreadsheetDemo`. _No selection yet._
 - [ ] `TextArea` (multi-line) — shift-enter newline, paste handling
 - [x] `List` — `ListView.view` (single-select) + `viewWith` (predicate → multi-select), both **virtualized** (only the visible window is built) + auto-scroll-to-selection. Key handling stays app-side (MVU).

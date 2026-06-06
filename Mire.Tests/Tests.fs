@@ -726,6 +726,35 @@ let widgetTests =
               // flipped above → top at anchorY - h = 6; nothing rendered on the caret row (10) or below
               Expect.stringContains (String.concat "\n" [ for y in 6..9 -> rowText surf y ]) "foo()" "popup sits above the caret"
               Expect.isTrue (System.String.IsNullOrWhiteSpace(rowText surf 11)) "nothing at the bottom (didn't overflow below)"
+          }
+          test "Separator.horizontal / vertical draw rules of the given length" {
+              let h: LayoutNode<unit> = Mire.Widgets.Separator.horizontal 5 Style.Default
+              let surfH = Surface(Size.Create(8, 1))
+              Layout.measure (Rect.Create(0, 0, 8, 1)) h |> Layout.render surfH
+              Expect.equal ((rowText surfH 0).Substring(0, 5)) "─────" "5-cell horizontal rule"
+
+              let v: LayoutNode<unit> = Mire.Widgets.Separator.vertical 3 Style.Default
+              let surfV = Surface(Size.Create(1, 4))
+              Layout.measure (Rect.Create(0, 0, 1, 4)) v |> Layout.render surfV
+              Expect.equal [ for y in 0..2 -> surfV.[0, y].Grapheme ] [ "│"; "│"; "│" ] "3-cell vertical rule"
+          }
+          test "Badge renders a padded label carrying the toned style" {
+              let bg = Color.Rgb(0x4Cuy, 0xAFuy, 0x50uy)
+              let node: LayoutNode<unit> = Mire.Widgets.Badge.badge (Style.Default.WithBackground bg) "done"
+              let surf = Surface(Size.Create(10, 1))
+              Layout.measure (Rect.Create(0, 0, 10, 1)) node |> Layout.render surf
+              Expect.stringContains (rowText surf 0) "done" "label shown"
+              Expect.equal surf.[0, 0].Style.Background (Some bg) "the leading pad carries the toned bg"
+          }
+          test "KeyHint shows the key glyph and the label" {
+              let key = Style.Default.WithForeground Color.White
+              let lbl = Style.Default.WithForeground(Color.Rgb(0x88uy, 0x88uy, 0x88uy))
+              let node: LayoutNode<unit> = Mire.Widgets.KeyHint.hint key lbl "Ctrl+P" "palette"
+              let surf = Surface(Size.Create(20, 1))
+              Layout.measure (Rect.Create(0, 0, 20, 1)) node |> Layout.render surf
+              let r = rowText surf 0
+              Expect.stringContains r "Ctrl+P" "key glyph shown"
+              Expect.stringContains r "palette" "label shown"
           } ]
 
 // TextBuffer (pure edit ops) -------------------------------------------------
