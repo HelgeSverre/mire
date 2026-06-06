@@ -20,16 +20,16 @@ agent widgets are the (not-yet-created) `Mire.Agent` layer.
 
 ### Layout nodes — `Mire.Layout` (`LayoutNode<'msg>`)
 
-| Node      | Status | Notes                                                                                                                                                                   |
-| --------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Empty`   | ✅     | No-op.                                                                                                                                                                  |
-| `Text`    | ✅     | Multi-line via `\n`; grapheme-width aware; clipped to rect.                                                                                                             |
-| `Filled`  | ✅     | Opaque rectangle (style-filled). Backdrop / highlight / modal backing.                                                                                                  |
-| `Box`     | 🟡     | Border + children. Children all share the inner rect (multi-child overlaps — nest a `Stack`).                                                                           |
-| `Dock`    | ✅     | `Cells`/`Fraction`/`Content`/`Fill` on `Top`/`Bottom`/`Left`/`Right`/`Fill`.                                                                                            |
-| `Stack`   | ✅     | Vertical/horizontal flow; per-child `Cells`/`Fraction`/`Content`/`Fill`.                                                                                                |
-| `Scroll`  | 🟡     | Offset + viewport clipping via off-screen blit. No scrollbar / follow-tail / virtualization yet (→ `ScrollView` widget).                                                |
-| `Overlay` | 🟡     | Z-orders (list order) and `Filled` occludes; the sibling `Positioned` node now sizes + places a layer (9-point) within the area. Cursor/region anchoring still pending. |
+| Node      | Status | Notes                                                                                                                                                                                                                                                                      |
+| --------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Empty`   | ✅     | No-op.                                                                                                                                                                                                                                                                     |
+| `Text`    | ✅     | Multi-line via `\n`; grapheme-width aware; clipped to rect.                                                                                                                                                                                                                |
+| `Filled`  | ✅     | Opaque rectangle (style-filled). Backdrop / highlight / modal backing.                                                                                                                                                                                                     |
+| `Box`     | 🟡     | Border + children. Children all share the inner rect (multi-child overlaps — nest a `Stack`).                                                                                                                                                                              |
+| `Dock`    | ✅     | `Cells`/`Fraction`/`Content`/`Fill` on `Top`/`Bottom`/`Left`/`Right`/`Fill`.                                                                                                                                                                                               |
+| `Stack`   | ✅     | Vertical/horizontal flow; per-child `Cells`/`Fraction`/`Content`/`Fill`.                                                                                                                                                                                                   |
+| `Scroll`  | 🟡     | Offset + viewport clipping via off-screen blit. No scrollbar / follow-tail / virtualization yet (→ `ScrollView` widget).                                                                                                                                                   |
+| `Overlay` | 🟡     | Z-orders (list order) and `Filled` occludes; `Positioned` sizes + places a layer (9-point) within the area, and `Widgets.Overlay.atPoint` clamps a popup at a caller-supplied point (cursor anchoring). Node-level region anchoring (retained rects) still pending → v0.5. |
 
 ### Base widgets — `Mire.Widgets`
 
@@ -56,7 +56,7 @@ agent widgets are the (not-yet-created) `Mire.Agent` layer.
 | `Modal`                           | 🟡     | Layout half shipped: `Widgets.Modal.modal` (centered box + opaque backdrop + title + body slot, on `Positioned`). Focus-trapping + actions pending the focus manager.                                                            |
 | `Toast`                           | 🟡     | `Toast.stack` (Positioned column of cards) + `Toast.card`; auto-dismiss is app-side via a `Sub` timer. Used by `Mire.AgentDemo`.                                                                                                 |
 | `CommandPalette`                  | 🟡     | `CommandPalette.view` (centered `Modal` + query line + filtered `ListView`) + pure `matches`/`filter` fuzzy core. App pairs open/close with `Focus.pushTrap`/`popTrap`. Not yet dogfooded into `Mire.AgentDemo`'s palette.       |
-| `Completion`                      | ⬜     | Cursor/anchor-positioned completion list. Can reuse `CommandPalette.matches`/`filter`; needs `Positioned` point-anchoring (deferred there).                                                                                      |
+| `Completion`                      | 🟡     | `Completion.view` — a cursor-anchored bordered list on `Overlay.atPoint`; app filters with `CommandPalette.matches`/`filter`. No above/below flip yet (clamps on-screen).                                                        |
 | `SplitView`                       | ⬜     | Resizable split (today: hand-build with `Dock`/`Stack` fractions).                                                                                                                                                               |
 | `Tooltip`                         | ⬜     | Anchored hover/inline doc.                                                                                                                                                                                                       |
 | `Markdown`                        | ⬜     | Parse + wrap + style; cached by content+width.                                                                                                                                                                                   |
@@ -113,7 +113,7 @@ The whole pipeline runs end-to-end: `model → view → layout → surface → d
 - [ ] `List` — `ListView` ships (single-select + full-width highlight + auto-scroll-to-selection); still no multi-select, virtualization, or built-in key handling
 - [x] `Table` — `Widgets.Table.view`: sticky header, `Length`-width columns, per-row cell renderers (`Column.Render : 'row -> LayoutNode`, plus a `textColumn` convenience), caller-windowed rows (`topRow`/`height`) + a selection highlight. _Not yet:_ true lazy virtualization, column resize, multi-select
 - [x] `CommandPalette` — `Widgets.CommandPalette`: pure `matches`/`filter` (case-insensitive subsequence fuzzy) + a `view` (centered `Modal` with a `❯ query` line over a filtered, selectable `ListView`). The app holds the query + selection and pairs open/close with `Focus.pushTrap`/`popTrap`. _Follow-up:_ migrate `Mire.AgentDemo`'s hand-rolled palette onto it
-- [ ] `Completion` — cursor/anchor-anchored list — can reuse `CommandPalette.matches`/`filter`; blocked on `Positioned` point-anchoring (deferred under Overlay positioning)
+- [x] `Completion` — `Widgets.Completion.view`: a cursor-anchored bordered, selectable list placed just below the caret via the new `Overlay.atPoint` (clamps on-screen); the app filters candidates with `CommandPalette.matches`/`filter`. _Not yet:_ flip-above-when-low-on-space
 
 ### v0.4 — Agent widgets ⬜ (`Mire.Agent`)
 

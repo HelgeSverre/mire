@@ -653,6 +653,39 @@ let widgetTests =
               let whole = String.concat "\n" [ for y in 0 .. 11 -> rowText surf y ]
               Expect.stringContains whole "op" "the ❯ query line is rendered"
               Expect.stringContains whole "Open File" "a filtered item is rendered"
+          }
+          test "Overlay.atPoint places a child at the point, clamped on-screen" {
+              let bg = Color.Rgb(0x30uy, 0x30uy, 0x30uy)
+              let fill: LayoutNode<unit> = LayoutNode.Filled(Rect.Create(0, 0, 0, 0), Style.Default.WithBackground bg)
+
+              // 4×2 child at (5,3) in a 20×10 area → occupies (5..8, 3..4)
+              let node: LayoutNode<unit> = Mire.Widgets.Overlay.atPoint 5 3 4 2 20 10 fill
+              let surf = Surface(Size.Create(20, 10))
+              Layout.measure (Rect.Create(0, 0, 20, 10)) node |> Layout.render surf
+              Expect.equal surf.[5, 3].Style.Background (Some bg) "top-left of the child at the anchor point"
+              Expect.equal surf.[8, 4].Style.Background (Some bg) "bottom-right of the 4×2 child"
+              Expect.isTrue surf.[4, 3].Style.Background.IsNone "nothing left of the anchor"
+              Expect.isTrue surf.[5, 2].Style.Background.IsNone "nothing above the anchor"
+
+              // anchored at the far corner → clamped so the whole child stays on-screen
+              let clamped: LayoutNode<unit> = Mire.Widgets.Overlay.atPoint 19 9 4 2 20 10 fill
+              let surf2 = Surface(Size.Create(20, 10))
+              Layout.measure (Rect.Create(0, 0, 20, 10)) clamped |> Layout.render surf2
+              Expect.equal surf2.[16, 8].Style.Background (Some bg) "clamped to (16,8) so the 4×2 child fits"
+              Expect.equal surf2.[19, 9].Style.Background (Some bg) "child reaches the bottom-right corner"
+          }
+          test "Completion popup renders its items below the anchor" {
+              let dim = Style.Default.WithForeground(Color.Rgb(0x88uy, 0x88uy, 0x88uy))
+              let sel = Style.Default.WithBackground(Color.Rgb(0x4Cuy, 0xAFuy, 0x50uy))
+
+              let node: LayoutNode<unit> =
+                  Mire.Widgets.Completion.view 40 12 2 2 14 5 dim sel dim 0 [ "foo()"; "format" ]
+
+              let surf = Surface(Size.Create(40, 12))
+              Layout.measure (Rect.Create(0, 0, 40, 12)) node |> Layout.render surf
+              let whole = String.concat "\n" [ for y in 0 .. 11 -> rowText surf y ]
+              Expect.stringContains whole "foo()" "a candidate is rendered"
+              Expect.stringContains whole "format" "the other candidate is rendered"
           } ]
 
 // TextBuffer (pure edit ops) -------------------------------------------------

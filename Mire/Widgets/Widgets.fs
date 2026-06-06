@@ -190,6 +190,20 @@ module Overlay =
     let centered (width: int) (height: int) (child: LayoutNode<'msg>) : LayoutNode<'msg> =
         positioned Center (Cells width) (Cells height) child
 
+    /// Place a `width`×`height` child at (`x`, `y`) within an `areaW`×`areaH`
+    /// region, clamped so it stays fully on-screen. For cursor/anchor popups
+    /// (completion, tooltip) where the app supplies the point and the screen size.
+    let atPoint (x: int) (y: int) (width: int) (height: int) (areaW: int) (areaH: int) (child: LayoutNode<'msg>) : LayoutNode<'msg> =
+        let px = max 0 (min x (max 0 (areaW - width)))
+        let py = max 0 (min y (max 0 (areaH - height)))
+
+        Dock.dock
+            [ Dock.top py Spacer.spacer
+              Dock.bottom (max 0 (areaH - py - height)) Spacer.spacer
+              Dock.left px Spacer.spacer
+              Dock.right (max 0 (areaW - px - width)) Spacer.spacer
+              Dock.fill child ]
+
 /// A centered modal: an opaque backdrop behind a bordered `width`×`height` box
 /// with a title row above a `body` slot — the *layout half* of the modal pattern.
 /// For the keyboard focus-trap, pair the open/close with `Focus.pushTrap`/`popTrap`
@@ -455,3 +469,28 @@ module CommandPalette =
                   Stack.sized Length.Fill (ListView.view listH selStyle rowStyle selected items) ]
 
         Modal.modal backdropStyle borderStyle accentStyle width height title body
+
+/// A cursor-anchored completion popup — a small bordered, selectable list placed
+/// just below an anchor point (clamped on-screen via `Overlay.atPoint`). The app
+/// filters the candidates (e.g. with `CommandPalette.filter`), tracks the
+/// selection, and supplies the anchor + screen size.
+module Completion =
+    /// `items` in a `width`-wide bordered list anchored just below (`anchorX`,
+    /// `anchorY`) within an `areaW`×`areaH` screen, at most `maxRows` tall.
+    let view
+        (areaW: int)
+        (areaH: int)
+        (anchorX: int)
+        (anchorY: int)
+        (width: int)
+        (maxRows: int)
+        (borderStyle: Style)
+        (selStyle: Style)
+        (rowStyle: Style)
+        (selected: int)
+        (items: string list)
+        : LayoutNode<'msg> =
+        let rows = max 1 (min (List.length items) (max 1 maxRows))
+        let box = Box.box borderStyle [ ListView.view rows selStyle rowStyle selected items ]
+        // anchor just below the point; atPoint clamps it back on-screen near edges
+        Overlay.atPoint anchorX (anchorY + 1) width (rows + 2) areaW areaH box
