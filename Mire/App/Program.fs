@@ -41,12 +41,18 @@ type Sub<'msg> =
     | Every of TimeSpan * (unit -> 'msg)
 
 type Program<'model, 'msg> =
-    { Init: unit -> 'model * Cmd<'msg>
-      Update: 'msg -> 'model -> 'model * Cmd<'msg>
-      View: 'model -> LayoutNode<'msg>
-      MapInput: InputEvent -> 'msg option
-      Subscriptions: 'model -> Sub<'msg> list
-      OnError: exn -> unit }
+    {
+        Init: unit -> 'model * Cmd<'msg>
+        Update: 'msg -> 'model -> 'model * Cmd<'msg>
+        View: 'model -> LayoutNode<'msg>
+        MapInput: InputEvent -> 'msg option
+        Subscriptions: 'model -> Sub<'msg> list
+        OnError: exn -> unit
+        /// Decides which input events end the loop. Runs *before* `MapInput`, so a
+        /// matched event is consumed as "quit" and never reaches the app. Default:
+        /// Ctrl+C. The quit *binding* is app-owned, not baked into the runtime.
+        QuitOn: InputEvent -> bool
+    }
 
 module Program =
     let mkProgram
@@ -59,7 +65,12 @@ module Program =
           View = view
           MapInput = fun _ -> None
           Subscriptions = fun _ -> []
-          OnError = fun ex -> eprintfn "Mire runtime error: %O" ex }
+          OnError = fun ex -> eprintfn "Mire runtime error: %O" ex
+          QuitOn =
+            fun e ->
+                match e with
+                | Key ke -> ke.Key = Key.Char "c" && ke.Modifiers.Ctrl
+                | _ -> false }
 
     let withMapInput (f: InputEvent -> 'msg option) (program: Program<'model, 'msg>) = { program with MapInput = f }
 
@@ -67,6 +78,12 @@ module Program =
         { program with Subscriptions = subs }
 
     let withOnError (handler: exn -> unit) (program: Program<'model, 'msg>) = { program with OnError = handler }
+
+    /// Replace the quit policy — the predicate deciding which input ends the loop
+    /// (default: Ctrl+C). It runs *before* `MapInput`, so a matched event is
+    /// consumed as quit and never reaches the app. Set `fun _ -> false` to make
+    /// Ctrl+C a normal key and exit only via `Cmd.quit`.
+    let withQuitOn (f: InputEvent -> bool) (program: Program<'model, 'msg>) = { program with QuitOn = f }
 
 type RuntimeState<'model, 'msg> =
     { Model: 'model
@@ -156,10 +173,10 @@ module Runtime =
                     // Process input
                     match InputParser.readEvent () with
                     | Some inputEvent ->
-                        match inputEvent with
-                        | Key keyEvent when keyEvent.Key = Key.Char "c" && keyEvent.Modifiers.Ctrl ->
+                        // the quit policy (default Ctrl+C) is consulted before MapInput
+                        if program.QuitOn inputEvent then
                             state <- { state with Running = false }
-                        | _ ->
+                        else
                             match program.MapInput inputEvent with
                             | Some msg -> sendMsg msg
                             | None -> ()

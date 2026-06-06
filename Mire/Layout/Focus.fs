@@ -28,7 +28,9 @@ module Focus =
 
     /// A base ring over `ids` in tab order, focused on the first id (none if empty).
     let ofOrder (ids: RegionId list) : Focus =
-        { Base = { Order = ids; Current = List.tryHead ids }
+        { Base =
+            { Order = ids
+              Current = List.tryHead ids }
           Traps = [] }
 
     /// The ring navigation/queries act on: the innermost trap if any, else the base.
@@ -71,12 +73,14 @@ module Focus =
                 | None -> 0
 
             let j = ((i + delta) % n + n) % n
-            { r with Current = Some(List.item j ids) }
 
-    /// Tab — advance focus within the active ring, wrapping at the end.
+            { r with
+                Current = Some(List.item j ids) }
+
+    /// Advance focus within the active ring, wrapping at the end (conventionally Tab).
     let next: Focus -> Focus = mapActive (step 1)
 
-    /// Shift+Tab — retreat focus within the active ring, wrapping at the start.
+    /// Retreat focus within the active ring, wrapping at the start (conventionally Shift+Tab).
     let prev: Focus -> Focus = mapActive (step -1)
 
     /// Open a modal trap: push a fresh active ring over `ids` (focused on the

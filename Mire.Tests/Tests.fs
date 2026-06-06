@@ -1221,6 +1221,26 @@ let cmdQuitTests =
                       2
                   })
                   "sibling ofMsg commands in the batch still fire"
+          }
+          test "QuitOn is a default-but-overridable policy (Ctrl+C by default)" {
+              let prog =
+                  Program.mkProgram (fun () -> 0, Cmd.none) (fun (_: int) (m: int) -> m, Cmd.none) (fun _ ->
+                      LayoutNode.Empty)
+
+              let key (c: string) (ctrl: bool) : InputEvent =
+                  Key
+                      { Key = Char c
+                        Text = Some c
+                        Modifiers = { KeyModifiers.None with Ctrl = ctrl }
+                        Repeat = false
+                        EventType = Press }
+
+              Expect.isTrue (prog.QuitOn(key "c" true)) "default: Ctrl+C quits"
+              Expect.isFalse (prog.QuitOn(key "x" true)) "default: Ctrl+X does not"
+              Expect.isFalse (prog.QuitOn(key "c" false)) "default: a plain 'c' does not"
+
+              let prog2 = prog |> Program.withQuitOn (fun _ -> false)
+              Expect.isFalse (prog2.QuitOn(key "c" true)) "withQuitOn (fun _ -> false) disables the Ctrl+C quit"
           } ]
 
 // Focus (keyboard focus ring + modal trap) ----------------------------------
