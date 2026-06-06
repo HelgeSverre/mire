@@ -1083,6 +1083,96 @@ let tooltipTests =
               Expect.isFalse ((rowText surf 5).Contains "x") "nothing rendered below the anchor"
           } ]
 
+// Spinner / ProgressBar / Tabs / Toggle ------------------------------------
+
+let private render1 (w: int) (h: int) (n: LayoutNode<unit>) (y: int) : string =
+    let s = Surface(Size.Create(w, h))
+    Layout.measure (Rect.Create(0, 0, w, h)) n |> Layout.render s
+    rowText s y
+
+let spinnerTests =
+    testList
+        "Spinner"
+        [ test "frameOf wraps and handles negative ticks" {
+              Expect.equal (Mire.Widgets.Spinner.frameOf Mire.Widgets.Spinner.braille 0) "⠋" "tick 0"
+              Expect.equal (Mire.Widgets.Spinner.frameOf Mire.Widgets.Spinner.braille 10) "⠋" "tick 10 wraps to frame 0"
+              Expect.equal (Mire.Widgets.Spinner.frameOf Mire.Widgets.Spinner.braille -1) "⠏" "tick -1 → last frame"
+          }
+          test "frameOf on an empty frame set is empty" {
+              Expect.equal (Mire.Widgets.Spinner.frameOf [||] 3) "" "no frames → empty string"
+          } ]
+
+let progressBarTests =
+    testList
+        "ProgressBar"
+        [ test "half fill = half blocks, half track" {
+              let node: LayoutNode<unit> =
+                  Mire.Widgets.ProgressBar.view 10 Style.Default Style.Default 0.5
+
+              Expect.equal (render1 10 1 node 0) "█████░░░░░" "5 filled + 5 track at 50%"
+          }
+          test "fraction clamps above 1.0" {
+              let node: LayoutNode<unit> =
+                  Mire.Widgets.ProgressBar.view 4 Style.Default Style.Default 2.0
+
+              Expect.equal (render1 4 1 node 0) "████" "over-full clamps to all filled"
+          }
+          test "zero fraction is all track" {
+              let node: LayoutNode<unit> =
+                  Mire.Widgets.ProgressBar.view 4 Style.Default Style.Default 0.0
+
+              Expect.equal (render1 4 1 node 0) "░░░░" "empty bar is all track"
+          } ]
+
+let tabsTests =
+    testList
+        "Tabs"
+        [ test "active tab carries activeStyle, others don't" {
+              let actBg = Color.Rgb(0x20uy, 0x80uy, 0x40uy)
+              let act = Style.Default.WithBackground actBg
+
+              let node: LayoutNode<unit> =
+                  Mire.Widgets.Tabs.strip act Style.Default 1 [ "a"; "b" ]
+
+              let surf = Surface(Size.Create(8, 1))
+              Layout.measure (Rect.Create(0, 0, 8, 1)) node |> Layout.render surf
+              // " a " at x0..2 (inactive), " b " at x3..5 (active) → 'b' is x4
+              Expect.equal surf.[4, 0].Grapheme "b" "second tab label cell"
+              Expect.equal surf.[4, 0].Style.Background (Some actBg) "selected tab carries activeStyle"
+              Expect.isTrue surf.[1, 0].Style.Background.IsNone "unselected tab has no active bg"
+          } ]
+
+let toggleTests =
+    testList
+        "Toggle"
+        [ test "checkbox reflects state" {
+              Expect.stringContains
+                  (render1 8 1 (Mire.Widgets.Toggle.checkbox Style.Default true "ok") 0)
+                  "[x] ok"
+                  "checked"
+
+              Expect.stringContains
+                  (render1 8 1 (Mire.Widgets.Toggle.checkbox Style.Default false "ok") 0)
+                  "[ ] ok"
+                  "unchecked"
+          }
+          test "radio + switch glyphs" {
+              Expect.stringContains
+                  (render1 8 1 (Mire.Widgets.Toggle.radio Style.Default true "x") 0)
+                  "(•) x"
+                  "radio selected"
+
+              Expect.stringContains
+                  (render1 8 1 (Mire.Widgets.Toggle.switch Style.Default Style.Default true) 0)
+                  "ON"
+                  "switch on"
+
+              Expect.stringContains
+                  (render1 8 1 (Mire.Widgets.Toggle.switch Style.Default Style.Default false) 0)
+                  "OFF"
+                  "switch off"
+          } ]
+
 // Feed helpers (Mire.Demo.Feed) --------------------------------------------
 
 let feedTests =
@@ -1407,6 +1497,10 @@ let all =
           textAreaTests
           splitViewTests
           tooltipTests
+          spinnerTests
+          progressBarTests
+          tabsTests
+          toggleTests
           feedTests
           minesweeperTests
           cmdQuitTests ]

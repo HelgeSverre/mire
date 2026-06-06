@@ -702,3 +702,85 @@ module Tooltip =
         let below = anchorY + 1
         let y = if below + h <= areaH then below else max 0 (anchorY - h)
         Overlay.atPoint anchorX y width h areaW areaH box
+
+/// An animated spinner. The app owns the `tick` (e.g. a `Sub.Every` counter); this
+/// just maps it to a frame glyph. Braille is the conventional default; pass your own
+/// `frames` (dots, bars, …) to `frameOf`.
+module Spinner =
+    /// The conventional 10-step braille spinner.
+    let braille = [| "⠋"; "⠙"; "⠹"; "⠸"; "⠼"; "⠴"; "⠦"; "⠧"; "⠇"; "⠏" |]
+
+    /// The frame glyph at `tick`, wrapping — safe for negative ticks / empty sets.
+    let frameOf (frames: string[]) (tick: int) : string =
+        if frames.Length = 0 then
+            ""
+        else
+            frames.[((tick % frames.Length) + frames.Length) % frames.Length]
+
+    /// A styled braille spinner glyph at `tick`.
+    let view (style: Style) (tick: int) : LayoutNode<'msg> = Text.text (frameOf braille tick) style
+
+    /// A spinner glyph + a trailing label (e.g. `⠋ building…`).
+    let labeled (spinStyle: Style) (labelStyle: Style) (tick: int) (label: string) : LayoutNode<'msg> =
+        Stack.hstackOf
+            [ Stack.sized (Length.Cells 1) (Text.text (frameOf braille tick) spinStyle)
+              Stack.sized Length.Content (Text.text (" " + label) labelStyle) ]
+
+/// A determinate progress bar / gauge. The app owns the `fraction` (0..1); cells
+/// fill left-to-right.
+module ProgressBar =
+    /// A `width`-cell bar for `fraction` (clamped 0..1): filled cells (`█`) in
+    /// `fillStyle` over a `░` track in `trackStyle`.
+    let view (width: int) (fillStyle: Style) (trackStyle: Style) (fraction: float) : LayoutNode<'msg> =
+        let w = max 0 width
+        let f = max 0.0 (min 1.0 fraction)
+        let filled = max 0 (min w (int (System.Math.Round(f * float w))))
+
+        Stack.hstackOf
+            [ Stack.sized (Length.Cells filled) (Text.text (String.replicate filled "█") fillStyle)
+              Stack.sized (Length.Cells(w - filled)) (Text.text (String.replicate (w - filled) "░") trackStyle) ]
+
+    /// The gauge form — `view` with the percentage centered over the bar.
+    /// `labelStyle` should carry a background so it stays legible over the fill.
+    let gauge
+        (width: int)
+        (fillStyle: Style)
+        (trackStyle: Style)
+        (labelStyle: Style)
+        (fraction: float)
+        : LayoutNode<'msg> =
+        let f = max 0.0 (min 1.0 fraction)
+        let pct = sprintf "%d%%" (int (System.Math.Round(f * 100.0)))
+
+        LayoutNode.Overlay(
+            Rect.Create(0, 0, 0, 0),
+            [ view width fillStyle trackStyle f
+              Overlay.positioned Center (Length.Cells pct.Length) (Length.Cells 1) (Text.text pct labelStyle) ]
+        )
+
+/// A horizontal tab strip. The app owns the `selected` index and renders the body;
+/// the active tab uses `activeStyle`, the rest `inactiveStyle`.
+module Tabs =
+    let strip (activeStyle: Style) (inactiveStyle: Style) (selected: int) (labels: string list) : LayoutNode<'msg> =
+        Stack.hstackOf
+            [ for i, label in List.indexed labels ->
+                  Stack.sized
+                      Length.Content
+                      (Text.text (sprintf " %s " label) (if i = selected then activeStyle else inactiveStyle)) ]
+
+/// Selection-control glyphs — pure render, the app owns the boolean/selection.
+module Toggle =
+    /// `[x] label` / `[ ] label`.
+    let checkbox (style: Style) (isChecked: bool) (label: string) : LayoutNode<'msg> =
+        Text.text (sprintf "%s %s" (if isChecked then "[x]" else "[ ]") label) style
+
+    /// `(•) label` / `( ) label`.
+    let radio (style: Style) (selected: bool) (label: string) : LayoutNode<'msg> =
+        Text.text (sprintf "%s %s" (if selected then "(•)" else "( )") label) style
+
+    /// An on/off pill — ` ON ` in `onStyle` / ` OFF ` in `offStyle` (bg-bearing styles).
+    let switch (onStyle: Style) (offStyle: Style) (isOn: bool) : LayoutNode<'msg> =
+        if isOn then
+            Text.text " ON " onStyle
+        else
+            Text.text " OFF " offStyle
