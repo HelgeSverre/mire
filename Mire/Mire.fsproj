@@ -15,15 +15,28 @@
     <PackageTags>fsharp;tui;terminal;elmish;tea;ansi;console;ghostty;kitty</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>icon.png</PackageIcon>
+    <PackageReleaseNotes>Changelog: https://github.com/HelgeSverre/mire/blob/main/CHANGELOG.md</PackageReleaseNotes>
     <PackageProjectUrl>https://github.com/HelgeSverre/mire</PackageProjectUrl>
     <RepositoryUrl>https://github.com/HelgeSverre/mire.git</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
+  </PropertyGroup>
+
+  <!-- Debuggability: Source Link (bundled in the .NET SDK) + a snupkg symbol
+       package + deterministic builds in CI. ContinuousIntegrationBuild is only
+       on under GitHub Actions so local builds keep absolute source paths. -->
+  <PropertyGroup>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Ship the repo README on the NuGet listing page. -->
+    <!-- Files surfaced on the NuGet listing page. -->
     <None Include="../README.md" Pack="true" PackagePath="\" />
+    <None Include="../brand/icon.png" Pack="true" PackagePath="\" />
   </ItemGroup>
 
   <!--
@@ -47,6 +60,7 @@
     <Compile Include="Core/Grapheme.fs" />
     <Compile Include="Core/TextBuffer.fs" />
     <Compile Include="Core/Input.fs" />
+    <Compile Include="Core/TextEdit.fs" />
 
     <!-- Protocol — ANSI strings, raw terminal mode, input decoding -->
     <Compile Include="Protocol/ANSI.fs" />

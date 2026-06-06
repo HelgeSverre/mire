@@ -789,6 +789,81 @@ let textBufferTests =
           test "deleteWordBack removes the previous word" {
               let b = { Text = "foo bar"; Cursor = 7 } |> TextBuffer.deleteWordBack
               Expect.equal (b.Text, b.Cursor) ("foo ", 4) "removed 'bar'"
+
+              let nl = { Text = "a\nbc"; Cursor = 4 } |> TextBuffer.deleteWordBack
+              Expect.equal (nl.Text, nl.Cursor) ("a\n", 2) "stops at the newline boundary"
+          }
+          test "wordLeft / wordRight jump by word, clamping at the ends" {
+              Expect.equal ({ Text = "foo bar"; Cursor = 7 } |> TextBuffer.wordLeft).Cursor 4 "wordLeft → start of 'bar'"
+              Expect.equal ({ Text = "foo bar"; Cursor = 0 } |> TextBuffer.wordLeft).Cursor 0 "wordLeft no-op at start"
+              Expect.equal ({ Text = "foo bar"; Cursor = 0 } |> TextBuffer.wordRight).Cursor 3 "wordRight → end of 'foo'"
+              Expect.equal ({ Text = "foo bar"; Cursor = 7 } |> TextBuffer.wordRight).Cursor 7 "wordRight no-op at end"
+          }
+          test "deleteWordForward removes the next word" {
+              let b = { Text = "foo bar"; Cursor = 0 } |> TextBuffer.deleteWordForward
+              Expect.equal (b.Text, b.Cursor) (" bar", 0) "removed 'foo', cursor stays"
+          }
+          test "lineStart / lineEnd act within the current line" {
+              Expect.equal ({ Text = "ab\ncd"; Cursor = 4 } |> TextBuffer.lineStart).Cursor 3 "→ start of 2nd line"
+              Expect.equal ({ Text = "ab\ncd"; Cursor = 3 } |> TextBuffer.lineEnd).Cursor 5 "→ end of 2nd line"
+              Expect.equal ({ Text = "ab\ncd"; Cursor = 1 } |> TextBuffer.lineEnd).Cursor 2 "1st line ends before its \\n"
+          }
+          test "up / down move by row, clamping the column (no sticky col)" {
+              let b = { Text = "abc\nde"; Cursor = 2 } // row 0, col 2
+              let d = TextBuffer.down b
+              Expect.equal d.Cursor 6 "down onto a shorter line clamps the column to its end"
+              Expect.equal (TextBuffer.up d).Cursor 2 "up returns to col 2 on the longer line"
+              Expect.equal (TextBuffer.up b) b "up is a no-op on the first line"
+              Expect.equal (TextBuffer.down { Text = "x"; Cursor = 1 }) { Text = "x"; Cursor = 1 } "down is a no-op on the last line"
+          }
+          test "cursorRowCol maps the flat cursor to (row, col)" {
+              Expect.equal (TextBuffer.cursorRowCol TextBuffer.Empty) (0, 0) "empty → (0,0)"
+              Expect.equal (TextBuffer.cursorRowCol { Text = "a\nbb"; Cursor = 4 }) (1, 2) "end of 2nd line"
+              Expect.equal (TextBuffer.cursorRowCol { Text = "a\nbb"; Cursor = 1 }) (0, 1) "end of 1st line"
+          } ]
+
+// TextEdit (editing actions + configurable keymap) --------------------------
+
+let textEditTests =
+    let key k mods : KeyEvent =
+        { Key = k
+          Text = None
+          Modifiers = mods
+          Repeat = false
+          EventType = Press }
+
+    let ctrl = { KeyModifiers.None with Ctrl = true }
+
+    testList
+        "TextEdit"
+        [ test "apply runs the action against the buffer" {
+              Expect.equal (TextEdit.apply (InsertText "hi") TextBuffer.Empty).Text "hi" "InsertText inserts"
+              Expect.equal (TextEdit.apply Newline (TextBuffer.Of "a")).Text "a\n" "Newline inserts a line break"
+              Expect.equal (TextEdit.apply DeleteWordBack { Text = "foo bar"; Cursor = 7 }).Text "foo " "DeleteWordBack"
+          }
+          test "defaultKeymap follows conventions" {
+              Expect.equal (TextEdit.defaultKeymap (key (Char "a") KeyModifiers.None)) (Some(InsertText "a")) "plain char inserts"
+              Expect.equal (TextEdit.defaultKeymap (key Enter KeyModifiers.None)) (Some Newline) "Enter → Newline"
+              Expect.equal (TextEdit.defaultKeymap (key Backspace ctrl)) (Some DeleteWordBack) "Ctrl+Backspace → word delete"
+              Expect.equal (TextEdit.defaultKeymap (key ArrowLeft ctrl)) (Some WordLeft) "Ctrl+Left → word jump"
+              Expect.equal (TextEdit.defaultKeymap (key Home KeyModifiers.None)) (Some LineStart) "Home → line start"
+              Expect.equal (TextEdit.defaultKeymap (key Home ctrl)) (Some DocStart) "Ctrl+Home → doc start"
+              Expect.equal (TextEdit.defaultKeymap (key (Char "c") ctrl)) None "Ctrl+C is unmapped (app/quit owns it)"
+          }
+          test "applyInput inserts pasted text (multi-line)" {
+              Expect.equal (TextEdit.applyInput (Paste "x\ny") TextBuffer.Empty).Text "x\ny" "Paste → insert"
+          }
+          test "a custom keymap overrides only the keys it claims" {
+              // app convention: Shift+Enter = newline, plain Enter = submit (None); rest default
+              let km (ke: KeyEvent) =
+                  match ke.Key, ke.Modifiers.Shift with
+                  | Enter, true -> Some Newline
+                  | Enter, false -> None
+                  | _ -> TextEdit.defaultKeymap ke
+
+              Expect.equal (km (key Enter KeyModifiers.None)) None "plain Enter left to the app (submit)"
+              Expect.equal (km (key Enter { KeyModifiers.None with Shift = true })) (Some Newline) "Shift+Enter newlines"
+              Expect.equal (km (key (Char "z") KeyModifiers.None)) (Some(InsertText "z")) "unclaimed keys fall through to the default"
           } ]
 
 let inputViewTests =
@@ -1106,6 +1181,7 @@ let all =
           focusTests
           widgetTests
           textBufferTests
+          textEditTests
           inputViewTests
           feedTests
           minesweeperTests
