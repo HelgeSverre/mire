@@ -6,7 +6,7 @@ A small, composable F# runtime for building **modern terminal UIs** — coding a
 
 Mire is **opinionated about its target**. It assumes a modern, Kitty-compatible terminal (Ghostty first) and uses truecolor, the alternate screen, the Kitty keyboard protocol, bracketed paste, mouse tracking, OSC 8 hyperlinks, and synchronized output. There is intentionally no support for legacy consoles, 16-color fallbacks, or "works over every SSH/tmux setup ever."
 
-> **Status: v0.3 — a usable core widget layer.** The runtime, rendering pipeline, layout engine, a real widget library (virtualized lists & tables, a fuzzy command palette, cursor-anchored completion, single- and multi-line text editing, split views, tooltips, overlay positioning + modals, toasts, a scrollview, a keyboard focus manager, plus separators/badges/key-hints), full keyboard/mouse/paste/focus input decoding, and **five** demo apps exist and run. The agent-domain component library in [`SPEC.md`](https://github.com/HelgeSverre/mire/blob/main/SPEC.md) is still design — prototyped only at the app level in `Mire.Demo.Agent`. See [Current status](#current-status).
+> **Status: v0.3 — a usable core widget layer.** The runtime, rendering pipeline, layout engine, a real widget library (virtualized lists & tables, a fuzzy command palette, cursor-anchored completion, single- and multi-line text editing, split views, tooltips, progress bars, spinners, tabs, toggles, markdown, overlay positioning + modals, toasts, a scrollview, a keyboard focus manager, plus separators/badges/key-hints), full keyboard/mouse/paste/focus input decoding, and **six** demo apps exist and run. The agent-domain component library in [`SPEC.md`](https://github.com/HelgeSverre/mire/blob/main/SPEC.md) is still design — prototyped only at the app level in `Mire.Demo.Agent`. See [Current status](#current-status).
 
 ## Installation
 
@@ -58,12 +58,13 @@ dotnet run --project Mire.Demo.Agent        # an agent-shell testbed (not wired 
 dotnet run --project Mire.Demo.Feed         # a multi-feed RSS reader
 dotnet run --project Mire.Demo.Spreadsheet  # an A1 grid + formula engine
 dotnet run --project Mire.Demo.Minesweeper  # keyboard Minesweeper
+dotnet run --project Mire.Demo.KitchenSink # every widget — a cyclable showcase
 
 # Verify layout headlessly — prints sample layouts as text, no raw mode
 dotnet run --project Mire.Demo.List -- --dump
 dotnet run --project Mire.Demo.Feed -- --dump
 
-# Run the test suite (Expecto) — 115 tests
+# Run the test suite (Expecto) — 148 tests
 dotnet run --project Mire.Tests
 ```
 
@@ -72,6 +73,7 @@ dotnet run --project Mire.Tests
 - **Mire.Demo.Feed** (RSS reader): a managed feed list merged into one newest-first stream, two panes + a per-feed filter, async loading. The first app migrated to the framework's `Focus` manager.
 - **Mire.Demo.Spreadsheet** (spreadsheet): a 26×100 A1 grid with in-cell editing (`TextBuffer` + `Input`), formula references, and a small engine (`=B2*C2`, `=SUM(A1:A3)`, …).
 - **Mire.Demo.Minesweeper** (Minesweeper): arrows/WASD move, Space reveal, F flag, C chord.
+- **Mire.Demo.KitchenSink** (widget showcase): a sidebar gallery of all 20 widgets in many configs; ↑/↓ select, Tab into a pane to drive it. Also `-- --dump`.
 
 ## The model
 
@@ -96,7 +98,7 @@ The difference from web UI: there is no browser. Mire _is_ the browser — it ow
 
 ## Architecture
 
-Seven projects (`Mire.slnx`): the framework, five demo exes, and the test project.
+Eight projects (`Mire.slnx`): the framework, six demo exes, and the test project.
 
 | Project                   | Depends on | What it holds                                                                              |
 | ------------------------- | ---------- | ------------------------------------------------------------------------------------------ |
@@ -106,7 +108,8 @@ Seven projects (`Mire.slnx`): the framework, five demo exes, and the test projec
 | **Mire.Demo.Feed**        | Mire       | Multi-feed RSS reader (`Exe`); first adopter of the `Focus` manager.                       |
 | **Mire.Demo.Spreadsheet** | Mire       | A1 grid + formula engine (`Exe`).                                                          |
 | **Mire.Demo.Minesweeper** | Mire       | Keyboard Minesweeper (`Exe`).                                                              |
-| **Mire.Tests**            | Mire       | [Expecto](https://github.com/haf/expecto) tests for the pure functions (115 tests).        |
+| **Mire.Demo.KitchenSink** | Mire       | Comprehensive widget showcase (`Exe`); the golden-frame source.                            |
+| **Mire.Tests**            | Mire       | [Expecto](https://github.com/haf/expecto) tests for the pure functions (148 tests).        |
 
 The framework is a single assembly organized by folder; the folder order is the layering, enforced by the `<Compile>` order in `Mire/Mire.fsproj`. Each folder is also its namespace, so you still `open Mire.Layout`, `open Mire.Widgets`, etc.
 
