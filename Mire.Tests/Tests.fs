@@ -1224,6 +1224,57 @@ let markdownTests =
               Expect.isTrue surfOff.[3, 0].Style.Background.IsNone "@ token plain when Mention = None"
           } ]
 
+// Golden frames — full cell-grid snapshots of widget compositions ----------
+
+/// Render a node onto a `w`×`h` surface and return the whole grid as text
+/// (rows joined by '\n', empty cells as spaces) — the full-grid snapshot.
+let private gridText (w: int) (h: int) (node: LayoutNode<unit>) : string =
+    let s = Surface(Size.Create(w, h))
+    Layout.measure (Rect.Create(0, 0, w, h)) node |> Layout.render s
+
+    [ for y in 0 .. h - 1 ->
+          String.concat
+              ""
+              [ for x in 0 .. w - 1 ->
+                    let g = s.[x, y].Grapheme
+                    if System.String.IsNullOrEmpty g then " " else g ] ]
+    |> String.concat "\n"
+
+let goldenFrameTests =
+    // A small dashboard composition exercising several widgets at once.
+    let dashboard: LayoutNode<unit> =
+        Mire.Widgets.Stack.vstack
+            [ Mire.Widgets.Tabs.strip Style.Default Style.Default 1 [ "a"; "b" ]
+              Mire.Widgets.ProgressBar.view 10 Style.Default Style.Default 0.4
+              Mire.Widgets.Toggle.checkbox Style.Default true "go" ]
+
+    let boxScene: LayoutNode<unit> =
+        Mire.Widgets.Box.box Style.Default [ Mire.Widgets.Text.text "hi" Style.Default ]
+
+    testList
+        "GoldenFrame"
+        [ test "box composition snapshot" {
+              let expected = String.concat "\n" [ "┌──────┐"; "│hi    │"; "└──────┘" ]
+              Expect.equal (gridText 8 3 boxScene) expected "box grid"
+          }
+          test "dashboard composition snapshot" {
+              let pad (s: string) =
+                  s + String.replicate (12 - String.length s) " "
+
+              let expected = String.concat "\n" [ pad " a  b "; pad "████░░░░░░"; pad "[x] go" ]
+              Expect.equal (gridText 12 3 dashboard) expected "dashboard grid (tabs / bar / checkbox)"
+          }
+          test "rendering is deterministic" {
+              Expect.equal (gridText 12 3 dashboard) (gridText 12 3 dashboard) "same node renders identically twice"
+          }
+          test "no row overflows or underflows the surface width" {
+              let s = Surface(Size.Create(12, 3))
+              Layout.measure (Rect.Create(0, 0, 12, 3)) dashboard |> Layout.render s
+
+              for y in 0..2 do
+                  Expect.equal (rowText s y).Length 12 (sprintf "row %d is exactly the surface width" y)
+          } ]
+
 // Feed helpers (Mire.Demo.Feed) --------------------------------------------
 
 let feedTests =
@@ -1553,6 +1604,7 @@ let all =
           tabsTests
           toggleTests
           markdownTests
+          goldenFrameTests
           feedTests
           minesweeperTests
           cmdQuitTests ]
