@@ -4,10 +4,10 @@ open Mire.Renderer
 open Mire.Layout
 open Mire.App
 open Mire.Widgets
-open Mire.FeedDemo
+open Mire.Demo.Feed
 
 // ---------------------------------------------------------------------------
-// Mire.FeedDemo — a terminal RSS reader.
+// Mire.Demo.Feed — a terminal RSS reader.
 //
 // Multi-feed: a managed list of feeds, merged into one newest-first stream, with
 // a per-feed filter. Two panes (article list + reader) view the merged set; a
@@ -758,7 +758,7 @@ let subscriptions (m: Model) : Sub<Msg> list =
 // ---------------------------------------------------------------------------
 // Headless verification: seed a couple of feeds and print rendered cell grids
 // for the base view + the feeds panel + the add modal + filter picker.
-// `dotnet run --project Mire.FeedDemo -- --dump`
+// `dotnet run --project Mire.Demo.Feed -- --dump`
 // ---------------------------------------------------------------------------
 
 let private printSurface (surface: Surface) =
@@ -829,7 +829,7 @@ let private runDump () =
             Size = size }
 
     printfn
-        "Mire.FeedDemo — %d feeds, %d merged articles"
+        "Mire.Demo.Feed — %d feeds, %d merged articles"
         (List.length model.Feeds)
         (List.length (mergedArticles model))
 

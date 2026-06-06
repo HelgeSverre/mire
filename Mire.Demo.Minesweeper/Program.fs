@@ -4,10 +4,10 @@ open Mire.Renderer
 open Mire.Layout
 open Mire.App
 open Mire.Widgets
-open Mire.MinesweeperDemo
+open Mire.Demo.Minesweeper
 
 // ---------------------------------------------------------------------------
-// Mire.MinesweeperDemo — a keyboard-driven Minesweeper, modelled on
+// Mire.Demo.Minesweeper — a keyboard-driven Minesweeper, modelled on
 // mia1024/terminal-minesweeper. Dogfoods the hand-rolled grid (no Table widget
 // yet), Backdrop.behind for the cell cursor, per-cell styling, and an
 // Every-driven timer subscription. All game rules live in Board.fs.
@@ -259,7 +259,7 @@ let private runDump () =
             Board = board
             Cursor = (2, 3) }
 
-    printfn "Mire.MinesweeperDemo — Beginner, centre revealed, (8,0) flagged, cursor at (2,3)\n"
+    printfn "Mire.Demo.Minesweeper — Beginner, centre revealed, (8,0) flagged, cursor at (2,3)\n"
     let surface = Surface(size)
     Layout.measure (Rect.FromOrigin size) (view model) |> Layout.render surface
     printSurface surface

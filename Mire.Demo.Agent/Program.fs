@@ -1,4 +1,4 @@
-// Mire.AgentDemo — an interactive agent-shell demo and feature testbed.
+// Mire.Demo.Agent — an interactive agent-shell demo and feature testbed.
 // Not wired to an LLM: the Dummy module supplies canned responses. This file is the
 // Elmish app (model/update/view), input routing, the headless --dump mode, and main.
 
@@ -9,8 +9,8 @@ open Mire.Renderer
 open Mire.Layout
 open Mire.App
 open Mire.Widgets
-open Mire.AgentDemo
-open Mire.AgentDemo.Dummy
+open Mire.Demo.Agent
+open Mire.Demo.Agent.Dummy
 
 // ── model ────────────────────────────────────────────────────────────────────
 type Mode =
@@ -219,8 +219,8 @@ let private mentionFiles =
     [ "Mire/Core/Input.fs"
       "Mire/Layout/Layout.fs"
       "Mire/Renderer/Surface.fs"
-      "Mire.AgentDemo/Program.fs"
-      "Mire.AgentDemo/Theme.fs"
+      "Mire.Demo.Agent/Program.fs"
+      "Mire.Demo.Agent/Theme.fs"
       "README.md"
       "ROADMAP.md"
       "SPEC.md"

@@ -1,4 +1,4 @@
-namespace Mire.SpreadsheetDemo
+namespace Mire.Demo.Spreadsheet
 
 open System
 open System.Text.RegularExpressions

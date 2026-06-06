@@ -1,4 +1,4 @@
-namespace Mire.AgentDemo
+namespace Mire.Demo.Agent
 
 /// Fake "skills" for the skill-explorer overlay. Each has a multi-paragraph markdown
 /// body so the preview pane actually scrolls (exercising a second, independent Scroll).

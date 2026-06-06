@@ -1,4 +1,4 @@
-namespace Mire.AgentDemo
+namespace Mire.Demo.Agent
 
 /// The "Dummy": maps a submitted prompt string to a canned response. No LLM. This is
 /// the single source of truth for the demo's command vocabulary — `commands` is reused
@@ -221,8 +221,8 @@ module Dummy =
                   FinalOut = "added 312 packages in 4s" }
         | "tools" ->
             AppendBlocks
-                [ ToolCall("read", "Mire.AgentDemo/Theme.fs", Succeeded, "", "")
-                  ToolCall("edit", "Mire.AgentDemo/Theme.fs", Succeeded, "+12 -3", "")
+                [ ToolCall("read", "Mire.Demo.Agent/Theme.fs", Succeeded, "", "")
+                  ToolCall("edit", "Mire.Demo.Agent/Theme.fs", Succeeded, "+12 -3", "")
                   ToolCall("shell", "dotnet build", Succeeded, "1.2s", "Build succeeded.") ]
         | "bash" -> AppendBlocks [ ToolCall("bash", "git status -s", Succeeded, "0.1s", " M Program.fs\n ?? Theme.fs") ]
         | "search" ->
@@ -240,7 +240,7 @@ module Dummy =
         | "tree" ->
             AppendBlocks
                 [ FileTree
-                      [ "└ Mire.AgentDemo/"
+                      [ "└ Mire.Demo.Agent/"
                         "  Theme.fs"
                         "  Markdown.fs"
                         "  Blocks.fs"

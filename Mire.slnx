@@ -1,9 +1,9 @@
 <Solution>
   <Project Path="Mire/Mire.fsproj" />
-  <Project Path="Mire.Demo/Mire.Demo.fsproj" />
-  <Project Path="Mire.AgentDemo/Mire.AgentDemo.fsproj" />
-  <Project Path="Mire.FeedDemo/Mire.FeedDemo.fsproj" />
-  <Project Path="Mire.SpreadsheetDemo/Mire.SpreadsheetDemo.fsproj" />
-  <Project Path="Mire.MinesweeperDemo/Mire.MinesweeperDemo.fsproj" />
+  <Project Path="Mire.Demo.List/Mire.Demo.List.fsproj" />
+  <Project Path="Mire.Demo.Agent/Mire.Demo.Agent.fsproj" />
+  <Project Path="Mire.Demo.Feed/Mire.Demo.Feed.fsproj" />
+  <Project Path="Mire.Demo.Spreadsheet/Mire.Demo.Spreadsheet.fsproj" />
+  <Project Path="Mire.Demo.Minesweeper/Mire.Demo.Minesweeper.fsproj" />
   <Project Path="Mire.Tests/Mire.Tests.fsproj" />
 </Solution>

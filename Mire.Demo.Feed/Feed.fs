@@ -1,4 +1,4 @@
-namespace Mire.FeedDemo
+namespace Mire.Demo.Feed
 
 open System
 open System.Net.Http
@@ -37,7 +37,7 @@ module Feed =
     let private http =
         let c = new HttpClient()
         c.Timeout <- TimeSpan.FromSeconds 15.0
-        c.DefaultRequestHeaders.UserAgent.ParseAdd("Mire.FeedDemo/0.1")
+        c.DefaultRequestHeaders.UserAgent.ParseAdd("Mire.Demo.Feed/0.1")
         c
 
     // content:encoded lives in this RSS module namespace.

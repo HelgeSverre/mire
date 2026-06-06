@@ -10,19 +10,23 @@ default:
 
 # Watch and run the scrollable-list demo.
 dev *ARGS:
-    dotnet watch --project Mire.Demo run -- {{ARGS}}
+    dotnet watch --project Mire.Demo.List run -- {{ARGS}}
 
 # Run the scrollable-list demo.
 run *ARGS:
-    dotnet run --project Mire.Demo -- {{ARGS}}
+    dotnet run --project Mire.Demo.List -- {{ARGS}}
 
 # Run the agent-shell demo / testbed.
 agent *ARGS:
-    dotnet run --project Mire.AgentDemo -- {{ARGS}}
+    dotnet run --project Mire.Demo.Agent -- {{ARGS}}
+
+# Run the kitchen-sink widget showcase.
+sink *ARGS:
+    dotnet run --project Mire.Demo.KitchenSink -- {{ARGS}}
 
 # Headless layout dump (no raw mode) — eyeball layout changes.
 dump:
-    dotnet run --project Mire.Demo -- --dump
+    dotnet run --project Mire.Demo.List -- --dump
 
 # Build the solution.
 build:

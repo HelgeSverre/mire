@@ -14,17 +14,17 @@ Guidance for working in this repository.
 
 ```sh
 dotnet build Mire.slnx                    # build all four projects (solution is .slnx, the modern XML format)
-dotnet run --project Mire.Demo            # the scrollable-list demo
-dotnet run --project Mire.AgentDemo       # the agent-shell demo (feature testbed; not wired to an LLM)
-dotnet run --project Mire.MinesweeperDemo # keyboard Minesweeper (arrows/WASD, Space reveal, F flag, C chord)
-dotnet run --project Mire.Demo -- --dump  # headless: print sample layouts as text (no raw mode) — use this to verify layout
+dotnet run --project Mire.Demo.List            # the scrollable-list demo
+dotnet run --project Mire.Demo.Agent       # the agent-shell demo (feature testbed; not wired to an LLM)
+dotnet run --project Mire.Demo.Minesweeper # keyboard Minesweeper (arrows/WASD, Space reveal, F flag, C chord)
+dotnet run --project Mire.Demo.List -- --dump  # headless: print sample layouts as text (no raw mode) — use this to verify layout
 dotnet run --project Mire.Tests           # run the Expecto test suite
 dotnet build Mire/Mire.fsproj             # build just the framework
 ```
 
 There **is** a test project now: **Mire.Tests** (Expecto). Run it with `dotnet run --project Mire.Tests` (or `dotnet test`). It covers the pure functions — `Layout.measure`, `Diff.compute`, `Grapheme` width, `InputParser`. When you change those, add/extend a test. There is no linter/formatter configured.
 
-The `--dump` mode (in both `Mire.Demo` and `Mire.AgentDemo`) complements the tests: it lays representative trees through `Layout.measure`/`Layout.render` (the exact path the runtime uses) onto a `Surface` and prints the cell grid as plain text, so layout changes can be eyeballed without taking over the terminal.
+The `--dump` mode (in both `Mire.Demo.List` and `Mire.Demo.Agent`) complements the tests: it lays representative trees through `Layout.measure`/`Layout.render` (the exact path the runtime uses) onto a `Surface` and prints the cell grid as plain text, so layout changes can be eyeballed without taking over the terminal.
 
 Verifying TUI changes is hard to automate: the demo takes over the terminal (alternate screen, raw mode). Prefer to verify correctness by building (`dotnet build`) and by reasoning about the pure functions (`Diff.compute`, `Layout.measure`, `Style.ToAnsi`, parsers). Don't claim runtime behavior works unless you've actually run it.
 
@@ -34,8 +34,8 @@ Four projects:
 
 ```
 Mire            the framework — one assembly, layered by folder
-Mire.Demo       Exe — scrollable-list demo            ─┐
-Mire.AgentDemo  Exe — agent-shell demo / testbed       ├─ all reference Mire
+Mire.Demo.List       Exe — scrollable-list demo            ─┐
+Mire.Demo.Agent  Exe — agent-shell demo / testbed       ├─ all reference Mire
 Mire.Tests      Expecto tests                          ─┘
 ```
 
@@ -75,4 +75,4 @@ it depends on. Widgets and App both sit on Layout and don't depend on each other
 
 - New layout nodes go in `Mire/Layout/Layout.fs` — add the case to the `LayoutNode<'msg>` DU and handle it in **both** `measure` and `render`. `Stack`/`Scroll`/`Dock` (with `Content`/`Fill`) and the `Filled` node are implemented; `Overlay` z-orders and occludes but doesn't yet position/anchor its layers (see `ROADMAP.md`).
 - New input decoding goes in `Mire/Protocol/InputParser.fs`. Keys, Ctrl chords, and Shift+Tab decode; mouse/paste/focus and the Kitty `CSI u` modifier form are _enabled_ by the runtime but **not yet decoded** — a known gap, not a bug to "rediscover."
-- The base widgets live in `Mire/Widgets/`. Agent-domain components (chat transcript, tool calls, diff view, …) are **prototyped at the app level in `Mire.AgentDemo`**, not yet extracted into a reusable layer. The spec puts the reusable versions in an optional layer above `App`; preserve that separation — the framework must not depend on agent concepts.
+- The base widgets live in `Mire/Widgets/`. Agent-domain components (chat transcript, tool calls, diff view, …) are **prototyped at the app level in `Mire.Demo.Agent`**, not yet extracted into a reusable layer. The spec puts the reusable versions in an optional layer above `App`; preserve that separation — the framework must not depend on agent concepts.

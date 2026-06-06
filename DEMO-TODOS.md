@@ -1,6 +1,6 @@
 # AgentDemo — demo TODOs
 
-What the `Mire.AgentDemo` demo can and can't do yet. The demo deliberately renders
+What the `Mire.Demo.Agent` demo can and can't do yet. The demo deliberately renders
 the _shape_ of agentic-TUI features even where the framework doesn't support them, so this
 file tracks which parts are real and which are faked/blocked. Each gap links to the
 [`ROADMAP.md`](ROADMAP.md) item that would make it real.

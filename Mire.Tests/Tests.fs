@@ -6,8 +6,8 @@ open Mire.Protocol
 open Mire.Renderer
 open Mire.Layout
 open Mire.App
-open Mire.FeedDemo
-open Mire.MinesweeperDemo
+open Mire.Demo.Feed
+open Mire.Demo.Minesweeper
 
 // Helpers ------------------------------------------------------------------
 
@@ -1083,7 +1083,7 @@ let tooltipTests =
               Expect.isFalse ((rowText surf 5).Contains "x") "nothing rendered below the anchor"
           } ]
 
-// Feed helpers (Mire.FeedDemo) --------------------------------------------
+// Feed helpers (Mire.Demo.Feed) --------------------------------------------
 
 let feedTests =
     testList

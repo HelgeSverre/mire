@@ -4,10 +4,10 @@ open Mire.Renderer
 open Mire.Layout
 open Mire.App
 open Mire.Widgets
-open Mire.SpreadsheetDemo
+open Mire.Demo.Spreadsheet
 
 // ---------------------------------------------------------------------------
-// Mire.SpreadsheetDemo — an A1 grid with a cell cursor, in-cell editing, and a
+// Mire.Demo.Spreadsheet — an A1 grid with a cell cursor, in-cell editing, and a
 // small formula engine (=B2*C2, =SUM(A1:A3), …). Dogfoods Backdrop.behind for
 // the full-cell cursor highlight and Mire.Core.TextBuffer + Widgets.Input for the
 // cell editor; hand-rolls the grid itself (no Table widget exists yet — that's
@@ -488,7 +488,7 @@ let private runDump () =
                     Size = size }
         )
 
-    printfn "Mire.SpreadsheetDemo — cursor on D6 = SUM(D2:D4)\n"
+    printfn "Mire.Demo.Spreadsheet — cursor on D6 = SUM(D2:D4)\n"
     let surface = Surface(size)
     Layout.measure (Rect.FromOrigin size) (view model) |> Layout.render surface
     printSurface surface
@@ -511,7 +511,7 @@ let private runDump () =
                 Cursor = Sheet.parseCellRef "H1" |> Option.get
                 Size = narrow }
 
-    printfn "\nMire.SpreadsheetDemo — cursor on H1 in a %d-col terminal (LeftCol=%d)\n" narrow.Width scrolled.LeftCol
+    printfn "\nMire.Demo.Spreadsheet — cursor on H1 in a %d-col terminal (LeftCol=%d)\n" narrow.Width scrolled.LeftCol
     let scrolledSurface = Surface(narrow)
 
     Layout.measure (Rect.FromOrigin narrow) (view scrolled)

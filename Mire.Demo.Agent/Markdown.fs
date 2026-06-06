@@ -1,4 +1,4 @@
-namespace Mire.AgentDemo
+namespace Mire.Demo.Agent
 
 open System.Text
 open Mire.Core

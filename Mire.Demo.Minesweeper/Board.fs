@@ -1,7 +1,7 @@
-namespace Mire.MinesweeperDemo
+namespace Mire.Demo.Minesweeper
 
 // ---------------------------------------------------------------------------
-// Mire.MinesweeperDemo — pure game domain. No I/O, no rendering: just the board
+// Mire.Demo.Minesweeper — pure game domain. No I/O, no rendering: just the board
 // model and the rules (mine placement, adjacency counts, flood-fill reveal,
 // flagging, chording, win/loss). All randomness is injected via System.Random
 // so the logic stays deterministic and unit-testable.
