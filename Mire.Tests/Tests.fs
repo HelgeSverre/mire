@@ -625,6 +625,34 @@ let widgetTests =
               Expect.stringContains (rowText surf 1) "beta" "first windowed row (topRow=1) below the header"
               Expect.stringContains (rowText surf 2) "gamma" "second windowed row"
               Expect.equal surf.[5, 2].Style.Background (Some selBg) "selected row (gamma) highlighted full-column-width"
+          }
+          test "CommandPalette.matches is a case-insensitive subsequence" {
+              Expect.isTrue (Mire.Widgets.CommandPalette.matches "tp" "ToolPanel") "t,p subsequence of ToolPanel"
+              Expect.isTrue (Mire.Widgets.CommandPalette.matches "" "anything") "empty query matches all"
+              Expect.isTrue (Mire.Widgets.CommandPalette.matches "TOOL" "tool call") "case-insensitive"
+              Expect.isFalse (Mire.Widgets.CommandPalette.matches "px" "ToolPanel") "no 'x' after 'p'"
+              Expect.isFalse (Mire.Widgets.CommandPalette.matches "pool" "Panel") "not a subsequence"
+          }
+          test "CommandPalette.filter keeps the fuzzy matches in order" {
+              let items = [ "Open File"; "Close File"; "Toggle Theme"; "Find" ]
+
+              Expect.equal
+                  (Mire.Widgets.CommandPalette.filter "fi" items)
+                  [ "Open File"; "Close File"; "Find" ]
+                  "items with f…i as a subsequence (Toggle Theme has no 'f')"
+          }
+          test "CommandPalette.view shows the query line and the items" {
+              let dim = Style.Default.WithForeground(Color.Rgb(0x88uy, 0x88uy, 0x88uy))
+              let sel = Style.Default.WithBackground(Color.Rgb(0x4Cuy, 0xAFuy, 0x50uy))
+
+              let node: LayoutNode<unit> =
+                  Mire.Widgets.CommandPalette.view 30 8 dim dim dim sel dim "Commands" "op" 0 [ "Open File"; "Open Folder" ]
+
+              let surf = Surface(Size.Create(40, 12))
+              Layout.measure (Rect.Create(0, 0, 40, 12)) node |> Layout.render surf
+              let whole = String.concat "\n" [ for y in 0 .. 11 -> rowText surf y ]
+              Expect.stringContains whole "op" "the ❯ query line is rendered"
+              Expect.stringContains whole "Open File" "a filtered item is rendered"
           } ]
 
 // TextBuffer (pure edit ops) -------------------------------------------------

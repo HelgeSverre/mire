@@ -55,8 +55,8 @@ agent widgets are the (not-yet-created) `Mire.Agent` layer.
 | `TextArea` (multi-line)           | ⬜     | Multiline editing, shift-enter newline.                                                                                                                                                                                          |
 | `Modal`                           | 🟡     | Layout half shipped: `Widgets.Modal.modal` (centered box + opaque backdrop + title + body slot, on `Positioned`). Focus-trapping + actions pending the focus manager.                                                            |
 | `Toast`                           | 🟡     | `Toast.stack` (Positioned column of cards) + `Toast.card`; auto-dismiss is app-side via a `Sub` timer. Used by `Mire.AgentDemo`.                                                                                                 |
-| `CommandPalette`                  | ⬜     | Global fuzzy command surface.                                                                                                                                                                                                    |
-| `Completion`                      | ⬜     | Cursor/anchor-positioned completion list.                                                                                                                                                                                        |
+| `CommandPalette`                  | 🟡     | `CommandPalette.view` (centered `Modal` + query line + filtered `ListView`) + pure `matches`/`filter` fuzzy core. App pairs open/close with `Focus.pushTrap`/`popTrap`. Not yet dogfooded into `Mire.AgentDemo`'s palette.       |
+| `Completion`                      | ⬜     | Cursor/anchor-positioned completion list. Can reuse `CommandPalette.matches`/`filter`; needs `Positioned` point-anchoring (deferred there).                                                                                      |
 | `SplitView`                       | ⬜     | Resizable split (today: hand-build with `Dock`/`Stack` fractions).                                                                                                                                                               |
 | `Tooltip`                         | ⬜     | Anchored hover/inline doc.                                                                                                                                                                                                       |
 | `Markdown`                        | ⬜     | Parse + wrap + style; cached by content+width.                                                                                                                                                                                   |
@@ -112,8 +112,8 @@ The whole pipeline runs end-to-end: `model → view → layout → surface → d
 - [ ] `TextArea` (multi-line) — shift-enter newline, paste handling
 - [ ] `List` — `ListView` ships (single-select + full-width highlight + auto-scroll-to-selection); still no multi-select, virtualization, or built-in key handling
 - [x] `Table` — `Widgets.Table.view`: sticky header, `Length`-width columns, per-row cell renderers (`Column.Render : 'row -> LayoutNode`, plus a `textColumn` convenience), caller-windowed rows (`topRow`/`height`) + a selection highlight. _Not yet:_ true lazy virtualization, column resize, multi-select
-- [ ] `CommandPalette` — global fuzzy command surface (uses overlay + focus + list)
-- [ ] `Completion` — cursor/anchor-anchored list (shares item model with palette)
+- [x] `CommandPalette` — `Widgets.CommandPalette`: pure `matches`/`filter` (case-insensitive subsequence fuzzy) + a `view` (centered `Modal` with a `❯ query` line over a filtered, selectable `ListView`). The app holds the query + selection and pairs open/close with `Focus.pushTrap`/`popTrap`. _Follow-up:_ migrate `Mire.AgentDemo`'s hand-rolled palette onto it
+- [ ] `Completion` — cursor/anchor-anchored list — can reuse `CommandPalette.matches`/`filter`; blocked on `Positioned` point-anchoring (deferred under Overlay positioning)
 
 ### v0.4 — Agent widgets ⬜ (`Mire.Agent`)
 

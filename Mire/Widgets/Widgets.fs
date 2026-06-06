@@ -409,3 +409,49 @@ module Table =
         Stack.vstackOf
             [ Stack.sized (Length.Cells 1) headerRow
               Stack.sized (Length.Cells(max 0 height)) (Stack.vstack bodyRows) ]
+
+/// A centered, fuzzy-filtered command surface (the `Ctrl+P`-style palette), built
+/// on `Modal` + `ListView`. The pure `matches`/`filter` are the fuzzy core (also
+/// reused by `Completion`); the app holds the query + selection, filters the
+/// items, and pairs the open/close with `Focus.pushTrap`/`popTrap`.
+module CommandPalette =
+    /// Case-insensitive subsequence match: do `query`'s characters appear, in
+    /// order, somewhere in `text`? An empty query matches everything.
+    let matches (query: string) (text: string) : bool =
+        let q = query.ToLowerInvariant()
+        let t = text.ToLowerInvariant()
+        let mutable qi = 0
+
+        for ti in 0 .. t.Length - 1 do
+            if qi < q.Length && t.[ti] = q.[qi] then
+                qi <- qi + 1
+
+        qi = q.Length
+
+    /// Keep the items whose text fuzzy-`matches` the query (order preserved).
+    let filter (query: string) (items: string list) : string list =
+        items |> List.filter (matches query)
+
+    /// A centered palette: a title, a `❯ query` line, and the fuzzy-filtered,
+    /// selectable `items` list. Pass the already-`filter`ed items.
+    let view
+        (width: int)
+        (height: int)
+        (backdropStyle: Style)
+        (borderStyle: Style)
+        (accentStyle: Style)
+        (selStyle: Style)
+        (rowStyle: Style)
+        (title: string)
+        (query: string)
+        (selected: int)
+        (items: string list)
+        : LayoutNode<'msg> =
+        let listH = max 1 (height - 4) // border(2) + title(1) + query(1)
+
+        let body =
+            Stack.vstackOf
+                [ Stack.sized (Length.Cells 1) (Text.text (" ❯ " + query + "▏") accentStyle)
+                  Stack.sized Length.Fill (ListView.view listH selStyle rowStyle selected items) ]
+
+        Modal.modal backdropStyle borderStyle accentStyle width height title body
