@@ -362,3 +362,50 @@ module Input =
                 [ Stack.sized Length.Content (Text.text leftPart textStyle)
                   Stack.sized (Length.Cells 1) (Text.text atCursor cursorStyle)
                   Stack.sized Length.Content (Text.text rightPart textStyle) ]
+
+/// One table column: a header label, a width (`Length`), and a per-row cell
+/// renderer. `Table.textColumn` builds a plain styled-text column.
+type Column<'row, 'msg> =
+    { Header: string
+      Width: Length
+      Render: 'row -> LayoutNode<'msg> }
+
+/// A table with a sticky header over a windowed body. The app owns the `topRow`
+/// scroll offset and the `selected` row index (like `ListView`/`ScrollView`);
+/// columns map each row to a cell node, so cells can be styled/custom. Rows are
+/// caller-windowed by `topRow`/`height`; pair with `ScrollView` math for scrolling.
+module Table =
+    /// A column that renders `toStr row` as styled text.
+    let textColumn (header: string) (width: Length) (style: Style) (toStr: 'row -> string) : Column<'row, 'msg> =
+        { Header = header
+          Width = width
+          Render = fun r -> Text.text (toStr r) style }
+
+    let view
+        (height: int)
+        (headerStyle: Style)
+        (selStyle: Style)
+        (topRow: int)
+        (selected: int option)
+        (columns: Column<'row, 'msg> list)
+        (rows: 'row list)
+        : LayoutNode<'msg> =
+        let headerRow =
+            Stack.hstackOf [ for c in columns -> Stack.sized c.Width (Text.text c.Header headerStyle) ]
+
+        let start = max 0 (min topRow (List.length rows))
+
+        let bodyRows =
+            rows
+            |> List.indexed
+            |> List.skip start
+            |> List.truncate (max 0 height)
+            |> List.map (fun (i, row) ->
+                let cells =
+                    Stack.hstackOf [ for c in columns -> Stack.sized c.Width (c.Render row) ]
+
+                if selected = Some i then Backdrop.behind selStyle cells else cells)
+
+        Stack.vstackOf
+            [ Stack.sized (Length.Cells 1) headerRow
+              Stack.sized (Length.Cells(max 0 height)) (Stack.vstack bodyRows) ]

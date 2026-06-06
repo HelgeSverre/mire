@@ -605,6 +605,26 @@ let widgetTests =
               // viewport 4 / content 8 → thumbHeight = 4*4/8 = 2
               Expect.equal (barColumn 0) [ "█"; "█"; "│"; "│" ] "offset 0 → thumb at the top"
               Expect.equal (barColumn 4) [ "│"; "│"; "█"; "█" ] "offset 4 (bottom) → thumb at the bottom"
+          }
+          test "Table: sticky header, windowed rows, full-width selection" {
+              let rows = [ "alpha"; "beta"; "gamma"; "delta"; "epsilon" ]
+
+              let cols: Mire.Widgets.Column<string, unit> list =
+                  [ Mire.Widgets.Table.textColumn "Name" (Length.Cells 8) Style.Default id ]
+
+              let selBg = Color.Rgb(0x4Cuy, 0xAFuy, 0x50uy)
+              let sel = Style.Default.WithBackground selBg
+
+              // 2-row window starting at topRow 1 (beta, gamma); select row 2 (gamma)
+              let node: LayoutNode<unit> =
+                  Mire.Widgets.Table.view 2 Style.Default sel 1 (Some 2) cols rows
+
+              let surf = Surface(Size.Create(10, 5))
+              Layout.measure (Rect.Create(0, 0, 10, 5)) node |> Layout.render surf
+              Expect.stringContains (rowText surf 0) "Name" "sticky header on the first row"
+              Expect.stringContains (rowText surf 1) "beta" "first windowed row (topRow=1) below the header"
+              Expect.stringContains (rowText surf 2) "gamma" "second windowed row"
+              Expect.equal surf.[5, 2].Style.Background (Some selBg) "selected row (gamma) highlighted full-column-width"
           } ]
 
 // TextBuffer (pure edit ops) -------------------------------------------------

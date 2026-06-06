@@ -50,7 +50,7 @@ agent widgets are the (not-yet-created) `Mire.Agent` layer.
 | `Scrollbar`                       | ✅     | Track + thumb, built into `ScrollView` (proportional thumb sized/positioned from viewport + content height).                                                                                                                     |
 | `ScrollView`                      | 🟡     | `ScrollView.vertical` (viewport + scrollbar) + `clampOffset`/`toBottom`/`atBottom` helpers for follow-tail/jump-to-bottom/paging. No virtualization yet.                                                                         |
 | `List` / `ListView`               | 🟡     | `ListView.view` does single-selection + full-width highlight + auto-scroll-to-selection (string labels). No virtualization, multi-select, or built-in key handling yet.                                                          |
-| `Table`                           | ⬜     | Virtualized rows, sticky header, column sizing, selection. (`Mire.SpreadsheetDemo` and `Mire.MinesweeperDemo` both hand-roll a grid from nested `Stack`s — motivates this.)                                                      |
+| `Table`                           | 🟡     | `Table.view` — sticky header, `Length`-width columns, per-row cell renderers (`textColumn` convenience), caller-windowed rows + selection highlight. No true lazy virtualization / column resize / multi-select yet.             |
 | `Input` (single-line)             | 🟡     | `Mire.Core.TextBuffer` (pure insert/delete/cursor ops) + `Widgets.Input.render` (block cursor + scroll-to-cursor) ship; used by `Mire.SpreadsheetDemo`. Still no selection, and `Mire.AgentDemo`'s `PromptInput` not yet ported. |
 | `TextArea` (multi-line)           | ⬜     | Multiline editing, shift-enter newline.                                                                                                                                                                                          |
 | `Modal`                           | 🟡     | Layout half shipped: `Widgets.Modal.modal` (centered box + opaque backdrop + title + body slot, on `Positioned`). Focus-trapping + actions pending the focus manager.                                                            |
@@ -111,7 +111,7 @@ The whole pipeline runs end-to-end: `model → view → layout → surface → d
 - [x] `Input` (single-line) — `Mire.Core.TextBuffer` + `Widgets.Input.render` (block cursor, scroll-to-cursor) ship; used by `Mire.SpreadsheetDemo`. _No selection yet._
 - [ ] `TextArea` (multi-line) — shift-enter newline, paste handling
 - [ ] `List` — `ListView` ships (single-select + full-width highlight + auto-scroll-to-selection); still no multi-select, virtualization, or built-in key handling
-- [ ] `Table` — virtualized rows, sticky header, column sizing, selection, custom cell renderers
+- [x] `Table` — `Widgets.Table.view`: sticky header, `Length`-width columns, per-row cell renderers (`Column.Render : 'row -> LayoutNode`, plus a `textColumn` convenience), caller-windowed rows (`topRow`/`height`) + a selection highlight. _Not yet:_ true lazy virtualization, column resize, multi-select
 - [ ] `CommandPalette` — global fuzzy command surface (uses overlay + focus + list)
 - [ ] `Completion` — cursor/anchor-anchored list (shares item model with palette)
 
