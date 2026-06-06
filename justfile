@@ -32,6 +32,15 @@ build:
 build-framework:
     dotnet build {{framework}}
 
+# Pack the framework into a NuGet package (dist/Mire.<version>.nupkg).
+pack:
+    dotnet pack {{framework}} -c Release -o dist
+
+# Manual publish to NuGet (fallback — CI uses trusted publishing, see .github/workflows/publish.yml).
+# Requires a long-lived NUGET_API_KEY in the environment.
+publish: pack
+    dotnet nuget push "dist/*.nupkg" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
+
 # Run the test suite.
 test:
     dotnet test {{tests}} --nologo

@@ -161,11 +161,13 @@ From `SPEC.md`'s optimization tiers. Do these _when they hurt_, not before.
 ### Project infrastructure 🟡
 
 - [x] **Framework consolidated** into a single `Mire` project (folders = layers); solution is `Mire` + `Mire.Demo` + `Mire.AgentDemo` + `Mire.FeedDemo` + `Mire.SpreadsheetDemo` + `Mire.MinesweeperDemo` + `Mire.Tests`
-- [x] **Test project** — `Mire.Tests` (Expecto) covering `Layout.measure`/`render`, `Diff.compute` (incl. sync-output bracketing + display-width cursor advance), `InputParser`, `Grapheme` width, `TextBuffer`/`Input`, `Focus`, `ScrollView`, mouse/paste/focus decoding, and the `Mire.MinesweeperDemo` `Board` + `Mire.FeedDemo` `Feed` helpers (104 tests, all green; `dotnet build Mire.slnx` is warning-clean)
+- [x] **Test project** — `Mire.Tests` (Expecto) covering `Layout.measure`/`render`, `Diff.compute` (incl. sync-output bracketing + display-width cursor advance), `InputParser`, `Grapheme` width, `TextBuffer`/`Input`, `Focus`, `ScrollView`, mouse/paste/focus decoding, and the `Mire.MinesweeperDemo` `Board` + `Mire.FeedDemo` `Feed` helpers (115 tests, all green; `dotnet build Mire.slnx` is warning-clean)
 - [x] **Dev tooling** — `justfile` (build/test/run/format/lint) + Fantomas tool manifest (`.config/dotnet-tools.json`); `just check` = lint + build + test
 - [ ] Promote `--dump` scenarios into golden-frame snapshot tests (assert full cell grids, not just spot checks)
 - [x] `git init` + under version control — framework, five demos, tests, docs, prototypes (work continues on the `feat/widget-gallery` branch)
-- [ ] CI build + `dotnet test` on .NET 10
+- [x] **NuGet packaging** — `Mire/Mire.fsproj` carries package metadata (id `Mire`, MIT, bundled README, repo URL, doc XML); `just pack` / `just publish` produce and push the single `net10.0` package. Not yet published to nuget.org (awaiting the first tagged release)
+- [x] **Trusted publishing** — `.github/workflows/publish.yml` runs the tests then packs + pushes to nuget.org via OIDC (no stored API key) on a published `v*` GitHub Release. One-time setup: register the nuget.org trusted-publisher policy (owner `HelgeSverre`, repo `mire`, workflow `publish.yml`); the nuget username is hardcoded in the workflow
+- [ ] CI build + `dotnet test` on .NET 10 (on every push/PR)
 
 ---
 

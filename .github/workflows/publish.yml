@@ -1,0 +1,77 @@
+name: Publish to NuGet
+
+# Publishes the Mire package to nuget.org via Trusted Publishing (OIDC) — no
+# long-lived API key stored anywhere. The only one-time setup is registering a
+# trusted-publisher policy on nuget.org (your username → Trusted Publishing):
+#   Repository Owner: HelgeSverre
+#   Repository:       mire
+#   Workflow File:    publish.yml   (this file — filename only, no path)
+#   Environment:      (leave empty)
+#
+# Trigger by publishing a GitHub Release tagged like `v0.3.0` (the leading `v`
+# is stripped and used as the package version), or run it manually.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish, e.g. 0.3.0 (defaults to the .fsproj <Version>)"
+        required: false
+
+permissions:
+  contents: read
+  id-token: write # required: lets the job request a GitHub OIDC token
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Test
+        run: dotnet test Mire.Tests/Mire.Tests.fsproj -c Release --nologo
+
+      - name: Resolve version
+        id: ver
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+        shell: bash
+        run: |
+          if [ -n "$RELEASE_TAG" ]; then
+            echo "value=${RELEASE_TAG#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=$INPUT_VERSION" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Pack
+        env:
+          VERSION: ${{ steps.ver.outputs.value }}
+        shell: bash
+        run: |
+          if [ -n "$VERSION" ]; then
+            dotnet pack Mire/Mire.fsproj -c Release -o dist -p:Version="$VERSION"
+          else
+            dotnet pack Mire/Mire.fsproj -c Release -o dist
+          fi
+
+      # Exchange the OIDC token for a short-lived (1 hour) nuget.org API key.
+      - name: NuGet login (OIDC → temporary API key)
+        uses: NuGet/login@v1
+        id: login
+        with:
+          user: helgesverre # nuget.org profile name (public; not a secret)
+
+      - name: Push
+        run: >
+          dotnet nuget push "dist/*.nupkg"
+          --api-key ${{ steps.login.outputs.NUGET_API_KEY }}
+          --source https://api.nuget.org/v3/index.json
+          --skip-duplicate
