@@ -2,6 +2,7 @@ namespace Mire.Demo.Agent
 
 open Mire.Core
 open Mire.Brand
+open Mire.Widgets
 
 /// Harness palette + semantic styles, built on the canonical Mire brand tokens
 /// (brand/palette.fs) so the demo stays on-brand. Brand discipline: neutrals carry
@@ -87,3 +88,20 @@ module Theme =
         | Danger -> errStyle
         | Info -> infoStyle
         | Neutral -> muted
+
+    /// On-brand style set for the framework's `Markdown` widget (the agent flavor —
+    /// `@mentions` enabled).
+    let markdown: MarkdownStyle =
+        { Text = text
+          Heading1 = heading1
+          Heading2 = heading2
+          Heading3 = heading3
+          Quote = muted
+          Link = link
+          Mention = Some mention
+          Rule = borderStyle
+          Code = code
+          CodeKeyword = codeKw
+          CodeString = codeStr
+          CodeComment = codeCom
+          CodeNumber = codeNum }

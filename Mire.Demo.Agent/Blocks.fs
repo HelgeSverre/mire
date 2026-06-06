@@ -85,13 +85,19 @@ module Blocks =
     /// width; `frame` drives the running-tool spinner.
     let renderBlock (wrapWidth: int) (frame: int) (block: Block) : LayoutNode<'msg> =
         match block with
-        | UserMsg s -> Stack.vstack [ Text.text "❯ you" Theme.subtle; Markdown.wrap wrapWidth Theme.text s ]
-        | AssistantMd s -> Stack.vstack [ Text.text "◆ assistant" Theme.subtle; Markdown.render wrapWidth s ]
+        | UserMsg s ->
+            Stack.vstack
+                [ Text.text "❯ you" Theme.subtle
+                  Markdown.wrap Theme.markdown wrapWidth Theme.text s ]
+        | AssistantMd s ->
+            Stack.vstack
+                [ Text.text "◆ assistant" Theme.subtle
+                  Markdown.render Theme.markdown wrapWidth s ]
         | Thinking s ->
             card
                 Theme.borderStyle
                 [ Text.text "thinking" Theme.subtle
-                  Markdown.wrap (wrapWidth - 2) Theme.italic s ]
+                  Markdown.wrap Theme.markdown (wrapWidth - 2) Theme.italic s ]
         | ToolCall(name, cmd, status, meta, output) ->
             let statusText =
                 match status with
@@ -156,12 +162,15 @@ module Blocks =
 
             card Theme.borderStyle (headerNode :: (rows |> List.map rowNode))
         | ErrorBlock s ->
-            card Theme.errStyle [ Text.text "error" Theme.errStyle; Markdown.wrap (wrapWidth - 2) Theme.text s ]
+            card
+                Theme.errStyle
+                [ Text.text "error" Theme.errStyle
+                  Markdown.wrap Theme.markdown (wrapWidth - 2) Theme.text s ]
         | Notice(tone, s) ->
             card
                 (Theme.toneStyle tone)
                 [ Text.text "notice" (Theme.toneStyle tone)
-                  Markdown.wrap (wrapWidth - 2) Theme.muted s ]
+                  Markdown.wrap Theme.markdown (wrapWidth - 2) Theme.muted s ]
         | FileTree paths ->
             card
                 Theme.borderStyle

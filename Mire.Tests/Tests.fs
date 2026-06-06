@@ -1173,6 +1173,57 @@ let toggleTests =
                   "switch off"
           } ]
 
+// Markdown -----------------------------------------------------------------
+
+let markdownTests =
+    let h1bg = Color.Rgb(0x10uy, 0x20uy, 0x30uy)
+    let codeBg = Color.Rgb(0x40uy, 0x40uy, 0x40uy)
+    let menBg = Color.Rgb(0x50uy, 0x10uy, 0x50uy)
+
+    let st =
+        { Mire.Widgets.Markdown.defaultStyle with
+            Heading1 = Style.Default.WithBackground h1bg
+            Code = Style.Default.WithBackground codeBg
+            Mention = Some(Style.Default.WithBackground menBg) }
+
+    testList
+        "Markdown"
+        [ test "heading line uses the heading style (marker stripped)" {
+              let node: LayoutNode<unit> = Mire.Widgets.Markdown.render st 20 "# Title"
+              let surf = Surface(Size.Create(20, 3))
+              Layout.measure (Rect.Create(0, 0, 20, 3)) node |> Layout.render surf
+              Expect.stringContains (rowText surf 0) "Title" "heading text"
+              Expect.equal surf.[0, 0].Style.Background (Some h1bg) "heading carries Heading1 style"
+          }
+          test "dash bullets get a • prefix" {
+              let node: LayoutNode<unit> = Mire.Widgets.Markdown.render st 20 "- item"
+              let surf = Surface(Size.Create(20, 3))
+              Layout.measure (Rect.Create(0, 0, 20, 3)) node |> Layout.render surf
+              Expect.stringContains (rowText surf 0) "• item" "dash becomes a bullet"
+          }
+          test "inline code span strips markers and carries the code style" {
+              let node: LayoutNode<unit> =
+                  Mire.Widgets.Markdown.wrap st 20 Style.Default "a `co` b"
+
+              let surf = Surface(Size.Create(20, 2))
+              Layout.measure (Rect.Create(0, 0, 20, 2)) node |> Layout.render surf
+              Expect.stringContains (rowText surf 0) "a co b" "backticks removed"
+              Expect.equal surf.[2, 0].Style.Background (Some codeBg) "code span styled (c at x=2)"
+          }
+          test "@mention rule honors the optional style" {
+              let on: LayoutNode<unit> = Mire.Widgets.Markdown.wrap st 20 Style.Default "hi @x"
+              let surfOn = Surface(Size.Create(20, 2))
+              Layout.measure (Rect.Create(0, 0, 20, 2)) on |> Layout.render surfOn
+              Expect.equal surfOn.[3, 0].Style.Background (Some menBg) "@ token styled when Mention = Some"
+
+              let off: LayoutNode<unit> =
+                  Mire.Widgets.Markdown.wrap { st with Mention = None } 20 Style.Default "hi @x"
+
+              let surfOff = Surface(Size.Create(20, 2))
+              Layout.measure (Rect.Create(0, 0, 20, 2)) off |> Layout.render surfOff
+              Expect.isTrue surfOff.[3, 0].Style.Background.IsNone "@ token plain when Mention = None"
+          } ]
+
 // Feed helpers (Mire.Demo.Feed) --------------------------------------------
 
 let feedTests =
@@ -1501,6 +1552,7 @@ let all =
           progressBarTests
           tabsTests
           toggleTests
+          markdownTests
           feedTests
           minesweeperTests
           cmdQuitTests ]

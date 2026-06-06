@@ -1,20 +1,57 @@
-namespace Mire.Demo.Agent
+namespace Mire.Widgets
 
 open System.Text
 open Mire.Core
 open Mire.Layout
-open Mire.Widgets
 
-/// A deliberately-minimal, line-oriented markdown renderer. It is NOT CommonMark —
-/// it exists so the harness can show the *shape* of a markdown widget (ROADMAP lists
-/// the real one as ⬜). It produces a `Stack.vstack` of styled line nodes, wrapping to
-/// a width the caller supplies (the layout engine's `WriteClipped` does not word-wrap).
+/// The styles a `Markdown.render` uses. Inline bold/italic/strike are derived from
+/// the base text style (`.WithBold`/…), so only the span/block colors that differ
+/// are named here. `Mention` is optional — `Some` enables the `@token` rule (handy
+/// for agent transcripts), `None` leaves `@` as plain text.
+type MarkdownStyle =
+    { Text: Style
+      Heading1: Style
+      Heading2: Style
+      Heading3: Style
+      Quote: Style
+      Link: Style
+      Mention: Style option
+      Rule: Style
+      Code: Style
+      CodeKeyword: Style
+      CodeString: Style
+      CodeComment: Style
+      CodeNumber: Style }
+
+/// A deliberately-minimal, line-oriented markdown renderer (NOT CommonMark). It
+/// produces a `vstack` of styled line nodes, word-wrapped to a caller-supplied
+/// width (the layout engine doesn't word-wrap). Handles ATX headings, `> ` quotes,
+/// `-`/`*`/ordered bullets, `---` rules, fenced code (light, generic syntax
+/// highlighting), and inline `code`/`**bold**`/`*italic*`/`~~strike~~`/`[links]`.
 module Markdown =
+
+    /// A neutral default style set built on the framework's predefined `Style`s.
+    let defaultStyle: MarkdownStyle =
+        let codeBg = Color.Rgb(0x2Auy, 0x2Auy, 0x2Auy)
+
+        { Text = Style.text
+          Heading1 = Style.title
+          Heading2 = Style.title
+          Heading3 = Style.text.WithBold(true)
+          Quote = Style.dim
+          Link = Style.info.WithUnderline(UnderlineStyle.Single)
+          Mention = None
+          Rule = Style.border
+          Code = Style.Default.WithForeground(Color.White).WithBackground(codeBg)
+          CodeKeyword = Style.info.WithBackground(codeBg)
+          CodeString = Style.success.WithBackground(codeBg)
+          CodeComment = Style.dim.WithBackground(codeBg)
+          CodeNumber = Style.Default.WithForeground(Color.Cyan).WithBackground(codeBg) }
 
     // ── inline emphasis ────────────────────────────────────────────────────────
     // Walk a line, emitting (char, style) pairs. Markers toggle a style until closed:
-    //   `code`  **bold**  *italic*  ~~strike~~  [text](url) → underlined text
-    let private styledChars (baseStyle: Style) (text: string) : (char * Style) list =
+    //   `code`  **bold**  *italic*  ~~strike~~  [text](url) → linked text  @mention
+    let private styledChars (s: MarkdownStyle) (baseStyle: Style) (text: string) : (char * Style) list =
         let res = ResizeArray<char * Style>()
         let n = text.Length
 
@@ -42,7 +79,7 @@ module Markdown =
                 i <- (if close = n then n else close + 2)
             elif c = '`' then
                 let close = find "`" (i + 1)
-                emit (i + 1) close Theme.code
+                emit (i + 1) close s.Code
                 i <- (if close = n then n else close + 1)
             elif c = '*' then
                 let close = find "*" (i + 1)
@@ -54,19 +91,19 @@ module Markdown =
                 if closeB > 0 && closeB + 1 < n && text.[closeB + 1] = '(' then
                     let closeP = text.IndexOf(')', closeB)
                     let endP = if closeP < 0 then n else closeP
-                    emit (i + 1) closeB Theme.link
+                    emit (i + 1) closeB s.Link
                     i <- (if closeP < 0 then n else endP + 1)
                 else
                     res.Add(c, baseStyle)
                     i <- i + 1
-            elif c = '@' && (i = 0 || text.[i - 1] = ' ') then
+            elif c = '@' && s.Mention.IsSome && (i = 0 || text.[i - 1] = ' ') then
                 // @file mention — style the token up to the next space
                 let mutable j = i + 1
 
                 while j < n && text.[j] <> ' ' do
                     j <- j + 1
 
-                emit i j Theme.mention
+                emit i j s.Mention.Value
                 i <- j
             else
                 res.Add(c, baseStyle)
@@ -142,7 +179,7 @@ module Markdown =
         lines |> Seq.map List.ofSeq |> List.ofSeq
 
     // merge same-style runs, then make one Text (or an hstack of segments) per line
-    let private lineNode (segs: (string * Style) list) : LayoutNode<'msg> =
+    let private lineNode (emptyStyle: Style) (segs: (string * Style) list) : LayoutNode<'msg> =
         let merged = ResizeArray<string * Style>()
 
         for (t, st) in segs do
@@ -157,20 +194,20 @@ module Markdown =
                 merged.Add(t, st)
 
         match List.ofSeq merged with
-        | [] -> Text.text " " Theme.text
+        | [] -> Text.text " " emptyStyle
         | [ (t, st) ] -> Text.text t st
         | many -> Stack.hstackOf (many |> List.map (fun (t, st) -> Stack.sized Length.Content (Text.text t st)))
 
-    /// Wrap a single run of inline-markdown text to `width`, returning one node per line.
-    let wrapLines (width: int) (baseStyle: Style) (text: string) : LayoutNode<'msg> list =
-        styledChars baseStyle text
+    /// Wrap a single run of inline-markdown text to `width`, one node per line.
+    let wrapLines (s: MarkdownStyle) (width: int) (baseStyle: Style) (text: string) : LayoutNode<'msg> list =
+        styledChars s baseStyle text
         |> toPieces
         |> packLines (max 1 width)
-        |> List.map lineNode
+        |> List.map (lineNode baseStyle)
 
     /// Wrap inline text into a single vstack node.
-    let wrap (width: int) (baseStyle: Style) (text: string) : LayoutNode<'msg> =
-        Stack.vstack (wrapLines width baseStyle text)
+    let wrap (s: MarkdownStyle) (width: int) (baseStyle: Style) (text: string) : LayoutNode<'msg> =
+        Stack.vstack (wrapLines s width baseStyle text)
 
     // ── light syntax highlighting for fenced code ───────────────────────────────
     let private keywords =
@@ -216,9 +253,9 @@ module Markdown =
 
     /// Tokenize a code line into colored segments (strings, // comments, numbers,
     /// keywords) and lay them horizontally. Deliberately generic — not per-language.
-    let private highlightCodeLine (raw: string) : LayoutNode<'msg> =
+    let private highlightCodeLine (s: MarkdownStyle) (raw: string) : LayoutNode<'msg> =
         let segs = ResizeArray<string * Style>()
-        segs.Add("  ", Theme.code) // indent gutter
+        segs.Add("  ", s.Code) // indent gutter
         let n = raw.Length
 
         let isIdent c =
@@ -239,9 +276,9 @@ module Markdown =
                 if i < n then
                     i <- i + 1
 
-                segs.Add(raw.Substring(start, i - start), Theme.codeStr)
+                segs.Add(raw.Substring(start, i - start), s.CodeString)
             elif i + 1 < n && c = '/' && raw.[i + 1] = '/' then
-                segs.Add(raw.Substring(i), Theme.codeCom)
+                segs.Add(raw.Substring(i), s.CodeComment)
                 i <- n
             elif System.Char.IsDigit c then
                 let start = i
@@ -249,7 +286,7 @@ module Markdown =
                 while i < n && (System.Char.IsDigit raw.[i] || raw.[i] = '.') do
                     i <- i + 1
 
-                segs.Add(raw.Substring(start, i - start), Theme.codeNum)
+                segs.Add(raw.Substring(start, i - start), s.CodeNumber)
             elif System.Char.IsLetter c || c = '_' then
                 let start = i
 
@@ -257,9 +294,9 @@ module Markdown =
                     i <- i + 1
 
                 let word = raw.Substring(start, i - start)
-                segs.Add(word, (if keywords.Contains word then Theme.codeKw else Theme.code))
+                segs.Add(word, (if keywords.Contains word then s.CodeKeyword else s.Code))
             else
-                segs.Add(string c, Theme.code)
+                segs.Add(string c, s.Code)
                 i <- i + 1
         // merge adjacent same-style runs to keep the hstack small
         let merged = ResizeArray<string * Style>()
@@ -286,13 +323,13 @@ module Markdown =
 
         i > 0 && i + 1 < t.Length && t.[i] = '.' && t.[i + 1] = ' '
 
-    /// Render a markdown document to a vstack of styled lines.
-    let render (width: int) (src: string) : LayoutNode<'msg> =
+    /// Render a markdown document to a vstack of styled lines, wrapped to `width`.
+    let render (s: MarkdownStyle) (width: int) (src: string) : LayoutNode<'msg> =
         let lines = src.Replace("\r\n", "\n").Split('\n')
         let nodes = ResizeArray<LayoutNode<'msg>>()
 
         let addWrapped (style: Style) (text: string) =
-            for n in wrapLines width style text do
+            for n in wrapLines s width style text do
                 nodes.Add(n)
 
         let mutable i = 0
@@ -304,29 +341,29 @@ module Markdown =
                 i <- i + 1
 
                 while i < lines.Length && not (lines.[i].StartsWith("```")) do
-                    nodes.Add(highlightCodeLine lines.[i])
+                    nodes.Add(highlightCodeLine s lines.[i])
                     i <- i + 1
 
                 i <- i + 1 // skip closing fence (or past end)
             else
                 if line.StartsWith("### ") then
-                    nodes.Add(Text.text (line.Substring 4) Theme.heading3)
+                    nodes.Add(Text.text (line.Substring 4) s.Heading3)
                 elif line.StartsWith("## ") then
-                    nodes.Add(Text.text (line.Substring 3) Theme.heading2)
+                    nodes.Add(Text.text (line.Substring 3) s.Heading2)
                 elif line.StartsWith("# ") then
-                    nodes.Add(Text.text (line.Substring 2) Theme.heading1)
+                    nodes.Add(Text.text (line.Substring 2) s.Heading1)
                 elif line.StartsWith("> ") then
-                    addWrapped Theme.muted ("│ " + line.Substring 2)
+                    addWrapped s.Quote ("│ " + line.Substring 2)
                 elif line.StartsWith("- ") || line.StartsWith("* ") then
-                    addWrapped Theme.text ("• " + line.Substring 2)
+                    addWrapped s.Text ("• " + line.Substring 2)
                 elif isOrdered line then
-                    addWrapped Theme.text line
+                    addWrapped s.Text line
                 elif line.StartsWith("---") then
-                    nodes.Add(Text.text (System.String('─', max 1 width)) Theme.borderStyle)
+                    nodes.Add(Text.text (System.String('─', max 1 width)) s.Rule)
                 elif line.Trim() = "" then
-                    nodes.Add(Text.text " " Theme.text)
+                    nodes.Add(Text.text " " s.Text)
                 else
-                    addWrapped Theme.text line
+                    addWrapped s.Text line
 
                 i <- i + 1
 

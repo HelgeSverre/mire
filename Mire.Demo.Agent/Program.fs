@@ -1000,7 +1000,9 @@ let private skillPanel (ss: SkillState) (m: Model) : LayoutNode<Msg> =
     let selected = List.item ss.Sel Skills.all
 
     let previewNode =
-        Box.box prevBorder [ Scroll.vertical ss.PreviewScroll (Markdown.render previewW selected.Markdown) ]
+        Box.box
+            prevBorder
+            [ Scroll.vertical ss.PreviewScroll (Markdown.render Theme.markdown previewW selected.Markdown) ]
 
     let content =
         Stack.vstackOf
@@ -1355,7 +1357,7 @@ let runDump () =
     dumpNode
         "B. Markdown kitchen-sink"
         (Size.Create(60, 24))
-        (Box.box Theme.borderStyle [ Markdown.render 56 Dummy.markdownKitchenSink ])
+        (Box.box Theme.borderStyle [ Markdown.render Theme.markdown 56 Dummy.markdownKitchenSink ])
 
     dumpNode
         "C. Tool calls (ok / error)"

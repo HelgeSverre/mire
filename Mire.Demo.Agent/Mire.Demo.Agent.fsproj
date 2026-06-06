@@ -11,7 +11,6 @@
     <!-- Reuse the canonical brand palette (standalone module, no Mire dependency). -->
     <Compile Include="../brand/palette.fs" />
     <Compile Include="Theme.fs" />
-    <Compile Include="Markdown.fs" />
     <Compile Include="Blocks.fs" />
     <Compile Include="Skills.fs" />
     <Compile Include="Dummy.fs" />

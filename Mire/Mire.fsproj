@@ -76,6 +76,7 @@
 
     <!-- Widgets — convenience builders over Layout -->
     <Compile Include="Widgets/Widgets.fs" />
+    <Compile Include="Widgets/Markdown.fs" />
 
     <!-- App — Elmish runtime -->
     <Compile Include="App/Program.fs" />
