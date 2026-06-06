@@ -90,6 +90,7 @@ module Runtime =
         Console.Out.Write(ANSI.clearScreen)
         Console.Out.Write(ANSI.enableMouse)
         Console.Out.Write(ANSI.enableFocusEvents)
+        Console.Out.Write(ANSI.enableBracketedPaste)
         Console.Out.Write(ANSI.enableKittyKeyboard)
         Console.Out.Flush()
 
@@ -270,6 +271,7 @@ module Runtime =
         finally
             // Cleanup
             Console.Out.Write(ANSI.disableKittyKeyboard)
+            Console.Out.Write(ANSI.disableBracketedPaste)
             Console.Out.Write(ANSI.disableFocusEvents)
             Console.Out.Write(ANSI.disableMouse)
             Console.Out.Write(ANSI.exitAltScreen)

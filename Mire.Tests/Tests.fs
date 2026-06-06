@@ -133,6 +133,54 @@ let inputTests =
                   asKey (InputParser.parseBytes (System.Text.Encoding.ASCII.GetBytes "\x1bOP"))
 
               Expect.equal (k |> Option.map (fun k -> k.Key)) (Some(Function 1)) "ESC O P → F1"
+          }
+          // SGR 1006 mouse — ESC [ < b ; x ; y M|m (1-based coords → 0-based).
+          test "SGR mouse: left press reports 0-based coords" {
+              match InputParser.parseBytes (System.Text.Encoding.ASCII.GetBytes "\x1b[<0;6;4M") with
+              | Some(Mouse m) ->
+                  Expect.equal (m.X, m.Y) (5, 3) "col6/row4 (1-based) → (5,3) 0-based"
+                  Expect.equal m.Button MouseButton.Left "button 0 → Left"
+                  Expect.isTrue m.Pressed "M → press"
+              | other -> failtestf "expected Mouse, got %A" other
+          }
+          test "SGR mouse: 'm' final is a release" {
+              Expect.isTrue
+                  (match InputParser.parseBytes (System.Text.Encoding.ASCII.GetBytes "\x1b[<0;6;4m") with
+                   | Some(Mouse m) -> not m.Pressed
+                   | _ -> false)
+                  "lowercase m → release"
+          }
+          test "SGR mouse: wheel up (b=64) → ScrollUp" {
+              Expect.equal
+                  (match InputParser.parseBytes (System.Text.Encoding.ASCII.GetBytes "\x1b[<64;1;1M") with
+                   | Some(Mouse m) -> Some m.Button
+                   | _ -> None)
+                  (Some ScrollUp)
+                  "0x40 bit + low bit 0 → ScrollUp"
+          }
+          test "SGR mouse: ctrl modifier (b=16)" {
+              Expect.isTrue
+                  (match InputParser.parseBytes (System.Text.Encoding.ASCII.GetBytes "\x1b[<16;2;2M") with
+                   | Some(Mouse m) -> m.Modifiers.Ctrl
+                   | _ -> false)
+                  "0x10 bit → Ctrl"
+          }
+          test "bracketed paste extracts the text between the markers" {
+              Expect.equal
+                  (InputParser.parseBytes (System.Text.Encoding.ASCII.GetBytes "\x1b[200~hello world\x1b[201~"))
+                  (Some(Paste "hello world"))
+                  "ESC[200~ … ESC[201~ → Paste of the inner text"
+          }
+          test "focus in / focus out" {
+              Expect.equal
+                  (InputParser.parseBytes (System.Text.Encoding.ASCII.GetBytes "\x1b[I"))
+                  (Some FocusGained)
+                  "ESC[I → FocusGained"
+
+              Expect.equal
+                  (InputParser.parseBytes (System.Text.Encoding.ASCII.GetBytes "\x1b[O"))
+                  (Some FocusLost)
+                  "ESC[O → FocusLost"
           } ]
 
 // Frame diffing ------------------------------------------------------------

@@ -133,6 +133,113 @@ module InputParser =
                     None
             | _ -> None
 
+    // --- non-Key CSI sequences: mouse (SGR 1006), bracketed paste, focus ---
+
+    let private pasteStart = [| 0x1Buy; 0x5Buy; 0x32uy; 0x30uy; 0x30uy; 0x7Euy |] // ESC [ 2 0 0 ~
+    let private pasteEnd = [| 0x1Buy; 0x5Buy; 0x32uy; 0x30uy; 0x31uy; 0x7Euy |] // ESC [ 2 0 1 ~
+
+    let private startsWith (prefix: byte[]) (bytes: byte[]) : bool =
+        bytes.Length >= prefix.Length
+        && Array.forall2 (=) prefix bytes.[0 .. prefix.Length - 1]
+
+    /// First index ≥ `start` where `needle` occurs in `bytes`, or -1.
+    let private indexOf (needle: byte[]) (bytes: byte[]) (start: int) : int =
+        let mutable i = start
+        let mutable found = -1
+
+        while found < 0 && i + needle.Length <= bytes.Length do
+            if Array.forall2 (=) needle bytes.[i .. i + needle.Length - 1] then
+                found <- i
+            else
+                i <- i + 1
+
+        found
+
+    /// Bracketed paste: `ESC [ 200 ~ <text> ESC [ 201 ~` → `Paste text`. If the end
+    /// marker isn't in this buffer (a paste split across reads), takes the text
+    /// through the buffer's end.
+    let private parsePaste (bytes: byte[]) : InputEvent option =
+        if startsWith pasteStart bytes then
+            let cStart = pasteStart.Length
+            let endIdx = indexOf pasteEnd bytes cStart
+            let cEnd = if endIdx >= 0 then endIdx else bytes.Length
+            Some(Paste(Encoding.UTF8.GetString(bytes, cStart, cEnd - cStart)))
+        else
+            None
+
+    /// SGR mouse (1006): `ESC [ < b ; x ; y` then `M` (press) or `m` (release).
+    /// Coords are 1-based on the wire; reported 0-based. `b` bits: 0-1 = button,
+    /// 0x40 = wheel (low bits pick up/down/left/right), 0x04 shift, 0x08 alt, 0x10 ctrl.
+    let private parseMouseSgr (bytes: byte[]) : InputEvent option =
+        if bytes.Length >= 6 && bytes.[2] = 0x3Cuy then
+            let final = char bytes.[bytes.Length - 1]
+
+            if final = 'M' || final = 'm' then
+                let parts =
+                    Encoding.ASCII.GetString(bytes, 3, bytes.Length - 4).Split(';')
+                    |> Array.map (fun s ->
+                        match Int32.TryParse s with
+                        | true, v -> Some v
+                        | _ -> None)
+
+                match parts with
+                | [| Some b; Some x; Some y |] ->
+                    let mods =
+                        { Shift = b &&& 0x04 <> 0
+                          Alt = b &&& 0x08 <> 0
+                          Ctrl = b &&& 0x10 <> 0
+                          Meta = false }
+
+                    let button =
+                        if b &&& 0x40 <> 0 then
+                            match b &&& 0x03 with
+                            | 0 -> ScrollUp
+                            | 1 -> ScrollDown
+                            | 2 -> ScrollLeft
+                            | _ -> ScrollRight
+                        else
+                            match b &&& 0x03 with
+                            | 0 -> MouseButton.Left
+                            | 1 -> Middle
+                            | 2 -> Right
+                            | n -> UnknownButton n
+
+                    Some(
+                        Mouse
+                            { X = x - 1
+                              Y = y - 1
+                              Button = button
+                              Modifiers = mods
+                              Pressed = (final = 'M') }
+                    )
+                | _ -> None
+            else
+                None
+        else
+            None
+
+    /// Focus events: `ESC [ I` (gained) / `ESC [ O` (lost).
+    let private parseFocus (bytes: byte[]) : InputEvent option =
+        if bytes.Length = 3 && bytes.[1] = 0x5Buy then
+            match bytes.[2] with
+            | 0x49uy -> Some FocusGained
+            | 0x4Fuy -> Some FocusLost
+            | _ -> None
+        else
+            None
+
+    /// Decode the non-Key CSI sequences; `None` falls through to the Key decoder.
+    let private parseSpecial (bytes: byte[]) : InputEvent option =
+        if bytes.Length >= 3 && bytes.[1] = 0x5Buy then
+            match parsePaste bytes with
+            | Some ev -> Some ev
+            | None ->
+                match parseMouseSgr bytes with
+                | Some ev -> Some ev
+                | None -> parseFocus bytes
+        else
+            None
+
     let parseBytes (bytes: byte[]) : InputEvent option =
         if bytes.Length = 0 then
             None
@@ -186,9 +293,13 @@ module InputParser =
                               EventType = Press }
                     )
                 else
-                    match parseEscSequence bytes with
-                    | Some keyEvent -> Some(Key keyEvent)
-                    | None -> None
+                    // mouse / paste / focus produce non-Key events; try them first
+                    match parseSpecial bytes with
+                    | Some ev -> Some ev
+                    | None ->
+                        match parseEscSequence bytes with
+                        | Some keyEvent -> Some(Key keyEvent)
+                        | None -> None
             | 0x20uy ->
                 // Spacebar decodes to the semantic Space key (still carrying its
                 // text " " so text-entry widgets reading KeyEvent.Text are unaffected).
