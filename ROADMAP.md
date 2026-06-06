@@ -91,7 +91,7 @@ The whole pipeline runs end-to-end: `model → view → layout → surface → d
 - [x] `Mire.Widgets` convenience layer + predefined semantic styles
 - [x] Grapheme-cluster width handling (wide chars, combining marks) — BMP per-`char` width + combining-mark merge; not true cluster handling (see Known gaps)
 
-### v0.2 — Layout, regions & overlays 🟡 ← _current phase_
+### v0.2 — Layout, regions & overlays ✅
 
 - [x] **Layout engine complete** — real `Stack` flow, `Scroll` offset+clipping, `Content`/`Fill` dock lengths, `Filled` opaque node
 - [x] Headless `--dump` verification mode
@@ -99,18 +99,18 @@ The whole pipeline runs end-to-end: `model → view → layout → surface → d
 - [x] **Runtime: quit-from-update** — `Cmd.quit` (a `Quit` command the runtime folds into `Running = false` after the message pump, then exits through the normal teardown) lets `update` exit cleanly without the Ctrl+C intercept
 - [x] **Focus manager** — `Mire.Layout.Focus`, a pure `RegionId`-keyed focus ring + modal trap stack (`ofOrder`/`next`/`prev`/`focus`/`pushTrap`/`popTrap`/`isFocused`), routed inside `update`. `Mire.FeedDemo` is migrated to it as the proof: the two panes are a base ring, each overlay is a nested trap ring, routing is `match Focus.current`, markers are `Focus.isFocused`. _Deferred to v0.5:_ the runtime-owned + mouse-hit-testing variant (a `Focusable` node + a retained region table)
 - [x] **Overlay positioning** — `Positioned` layout node: 9-point placement (center + 4 corners + 4 edge-centers) within the assigned rect, child sized via `Length`. _Deferred:_ cursor/point and sub-rect anchoring (for `Completion`/`Tooltip`).
-- [ ] **`Modal`** widget — _layout half shipped_ (`Widgets.Modal.modal`: centered box + opaque backdrop + title + body slot, on `Positioned`; dogfooded by FeedDemo's add/filter modals); focus-trapping still pending the focus manager
+- [x] **`Modal`** widget — `Widgets.Modal.modal` (centered box + opaque backdrop + title + body slot, on `Positioned`; dogfooded by FeedDemo's add/filter modals). The keyboard focus-trap is the app pairing `Focus.pushTrap`/`popTrap` with it — the `Focus` manager now ships and `Mire.FeedDemo` proves the pattern. _Deferred nicety:_ a focus-aware `Modal.withFocus` returning the trap ids
 - [x] **`Toast`** stack — `Widgets.Toast.stack` places a column of cards at a `Placement` (top-right) on `Positioned`; `Toast.card` for a default card. Auto-dismiss stays app-side via a `Sub` timer (the app owns the toast list). Dogfooded by `Mire.AgentDemo`.
 - [x] **`ScrollView`** widget — `Widgets.ScrollView.vertical` wraps `Scroll` with a track/thumb scrollbar; pure `clampOffset`/`toBottom`/`atBottom` helpers make follow-tail, jump-to-bottom, and paging one-liners in `update`. Dogfooded by `Mire.FeedDemo`'s reader. _Not yet:_ virtualization (the `Scroll` blit still measures the whole child)
 - [x] **`Spacer`** — `Spacer.flexSpacer` / `Stack.flex` (a `Fill`-length `StackChild`) absorb a stack's slack to push siblings apart; `Spacer.spacer` stays the zero-extent placeholder for explicit-length slots
 - [x] Fix `Box` multi-child layout — kept `Box` a single-child container (one child fills the inner rect) and fixed the `panel`/`statusBar` helpers to flow their children through an explicit `Stack` (vertical / horizontal) instead of overlapping
 
-### v0.3 — Core widgets ⬜
+### v0.3 — Core widgets 🟡 ← _current phase_
 
 - [ ] `Separator`, `Badge`, `KeyHint` (small, unblock richer status bars/panels)
-- [ ] `Input` (single-line) — backed by a `TextBuffer` (cursor/selection/edits)
+- [x] `Input` (single-line) — `Mire.Core.TextBuffer` + `Widgets.Input.render` (block cursor, scroll-to-cursor) ship; used by `Mire.SpreadsheetDemo`. _No selection yet._
 - [ ] `TextArea` (multi-line) — shift-enter newline, paste handling
-- [ ] `List` — selectable, keyboard-navigable, virtualized
+- [ ] `List` — `ListView` ships (single-select + full-width highlight + auto-scroll-to-selection); still no multi-select, virtualization, or built-in key handling
 - [ ] `Table` — virtualized rows, sticky header, column sizing, selection, custom cell renderers
 - [ ] `CommandPalette` — global fuzzy command surface (uses overlay + focus + list)
 - [ ] `Completion` — cursor/anchor-anchored list (shares item model with palette)
@@ -161,10 +161,10 @@ From `SPEC.md`'s optimization tiers. Do these _when they hurt_, not before.
 ### Project infrastructure 🟡
 
 - [x] **Framework consolidated** into a single `Mire` project (folders = layers); solution is `Mire` + `Mire.Demo` + `Mire.AgentDemo` + `Mire.FeedDemo` + `Mire.SpreadsheetDemo` + `Mire.MinesweeperDemo` + `Mire.Tests`
-- [x] **Test project** — `Mire.Tests` (Expecto) covering `Layout.measure`/`render`, `Diff.compute` (incl. sync-output bracketing + display-width cursor advance), `InputParser`, `Grapheme` width, `TextBuffer`/`Input`, and the `Mire.MinesweeperDemo` `Board` + `Mire.FeedDemo` `Feed` helpers (62 tests, all green; `dotnet build Mire.slnx` is warning-clean)
+- [x] **Test project** — `Mire.Tests` (Expecto) covering `Layout.measure`/`render`, `Diff.compute` (incl. sync-output bracketing + display-width cursor advance), `InputParser`, `Grapheme` width, `TextBuffer`/`Input`, `Focus`, `ScrollView`, mouse/paste/focus decoding, and the `Mire.MinesweeperDemo` `Board` + `Mire.FeedDemo` `Feed` helpers (104 tests, all green; `dotnet build Mire.slnx` is warning-clean)
 - [x] **Dev tooling** — `justfile` (build/test/run/format/lint) + Fantomas tool manifest (`.config/dotnet-tools.json`); `just check` = lint + build + test
 - [ ] Promote `--dump` scenarios into golden-frame snapshot tests (assert full cell grids, not just spot checks)
-- [x] `git init` + under version control — framework, four demos, tests, docs, prototypes (work continues on the `feat/widget-gallery` branch)
+- [x] `git init` + under version control — framework, five demos, tests, docs, prototypes (work continues on the `feat/widget-gallery` branch)
 - [ ] CI build + `dotnet test` on .NET 10
 
 ---
