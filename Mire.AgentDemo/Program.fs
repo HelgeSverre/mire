@@ -104,8 +104,9 @@ type Model =
 /// Normalized keys the app routes on (MapInput can't see the model, so routing by
 /// overlay state happens in update; this DU carries the key across that boundary).
 type Key2 =
-    | KChar of string
-    | KBackspace
+    /// A prompt/query editing event carried raw (so modifiers survive for word
+    /// chords). The active overlay (or the base prompt) decides what to do with it.
+    | KEdit of InputEvent
     | KEnter
     | KEsc
     | KTab
@@ -280,7 +281,7 @@ let private completionList (kind: CompletionKind) (q: string) : (string * string
 
 /// Open / refresh / close the completion popup based on the current prompt text.
 let private refreshCompletion (m: Model) : Model =
-    match activeCompletion m.Prompt.Value with
+    match activeCompletion (PromptInput.value m.Prompt) with
     | Some(kind, q) ->
         let n = List.length (completionList kind q)
 
@@ -388,7 +389,7 @@ let private startCommand (text: string) (m: Model) : Model * Cmd<Msg> =
     applyResponse text m1
 
 let private submit (m: Model) : Model * Cmd<Msg> =
-    let text = m.Prompt.Value.Trim()
+    let text = (PromptInput.value m.Prompt).Trim()
 
     if text = "" then
         m, Cmd.none
@@ -414,7 +415,7 @@ let private runCommand (text: string) (m: Model) : Model * Cmd<Msg> =
 
 /// Accept the highlighted completion. @mentions insert the path; /slash commands run.
 let private acceptCompletion (m: Model) : Model * Cmd<Msg> =
-    match m.Completion, activeCompletion m.Prompt.Value with
+    match m.Completion, activeCompletion (PromptInput.value m.Prompt) with
     | Some(kind, sel), Some(kind2, q) when kind = kind2 ->
         let items = completionList kind q
 
@@ -423,7 +424,7 @@ let private acceptCompletion (m: Model) : Model * Cmd<Msg> =
             match kind with
             | MentionC ->
                 { m with
-                    Prompt = { Value = acceptMention value m.Prompt.Value }
+                    Prompt = PromptInput.ofString (acceptMention value (PromptInput.value m.Prompt))
                     Completion = None },
                 Cmd.none
             | SlashC ->
@@ -460,27 +461,32 @@ let private scrollBy (d: int) (m: Model) : Model * Cmd<Msg> =
 // ── key routing per overlay ─────────────────────────────────────────────────────
 let private updateBase (k: Key2) (m: Model) : Model * Cmd<Msg> =
     match k with
-    | KChar c ->
-        // A long or multi-line chunk is a paste → collapse it into a [Pasted] chip.
-        if c.Contains("\n") || c.Length >= 16 then
-            let id = m.NextId
-            let chip = sprintf "[Pasted #%d · %d chars] " id c.Length
+    | KEdit(Paste s) when s.Contains("\n") || s.Length >= 16 ->
+        // A multi-line or long paste → collapse it into a [Pasted] chip rather than
+        // dumping it into the prompt; the full content is stashed in `Pastes`.
+        let id = m.NextId
+        let chip = sprintf "[Pasted #%d · %d chars] " id s.Length
 
-            { m with
-                Prompt = PromptInput.append chip m.Prompt
-                Pastes = m.Pastes @ [ id, c ]
-                NextId = id + 1
-                Completion = None },
-            Cmd.none
-        else
-            refreshCompletion
-                { m with
-                    Prompt = PromptInput.append c m.Prompt },
-            Cmd.none
-    | KBackspace ->
+        { m with
+            Prompt = PromptInput.append chip m.Prompt
+            Pastes = m.Pastes @ [ id, s ]
+            NextId = id + 1
+            Completion = None },
+        Cmd.none
+    | KEdit e ->
+        // Typing, Backspace/Delete (+ word chords), small pastes — all through the
+        // framework's editing keymap. Refresh the @mention / /slash popup after.
         refreshCompletion
             { m with
-                Prompt = PromptInput.backspace m.Prompt },
+                Prompt = PromptInput.applyInput e m.Prompt },
+        Cmd.none
+    | KLeft ->
+        { m with
+            Prompt = PromptInput.applyAction CursorLeft m.Prompt },
+        Cmd.none
+    | KRight ->
+        { m with
+            Prompt = PromptInput.applyAction CursorRight m.Prompt },
         Cmd.none
     | KEnter ->
         match m.Completion with
@@ -508,7 +514,9 @@ let private updateBase (k: Key2) (m: Model) : Model * Cmd<Msg> =
     | KDown ->
         match m.Completion with
         | Some(kind, s) ->
-            let q = defaultArg (activeCompletion m.Prompt.Value |> Option.map snd) ""
+            let q =
+                defaultArg (activeCompletion (PromptInput.value m.Prompt) |> Option.map snd) ""
+
             let n = List.length (completionList kind q)
 
             { m with
@@ -542,7 +550,6 @@ let private updateBase (k: Key2) (m: Model) : Model * Cmd<Msg> =
              | Some _ -> { m with Streaming = None }
              | None -> m),
             Cmd.none
-    | _ -> m, Cmd.none
 
 let private updatePalette (k: Key2) (ps: PaletteState) (m: Model) : Model * Cmd<Msg> =
     let setP p = { m with Overlay = PaletteOverlay p }
@@ -550,20 +557,27 @@ let private updatePalette (k: Key2) (ps: PaletteState) (m: Model) : Model * Cmd<
     match k with
     | KEsc
     | KCtrlP -> { m with Overlay = NoOverlay }, Cmd.none
-    | KChar c ->
-        setP
-            { ps with
-                Query = ps.Query + c
-                Sel = 0 },
-        Cmd.none
-    | KBackspace ->
-        let q =
-            if ps.Query = "" then
-                ""
-            else
-                ps.Query.Substring(0, ps.Query.Length - 1)
+    | KEdit e ->
+        // The palette query is a plain string; pull printable text / Backspace out
+        // of the raw editing event (cursor moves and word chords are ignored here).
+        let edited =
+            match e with
+            | Key { Key = Char c; Modifiers = mods } when not mods.Ctrl && not mods.Alt && not mods.Meta ->
+                Some(ps.Query + c)
+            | Key { Key = Space } -> Some(ps.Query + " ")
+            | Key { Key = Backspace } ->
+                Some(
+                    if ps.Query = "" then
+                        ""
+                    else
+                        ps.Query.Substring(0, ps.Query.Length - 1)
+                )
+            | Paste s -> Some(ps.Query + s)
+            | _ -> None
 
-        setP { ps with Query = q; Sel = 0 }, Cmd.none
+        match edited with
+        | Some q -> setP { ps with Query = q; Sel = 0 }, Cmd.none
+        | None -> m, Cmd.none
     | KUp -> setP { ps with Sel = max 0 (ps.Sel - 1) }, Cmd.none
     | KDown ->
         let n = List.length (filterCommands ps.Query)
@@ -867,7 +881,17 @@ let private placeholder (m: Model) =
     | _ -> "type a command — try: markdown, tool, diff, permission"
 
 let private promptBox (m: Model) : LayoutNode<Msg> =
-    Box.box Theme.borderStyle [ PromptInput.render Theme.accentStyle Theme.text Theme.subtle (placeholder m) m.Prompt ]
+    Box.box
+        Theme.borderStyle
+        [ PromptInput.render
+              (m.Size.Width - 2) // box border eats one cell each side
+              Theme.accentStyle
+              Theme.text
+              Theme.selection
+              Theme.subtle
+              (placeholder m)
+              (m.Focus = PromptFocus)
+              m.Prompt ]
 
 let private hints: LayoutNode<Msg> =
     Text.text " Ctrl+P palette · Ctrl+O skills · ⇧Tab mode · Esc close · Ctrl+C quit" Theme.subtle
@@ -1048,7 +1072,9 @@ let private toastLayer (m: Model) : LayoutNode<Msg> =
 
 /// The completion popup (@mentions or /slash commands), floated above the prompt.
 let private completionPopup (kind: CompletionKind) (sel: int) (m: Model) : LayoutNode<Msg> =
-    let q = defaultArg (activeCompletion m.Prompt.Value |> Option.map snd) ""
+    let q =
+        defaultArg (activeCompletion (PromptInput.value m.Prompt) |> Option.map snd) ""
+
     let items = completionList kind q
 
     let title =
@@ -1225,9 +1251,6 @@ let mapInput (e: InputEvent) : Msg option =
             | Char c when ke.Modifiers.Ctrl && c = "p" -> Some KCtrlP
             | Char c when ke.Modifiers.Ctrl && c = "o" -> Some KCtrlO
             | Char _ when ke.Modifiers.Ctrl -> None
-            | Char c -> Some(KChar c)
-            | Space -> Some(KChar " ")
-            | Backspace -> Some KBackspace
             | Enter -> Some KEnter
             | Escape -> Some KEsc
             | Tab when ke.Modifiers.Shift -> Some KShiftTab
@@ -1240,9 +1263,16 @@ let mapInput (e: InputEvent) : Msg option =
             | PageDown -> Some KPageDown
             | Home -> Some KHome
             | End -> Some KEnd
+            // editing keys (typing, Space, Backspace/Delete, word chords) ride raw
+            // so the prompt/palette editor keeps the modifiers it needs
+            | Char _
+            | Space
+            | Backspace
+            | Delete -> Some(KEdit e)
             | _ -> None
 
         key |> Option.map KeyMsg
+    | Paste _ -> Some(KeyMsg(KEdit e))
     | Resize sz -> Some(Resized sz)
     | _ -> None
 
@@ -1394,7 +1424,7 @@ let runDump () =
         (Size.Create(72, 20))
         (view
             { sample (Size.Create(72, 20)) with
-                Prompt = { Value = "see @Mire" }
+                Prompt = PromptInput.ofString "see @Mire"
                 Completion = Some(MentionC, 0) })
 
     dumpNode
@@ -1402,7 +1432,7 @@ let runDump () =
         (Size.Create(72, 20))
         (view
             { sample (Size.Create(72, 20)) with
-                Prompt = { Value = "/to" }
+                Prompt = PromptInput.ofString "/to"
                 Completion = Some(SlashC, 0) })
 
     dumpNode

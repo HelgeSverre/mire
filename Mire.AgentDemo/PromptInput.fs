@@ -4,40 +4,62 @@ open Mire.Core
 open Mire.Layout
 open Mire.Widgets
 
-/// A deliberately-minimal single-line input. The framework has no text-buffer/`Input`
-/// widget yet (ROADMAP v0.3), so this is a PLACEHOLDER behind a thin seam: append at
-/// the end, delete the last char, submit on Enter. When a real widget lands, only this
-/// module and the prompt's `mapInput` cases change.
-type PromptInput = { Value: string }
+/// The agent prompt's editable text. Backed by the framework's real editing stack
+/// now that it exists (ROADMAP v0.3): a `TextBuffer` for the text + cursor, the
+/// `TextEdit` keymap for turning input events into edits, and the `TextArea` widget
+/// for rendering. (Enter submits in this app, so the buffer stays single-line in
+/// practice — but cursor movement, word-delete, and paste all go through the real
+/// machinery.)
+type PromptInput = { Buffer: TextBuffer }
 
 module PromptInput =
 
-    let empty = { Value = "" }
+    let empty = { Buffer = TextBuffer.Empty }
 
-    let append (s: string) (p: PromptInput) = { p with Value = p.Value + s }
+    let ofString (s: string) = { Buffer = TextBuffer.Of s }
+
+    /// The current text (cursor-independent).
+    let value (p: PromptInput) = p.Buffer.Text
+
+    /// Feed one decoded input event (key or paste) through the conventional editing
+    /// keymap — typing, Backspace/Delete, word-delete chords, cursor moves, paste.
+    let applyInput (e: InputEvent) (p: PromptInput) =
+        { Buffer = TextEdit.applyInput e p.Buffer }
+
+    /// Apply a named edit action directly (used where the app knows the action but
+    /// not a raw event — e.g. the neutralized Left/Right arrows).
+    let applyAction (a: EditAction) (p: PromptInput) = { Buffer = TextEdit.apply a p.Buffer }
+
+    /// Thin convenience shims (used where the app builds an edit directly rather
+    /// than from an input event). Insert at the cursor / delete before it.
+    let append (s: string) (p: PromptInput) =
+        { Buffer = TextEdit.apply (InsertText s) p.Buffer }
 
     let backspace (p: PromptInput) =
-        if p.Value.Length = 0 then
-            p
-        else
-            { p with
-                Value = p.Value.Substring(0, p.Value.Length - 1) }
+        { Buffer = TextEdit.apply DeleteBack p.Buffer }
 
-    /// Render the prompt line: an accent glyph, then the value with a block cursor,
-    /// or the placeholder when empty.
+    /// Render the prompt line: an accent glyph, then the editable text via the
+    /// `TextArea` widget (a block cursor at the caret when focused), or the
+    /// placeholder when empty. `width` is the available content width (the glyph
+    /// is subtracted for the text region).
     let render
+        (width: int)
         (glyphStyle: Style)
         (textStyle: Style)
+        (cursorStyle: Style)
         (placeholderStyle: Style)
         (placeholder: string)
+        (focused: bool)
         (p: PromptInput)
         : LayoutNode<'msg> =
+        let glyphW = 2
+
         let body =
-            if p.Value = "" then
+            if TextBuffer.isEmpty p.Buffer then
                 Text.text placeholder placeholderStyle
             else
-                Text.text (p.Value + "▏") textStyle
+                TextArea.render (max 0 (width - glyphW)) 1 textStyle cursorStyle focused p.Buffer
 
         Stack.hstackOf
-            [ Stack.sized (Length.Cells 2) (Text.text "❯ " glyphStyle)
+            [ Stack.sized (Length.Cells glyphW) (Text.text "❯ " glyphStyle)
               Stack.sized Length.Fill body ]
