@@ -641,3 +641,64 @@ module TextArea =
             Stack.vstackOf
                 [ for y in offY .. min (lines.Length - 1) (offY + height - 1) ->
                       Stack.sized (Length.Cells 1) (renderLine y lines.[y]) ]
+
+/// A two-pane split with a divider between the panes — the convenience the demos
+/// hand-roll today as raw `Stack`/`Dock` fractions. The app owns the split
+/// position (the "resize"): pass `Cells n` for an app-driven/draggable position or
+/// `Fraction f` for a proportional split; the second pane fills the remainder.
+/// Nest two `split`s for >2 panes.
+module SplitView =
+    /// Split the area along `direction`: `first` sized by `firstSize`, then a 1-cell
+    /// `dividerStyle` gutter, then `second` filling the rest. The gutter is a
+    /// `Filled` strip that auto-spans the cross axis, so it needs a background-bearing
+    /// `dividerStyle` to show (like `Badge`); a `Style.Default` gutter is an invisible
+    /// 1-cell gap. (A glyph rule instead would need the cross-axis length, which the
+    /// app can build with `Separator` if it wants one.)
+    let split
+        (direction: Direction)
+        (firstSize: Length)
+        (dividerStyle: Style)
+        (first: LayoutNode<'msg>)
+        (second: LayoutNode<'msg>)
+        : LayoutNode<'msg> =
+        Stack.stackOf
+            direction
+            [ Stack.sized firstSize first
+              Stack.sized (Length.Cells 1) (Backdrop.solid dividerStyle)
+              Stack.sized Length.Fill second ]
+
+    /// Left | right split (`first` = left pane).
+    let horizontal (firstSize: Length) (dividerStyle: Style) (left: LayoutNode<'msg>) (right: LayoutNode<'msg>) =
+        split Direction.Horizontal firstSize dividerStyle left right
+
+    /// Top / bottom split (`first` = top pane).
+    let vertical (firstSize: Length) (dividerStyle: Style) (top: LayoutNode<'msg>) (bottom: LayoutNode<'msg>) =
+        split Direction.Vertical firstSize dividerStyle top bottom
+
+/// An anchored, bordered doc popup — the inline/hover tooltip. Mirrors
+/// `Completion`'s placement: sits just below the anchor point, flips above when it
+/// would run off the bottom, and is clamped on-screen horizontally (via
+/// `Overlay.atPoint`). Pure layout — the app decides when to show it and supplies
+/// the anchor + screen size; `lines` are caller-wrapped to fit (`width - 2`).
+module Tooltip =
+    let view
+        (areaW: int)
+        (areaH: int)
+        (anchorX: int)
+        (anchorY: int)
+        (width: int)
+        (borderStyle: Style)
+        (textStyle: Style)
+        (lines: string list)
+        : LayoutNode<'msg> =
+        let rows = max 1 (List.length lines)
+        let h = rows + 2 // border top + bottom
+
+        let body =
+            Stack.vstackOf [ for ln in lines -> Stack.sized (Length.Cells 1) (Text.text (" " + ln) textStyle) ]
+
+        let box = Box.box borderStyle [ body ]
+        // below the anchor if it fits, else flipped above it
+        let below = anchorY + 1
+        let y = if below + h <= areaH then below else max 0 (anchorY - h)
+        Overlay.atPoint anchorX y width h areaW areaH box

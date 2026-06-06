@@ -1017,6 +1017,72 @@ let textAreaTests =
               Expect.equal surf.[0, 0].Style.Background (Some curBg) "cursor block at (0,0)"
           } ]
 
+// SplitView ----------------------------------------------------------------
+
+let splitViewTests =
+    testList
+        "SplitView"
+        [ test "horizontal: first | divider | second, divider carries its style" {
+              let divBg = Color.Rgb(0x33uy, 0x33uy, 0x33uy)
+              let div = Style.Default.WithBackground divBg
+
+              let node: LayoutNode<unit> =
+                  Mire.Widgets.SplitView.horizontal
+                      (Cells 3)
+                      div
+                      (Mire.Widgets.Text.text "LLLL" Style.Default)
+                      (Mire.Widgets.Text.text "RRRR" Style.Default)
+
+              let surf = Surface(Size.Create(10, 1))
+              Layout.measure (Rect.Create(0, 0, 10, 1)) node |> Layout.render surf
+              Expect.stringContains (rowText surf 0) "LLL" "left pane in the first 3 cells"
+              Expect.equal surf.[3, 0].Style.Background (Some divBg) "divider gutter at x=3 carries the divider bg"
+              Expect.equal surf.[4, 0].Grapheme "R" "right pane starts after the divider"
+          }
+          test "vertical: top / divider / bottom" {
+              let divBg = Color.Rgb(0x22uy, 0x22uy, 0x22uy)
+              let div = Style.Default.WithBackground divBg
+
+              let node: LayoutNode<unit> =
+                  Mire.Widgets.SplitView.vertical
+                      (Cells 1)
+                      div
+                      (Mire.Widgets.Text.text "T" Style.Default)
+                      (Mire.Widgets.Text.text "B" Style.Default)
+
+              let surf = Surface(Size.Create(4, 4))
+              Layout.measure (Rect.Create(0, 0, 4, 4)) node |> Layout.render surf
+              Expect.stringContains (rowText surf 0) "T" "top pane on row 0"
+              Expect.equal surf.[0, 1].Style.Background (Some divBg) "divider row at y=1"
+              Expect.stringContains (rowText surf 2) "B" "bottom pane below the divider"
+          } ]
+
+// Tooltip ------------------------------------------------------------------
+
+let tooltipTests =
+    testList
+        "Tooltip"
+        [ test "renders a bordered tip just below the anchor" {
+              let node: LayoutNode<unit> =
+                  Mire.Widgets.Tooltip.view 20 10 2 2 8 Style.Default Style.Default [ "hi"; "yo" ]
+
+              let surf = Surface(Size.Create(20, 10))
+              Layout.measure (Rect.Create(0, 0, 20, 10)) node |> Layout.render surf
+              // anchor y=2 → below at y=3; box: top border row 3, " hi" row 4, " yo" row 5, bottom row 6
+              Expect.stringContains (rowText surf 4) "hi" "first line one row below the top border"
+              Expect.stringContains (rowText surf 5) "yo" "second line"
+          }
+          test "flips above the anchor when it would run off the bottom" {
+              let node: LayoutNode<unit> =
+                  Mire.Widgets.Tooltip.view 12 6 1 5 6 Style.Default Style.Default [ "x" ]
+
+              let surf = Surface(Size.Create(12, 6))
+              Layout.measure (Rect.Create(0, 0, 12, 6)) node |> Layout.render surf
+              // h = 1+2 = 3; below (6) doesn't fit → flip to y = 5-3 = 2; box rows 2..4, " x" at row 3
+              Expect.stringContains (rowText surf 3) "x" "tip flipped above the anchor"
+              Expect.isFalse ((rowText surf 5).Contains "x") "nothing rendered below the anchor"
+          } ]
+
 // Feed helpers (Mire.FeedDemo) --------------------------------------------
 
 let feedTests =
@@ -1339,6 +1405,8 @@ let all =
           textEditTests
           inputViewTests
           textAreaTests
+          splitViewTests
+          tooltipTests
           feedTests
           minesweeperTests
           cmdQuitTests ]
