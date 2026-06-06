@@ -397,7 +397,9 @@ let positionedTests =
             | _ -> Rect.Create(0, 0, 0, 0)
         | _ -> Rect.Create(0, 0, 0, 0)
 
-    let box: LayoutNode<unit> = LayoutNode.Filled(Rect.Create(0, 0, 0, 0), Style.Default)
+    let box: LayoutNode<unit> =
+        LayoutNode.Filled(Rect.Create(0, 0, 0, 0), Style.Default)
+
     let tup (r: Rect) = (r.X, r.Y, r.Width, r.Height)
 
     testList
@@ -422,10 +424,17 @@ let positionedTests =
           }
           test "Content sizes the child to its intrinsic extent, then places it" {
               let txt = LayoutNode.Text(Rect.Create(0, 0, 0, 0), "hello", Style.Default) // 5×1
-              Expect.equal (tup (placedRect Center Length.Content Length.Content txt)) (7, 4, 5, 1) "5 wide, 1 tall, centered"
+
+              Expect.equal
+                  (tup (placedRect Center Length.Content Length.Content txt))
+                  (7, 4, 5, 1)
+                  "5 wide, 1 tall, centered"
           }
           test "oversized child clamps to the area without a negative origin" {
-              Expect.equal (tup (placedRect Center (Cells 100) (Cells 100) box)) (0, 0, 20, 10) "clamped to 20×10 at origin"
+              Expect.equal
+                  (tup (placedRect Center (Cells 100) (Cells 100) box))
+                  (0, 0, 20, 10)
+                  "clamped to 20×10 at origin"
           }
           test "render draws a centered Filled in the middle, not the corner" {
               let bg = Color.Rgb(0x40uy, 0x40uy, 0x40uy)
@@ -490,9 +499,18 @@ let widgetTests =
 
               let surf = Surface(Size.Create(20, 10))
               Layout.measure (Rect.Create(0, 0, 20, 10)) m |> Layout.render surf
-              Expect.equal surf.[0, 0].Style.Background (Some backdropBg) "backdrop fills the corner (occludes the base)"
+
+              Expect.equal
+                  surf.[0, 0].Style.Background
+                  (Some backdropBg)
+                  "backdrop fills the corner (occludes the base)"
+
               Expect.equal surf.[19, 9].Style.Background (Some backdropBg) "backdrop fills the far corner too"
-              Expect.isFalse (System.String.IsNullOrEmpty surf.[5, 2].Grapheme) "box border drawn at the centered top-left (5,2)"
+
+              Expect.isFalse
+                  (System.String.IsNullOrEmpty surf.[5, 2].Grapheme)
+                  "box border drawn at the centered top-left (5,2)"
+
               Expect.notEqual surf.[5, 2].Grapheme " " "centered corner is a border glyph, not blank"
           }
           test "flexSpacer in a vstack pushes the last child to the bottom" {
@@ -593,7 +611,8 @@ let widgetTests =
 
               let barColumn (offset: int) : string list =
                   let content: LayoutNode<unit> =
-                      Mire.Widgets.Stack.vstack [ for i in 1..8 -> Mire.Widgets.Text.text (sprintf "row%d" i) Style.Default ]
+                      Mire.Widgets.Stack.vstack
+                          [ for i in 1..8 -> Mire.Widgets.Text.text (sprintf "row%d" i) Style.Default ]
 
                   let node: LayoutNode<unit> =
                       Mire.Widgets.ScrollView.vertical 4 8 offset track thumb content
@@ -624,7 +643,11 @@ let widgetTests =
               Expect.stringContains (rowText surf 0) "Name" "sticky header on the first row"
               Expect.stringContains (rowText surf 1) "beta" "first windowed row (topRow=1) below the header"
               Expect.stringContains (rowText surf 2) "gamma" "second windowed row"
-              Expect.equal surf.[5, 2].Style.Background (Some selBg) "selected row (gamma) highlighted full-column-width"
+
+              Expect.equal
+                  surf.[5, 2].Style.Background
+                  (Some selBg)
+                  "selected row (gamma) highlighted full-column-width"
           }
           test "CommandPalette.matches is a case-insensitive subsequence" {
               Expect.isTrue (Mire.Widgets.CommandPalette.matches "tp" "ToolPanel") "t,p subsequence of ToolPanel"
@@ -646,17 +669,30 @@ let widgetTests =
               let sel = Style.Default.WithBackground(Color.Rgb(0x4Cuy, 0xAFuy, 0x50uy))
 
               let node: LayoutNode<unit> =
-                  Mire.Widgets.CommandPalette.view 30 8 dim dim dim sel dim "Commands" "op" 0 [ "Open File"; "Open Folder" ]
+                  Mire.Widgets.CommandPalette.view
+                      30
+                      8
+                      dim
+                      dim
+                      dim
+                      sel
+                      dim
+                      "Commands"
+                      "op"
+                      0
+                      [ "Open File"; "Open Folder" ]
 
               let surf = Surface(Size.Create(40, 12))
               Layout.measure (Rect.Create(0, 0, 40, 12)) node |> Layout.render surf
-              let whole = String.concat "\n" [ for y in 0 .. 11 -> rowText surf y ]
+              let whole = String.concat "\n" [ for y in 0..11 -> rowText surf y ]
               Expect.stringContains whole "op" "the ❯ query line is rendered"
               Expect.stringContains whole "Open File" "a filtered item is rendered"
           }
           test "Overlay.atPoint places a child at the point, clamped on-screen" {
               let bg = Color.Rgb(0x30uy, 0x30uy, 0x30uy)
-              let fill: LayoutNode<unit> = LayoutNode.Filled(Rect.Create(0, 0, 0, 0), Style.Default.WithBackground bg)
+
+              let fill: LayoutNode<unit> =
+                  LayoutNode.Filled(Rect.Create(0, 0, 0, 0), Style.Default.WithBackground bg)
 
               // 4×2 child at (5,3) in a 20×10 area → occupies (5..8, 3..4)
               let node: LayoutNode<unit> = Mire.Widgets.Overlay.atPoint 5 3 4 2 20 10 fill
@@ -683,7 +719,7 @@ let widgetTests =
 
               let surf = Surface(Size.Create(40, 12))
               Layout.measure (Rect.Create(0, 0, 40, 12)) node |> Layout.render surf
-              let whole = String.concat "\n" [ for y in 0 .. 11 -> rowText surf y ]
+              let whole = String.concat "\n" [ for y in 0..11 -> rowText surf y ]
               Expect.stringContains whole "foo()" "a candidate is rendered"
               Expect.stringContains whole "format" "the other candidate is rendered"
           }
@@ -724,8 +760,14 @@ let widgetTests =
               let surf = Surface(Size.Create(40, 12))
               Layout.measure (Rect.Create(0, 0, 40, 12)) node |> Layout.render surf
               // flipped above → top at anchorY - h = 6; nothing rendered on the caret row (10) or below
-              Expect.stringContains (String.concat "\n" [ for y in 6..9 -> rowText surf y ]) "foo()" "popup sits above the caret"
-              Expect.isTrue (System.String.IsNullOrWhiteSpace(rowText surf 11)) "nothing at the bottom (didn't overflow below)"
+              Expect.stringContains
+                  (String.concat "\n" [ for y in 6..9 -> rowText surf y ])
+                  "foo()"
+                  "popup sits above the caret"
+
+              Expect.isTrue
+                  (System.String.IsNullOrWhiteSpace(rowText surf 11))
+                  "nothing at the bottom (didn't overflow below)"
           }
           test "Separator.horizontal / vertical draw rules of the given length" {
               let h: LayoutNode<unit> = Mire.Widgets.Separator.horizontal 5 Style.Default
@@ -740,7 +782,10 @@ let widgetTests =
           }
           test "Badge renders a padded label carrying the toned style" {
               let bg = Color.Rgb(0x4Cuy, 0xAFuy, 0x50uy)
-              let node: LayoutNode<unit> = Mire.Widgets.Badge.badge (Style.Default.WithBackground bg) "done"
+
+              let node: LayoutNode<unit> =
+                  Mire.Widgets.Badge.badge (Style.Default.WithBackground bg) "done"
+
               let surf = Surface(Size.Create(10, 1))
               Layout.measure (Rect.Create(0, 0, 10, 1)) node |> Layout.render surf
               Expect.stringContains (rowText surf 0) "done" "label shown"
@@ -794,9 +839,18 @@ let textBufferTests =
               Expect.equal (nl.Text, nl.Cursor) ("a\n", 2) "stops at the newline boundary"
           }
           test "wordLeft / wordRight jump by word, clamping at the ends" {
-              Expect.equal ({ Text = "foo bar"; Cursor = 7 } |> TextBuffer.wordLeft).Cursor 4 "wordLeft → start of 'bar'"
+              Expect.equal
+                  ({ Text = "foo bar"; Cursor = 7 } |> TextBuffer.wordLeft).Cursor
+                  4
+                  "wordLeft → start of 'bar'"
+
               Expect.equal ({ Text = "foo bar"; Cursor = 0 } |> TextBuffer.wordLeft).Cursor 0 "wordLeft no-op at start"
-              Expect.equal ({ Text = "foo bar"; Cursor = 0 } |> TextBuffer.wordRight).Cursor 3 "wordRight → end of 'foo'"
+
+              Expect.equal
+                  ({ Text = "foo bar"; Cursor = 0 } |> TextBuffer.wordRight).Cursor
+                  3
+                  "wordRight → end of 'foo'"
+
               Expect.equal ({ Text = "foo bar"; Cursor = 7 } |> TextBuffer.wordRight).Cursor 7 "wordRight no-op at end"
           }
           test "deleteWordForward removes the next word" {
@@ -806,7 +860,11 @@ let textBufferTests =
           test "lineStart / lineEnd act within the current line" {
               Expect.equal ({ Text = "ab\ncd"; Cursor = 4 } |> TextBuffer.lineStart).Cursor 3 "→ start of 2nd line"
               Expect.equal ({ Text = "ab\ncd"; Cursor = 3 } |> TextBuffer.lineEnd).Cursor 5 "→ end of 2nd line"
-              Expect.equal ({ Text = "ab\ncd"; Cursor = 1 } |> TextBuffer.lineEnd).Cursor 2 "1st line ends before its \\n"
+
+              Expect.equal
+                  ({ Text = "ab\ncd"; Cursor = 1 } |> TextBuffer.lineEnd).Cursor
+                  2
+                  "1st line ends before its \\n"
           }
           test "up / down move by row, clamping the column (no sticky col)" {
               let b = { Text = "abc\nde"; Cursor = 2 } // row 0, col 2
@@ -814,7 +872,11 @@ let textBufferTests =
               Expect.equal d.Cursor 6 "down onto a shorter line clamps the column to its end"
               Expect.equal (TextBuffer.up d).Cursor 2 "up returns to col 2 on the longer line"
               Expect.equal (TextBuffer.up b) b "up is a no-op on the first line"
-              Expect.equal (TextBuffer.down { Text = "x"; Cursor = 1 }) { Text = "x"; Cursor = 1 } "down is a no-op on the last line"
+
+              Expect.equal
+                  (TextBuffer.down { Text = "x"; Cursor = 1 })
+                  { Text = "x"; Cursor = 1 }
+                  "down is a no-op on the last line"
           }
           test "cursorRowCol maps the flat cursor to (row, col)" {
               Expect.equal (TextBuffer.cursorRowCol TextBuffer.Empty) (0, 0) "empty → (0,0)"
@@ -842,9 +904,18 @@ let textEditTests =
               Expect.equal (TextEdit.apply DeleteWordBack { Text = "foo bar"; Cursor = 7 }).Text "foo " "DeleteWordBack"
           }
           test "defaultKeymap follows conventions" {
-              Expect.equal (TextEdit.defaultKeymap (key (Char "a") KeyModifiers.None)) (Some(InsertText "a")) "plain char inserts"
+              Expect.equal
+                  (TextEdit.defaultKeymap (key (Char "a") KeyModifiers.None))
+                  (Some(InsertText "a"))
+                  "plain char inserts"
+
               Expect.equal (TextEdit.defaultKeymap (key Enter KeyModifiers.None)) (Some Newline) "Enter → Newline"
-              Expect.equal (TextEdit.defaultKeymap (key Backspace ctrl)) (Some DeleteWordBack) "Ctrl+Backspace → word delete"
+
+              Expect.equal
+                  (TextEdit.defaultKeymap (key Backspace ctrl))
+                  (Some DeleteWordBack)
+                  "Ctrl+Backspace → word delete"
+
               Expect.equal (TextEdit.defaultKeymap (key ArrowLeft ctrl)) (Some WordLeft) "Ctrl+Left → word jump"
               Expect.equal (TextEdit.defaultKeymap (key Home KeyModifiers.None)) (Some LineStart) "Home → line start"
               Expect.equal (TextEdit.defaultKeymap (key Home ctrl)) (Some DocStart) "Ctrl+Home → doc start"
@@ -862,8 +933,16 @@ let textEditTests =
                   | _ -> TextEdit.defaultKeymap ke
 
               Expect.equal (km (key Enter KeyModifiers.None)) None "plain Enter left to the app (submit)"
-              Expect.equal (km (key Enter { KeyModifiers.None with Shift = true })) (Some Newline) "Shift+Enter newlines"
-              Expect.equal (km (key (Char "z") KeyModifiers.None)) (Some(InsertText "z")) "unclaimed keys fall through to the default"
+
+              Expect.equal
+                  (km (key Enter { KeyModifiers.None with Shift = true }))
+                  (Some Newline)
+                  "Shift+Enter newlines"
+
+              Expect.equal
+                  (km (key (Char "z") KeyModifiers.None))
+                  (Some(InsertText "z"))
+                  "unclaimed keys fall through to the default"
           } ]
 
 let inputViewTests =
@@ -892,6 +971,50 @@ let inputViewTests =
               let surf = Surface(Size.Create(4, 1))
               Layout.measure (Rect.Create(0, 0, 4, 1)) node |> Layout.render surf
               Expect.isTrue ((rowText surf 0).StartsWith "789") "window scrolled to the tail near the cursor"
+          } ]
+
+// TextArea (multi-line editor render) ---------------------------------------
+
+let textAreaTests =
+    testList
+        "TextArea"
+        [ test "renders multiple lines with the block cursor on the cursor's row" {
+              let curBg = Color.Rgb(0x9Auy, 0xA2uy, 0xAEuy)
+              let cur = Style.Default.WithBackground curBg
+              // "ab\ncd", cursor 4 → (row 1, col 1)
+              let node: LayoutNode<unit> =
+                  Mire.Widgets.TextArea.render 10 3 Style.Default cur true { Text = "ab\ncd"; Cursor = 4 }
+
+              let surf = Surface(Size.Create(10, 3))
+              Layout.measure (Rect.Create(0, 0, 10, 3)) node |> Layout.render surf
+              Expect.stringContains (rowText surf 0) "ab" "first line on row 0"
+              Expect.stringContains (rowText surf 1) "cd" "second line on row 1"
+              Expect.equal surf.[1, 1].Style.Background (Some curBg) "block cursor at (col1,row1)"
+              Expect.isTrue surf.[1, 0].Style.Background.IsNone "no cursor on the first row"
+          }
+          test "vertical-scrolls to keep the cursor row visible" {
+              let cur = Style.Default.WithBackground(Color.Rgb(0x40uy, 0x40uy, 0x40uy))
+              let text = "l0\nl1\nl2\nl3\nl4"
+              let buf = { Text = text; Cursor = text.Length } // cursor on the last line
+
+              let node: LayoutNode<unit> =
+                  Mire.Widgets.TextArea.render 6 2 Style.Default cur true buf
+
+              let surf = Surface(Size.Create(6, 2))
+              Layout.measure (Rect.Create(0, 0, 6, 2)) node |> Layout.render surf
+              Expect.stringContains (rowText surf 0) "l3" "previous line above the window"
+              Expect.stringContains (rowText surf 1) "l4" "last line at the bottom of the 2-row window"
+          }
+          test "empty buffer shows a cursor block at the origin" {
+              let curBg = Color.Rgb(0x40uy, 0x40uy, 0x40uy)
+              let cur = Style.Default.WithBackground curBg
+
+              let node: LayoutNode<unit> =
+                  Mire.Widgets.TextArea.render 8 2 Style.Default cur true TextBuffer.Empty
+
+              let surf = Surface(Size.Create(8, 2))
+              Layout.measure (Rect.Create(0, 0, 8, 2)) node |> Layout.render surf
+              Expect.equal surf.[0, 0].Style.Background (Some curBg) "cursor block at (0,0)"
           } ]
 
 // Feed helpers (Mire.FeedDemo) --------------------------------------------
@@ -1090,7 +1213,14 @@ let cmdQuitTests =
                   (Cmd.batch [ Cmd.ofMsg 1; Cmd.quit; Cmd.ofMsg 2 ])
 
               Expect.equal quitCount 1 "a Cmd.quit anywhere in a batch requests quit exactly once"
-              Expect.sequenceEqual sent (seq { 1; 2 }) "sibling ofMsg commands in the batch still fire"
+
+              Expect.sequenceEqual
+                  sent
+                  (seq {
+                      1
+                      2
+                  })
+                  "sibling ofMsg commands in the batch still fire"
           } ]
 
 // Focus (keyboard focus ring + modal trap) ----------------------------------
@@ -1103,9 +1233,7 @@ let focusTests =
 
     testList
         "Focus"
-        [ test "ofOrder focuses the first id" {
-              Expect.equal (Focus.current ring) (Some a) "current = first id"
-          }
+        [ test "ofOrder focuses the first id" { Expect.equal (Focus.current ring) (Some a) "current = first id" }
           test "ofOrder of an empty list has no current" {
               Expect.equal (Focus.current (Focus.ofOrder [])) None "empty ring → no current"
           }
@@ -1130,7 +1258,10 @@ let focusTests =
               Expect.equal (Focus.current (Focus.focus c ring)) (Some c) "focus c → current c"
           }
           test "focus is a no-op when the id is absent" {
-              Expect.equal (Focus.current (Focus.focus (RegionId "z") ring)) (Some a) "absent id ignored, current unchanged"
+              Expect.equal
+                  (Focus.current (Focus.focus (RegionId "z") ring))
+                  (Some a)
+                  "absent id ignored, current unchanged"
           }
           test "isFocused matches the current id only" {
               Expect.isTrue (Focus.isFocused a ring) "a is focused"
@@ -1141,7 +1272,11 @@ let focusTests =
               Expect.isTrue (Focus.isTrapped t) "trapped"
               Expect.equal (Focus.current t) (Some(RegionId "ok")) "current = first trap id"
               Expect.equal (Focus.current (Focus.next t)) (Some(RegionId "cancel")) "next stays within the trap ring"
-              Expect.equal (Focus.current (t |> Focus.next |> Focus.next)) (Some(RegionId "ok")) "wraps within the trap ring, never escapes to base"
+
+              Expect.equal
+                  (Focus.current (t |> Focus.next |> Focus.next))
+                  (Some(RegionId "ok"))
+                  "wraps within the trap ring, never escapes to base"
           }
           test "popTrap restores the base ring exactly where focus was" {
               let t = ring |> Focus.next |> Focus.pushTrap [ RegionId "ok" ] // base was on b
@@ -1183,6 +1318,7 @@ let all =
           textBufferTests
           textEditTests
           inputViewTests
+          textAreaTests
           feedTests
           minesweeperTests
           cmdQuitTests ]

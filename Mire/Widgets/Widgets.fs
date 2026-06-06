@@ -183,7 +183,12 @@ module Backdrop =
 /// `LayoutNode.Overlay`.
 module Overlay =
     /// Place `child`, sized to (`width`, `height`), at `placement` within the area.
-    let positioned (placement: Placement) (width: Length) (height: Length) (child: LayoutNode<'msg>) : LayoutNode<'msg> =
+    let positioned
+        (placement: Placement)
+        (width: Length)
+        (height: Length)
+        (child: LayoutNode<'msg>)
+        : LayoutNode<'msg> =
         LayoutNode.Positioned(Rect.Create(0, 0, 0, 0), placement, width, height, child)
 
     /// Center a child of explicit cell size within the area.
@@ -193,7 +198,15 @@ module Overlay =
     /// Place a `width`×`height` child at (`x`, `y`) within an `areaW`×`areaH`
     /// region, clamped so it stays fully on-screen. For cursor/anchor popups
     /// (completion, tooltip) where the app supplies the point and the screen size.
-    let atPoint (x: int) (y: int) (width: int) (height: int) (areaW: int) (areaH: int) (child: LayoutNode<'msg>) : LayoutNode<'msg> =
+    let atPoint
+        (x: int)
+        (y: int)
+        (width: int)
+        (height: int)
+        (areaW: int)
+        (areaH: int)
+        (child: LayoutNode<'msg>)
+        : LayoutNode<'msg> =
         let px = max 0 (min x (max 0 (areaW - width)))
         let py = max 0 (min y (max 0 (areaH - height)))
 
@@ -311,11 +324,16 @@ module ScrollView =
         max 0 (min offset (toBottom viewportH contentH))
 
     /// True when `offset` is scrolled all the way down — keep this true to follow the tail.
-    let atBottom (viewportH: int) (contentH: int) (offset: int) : bool =
-        offset >= toBottom viewportH contentH
+    let atBottom (viewportH: int) (contentH: int) (offset: int) : bool = offset >= toBottom viewportH contentH
 
     /// A 1-cell scrollbar column: a proportional thumb over a track.
-    let private scrollbar (viewportH: int) (contentH: int) (offset: int) (trackStyle: Style) (thumbStyle: Style) : LayoutNode<'msg> =
+    let private scrollbar
+        (viewportH: int)
+        (contentH: int)
+        (offset: int)
+        (trackStyle: Style)
+        (thumbStyle: Style)
+        : LayoutNode<'msg> =
         let thumbH, thumbPos =
             if contentH <= viewportH || viewportH <= 0 then
                 0, 0 // content fits: just the track, no thumb
@@ -434,7 +452,10 @@ module Table =
                 let cells =
                     Stack.hstackOf [ for c in columns -> Stack.sized c.Width (c.Render row) ]
 
-                if isSelected i then Backdrop.behind selStyle cells else cells)
+                if isSelected i then
+                    Backdrop.behind selStyle cells
+                else
+                    cells)
 
         Stack.vstackOf
             [ Stack.sized (Length.Cells 1) headerRow
@@ -461,7 +482,9 @@ module CommandPalette =
 
             for ti in 0 .. t.Length - 1 do
                 if qi < q.Length && t.[ti] = q.[qi] then
-                    if first < 0 then first <- ti
+                    if first < 0 then
+                        first <- ti
+
                     last <- ti
                     qi <- qi + 1
 
@@ -525,7 +548,9 @@ module Completion =
         : LayoutNode<'msg> =
         let rows = max 1 (min (List.length items) (max 1 maxRows))
         let h = rows + 2 // border top + bottom
-        let box = Box.box borderStyle [ ListView.view rows selStyle rowStyle selected items ]
+
+        let box =
+            Box.box borderStyle [ ListView.view rows selStyle rowStyle selected items ]
         // place just below the caret if it fits; otherwise flip above it
         let below = anchorY + 1
         let y = if below + h <= areaH then below else max 0 (anchorY - h)
@@ -544,8 +569,7 @@ module Separator =
 /// A small toned pill — a padded, styled label. The caller supplies the tone via
 /// `style` (e.g. `Style.success`); a background-bearing style fills the chip.
 module Badge =
-    let badge (style: Style) (label: string) : LayoutNode<'msg> =
-        Text.text (sprintf " %s " label) style
+    let badge (style: Style) (label: string) : LayoutNode<'msg> = Text.text (sprintf " %s " label) style
 
 /// A key-hint chip: a styled key glyph followed by a label (e.g. `Ctrl+P palette`)
 /// for status bars / footers.
@@ -554,3 +578,66 @@ module KeyHint =
         Stack.hstackOf
             [ Stack.sized Length.Content (Text.text key keyStyle)
               Stack.sized Length.Content (Text.text (" " + label) labelStyle) ]
+
+/// Multi-line text editor view over a `TextBuffer` (text with `\n`). Renders a
+/// `height`-row window of the lines, vertically scrolled to keep the cursor visible
+/// (no wrap — long lines clip, and the view tracks the cursor horizontally), with a
+/// block cursor at the cursor's (row,col) when `focused`. Pure render — the app
+/// drives edits (e.g. via `Mire.Core.TextEdit`); this only renders.
+module TextArea =
+    let render
+        (width: int)
+        (height: int)
+        (textStyle: Style)
+        (cursorStyle: Style)
+        (focused: bool)
+        (buf: TextBuffer)
+        : LayoutNode<'msg> =
+        if width <= 0 || height <= 0 then
+            Spacer.spacer
+        else
+            let lines = buf.Text.Split('\n')
+            let curRow, curCol = TextBuffer.cursorRowCol buf
+
+            // vertical scroll-to-cursor (the vertical analog of Input's window)
+            let rawOff = if curRow < height then 0 else curRow - height + 1
+            let offY = ScrollView.clampOffset height lines.Length rawOff
+            // horizontal window so the cursor column stays visible (no wrap)
+            let hstart = if curCol < width then 0 else curCol - width + 1
+
+            let renderLine (idx: int) (line: string) : LayoutNode<'msg> =
+                let visLen = min (max 0 (line.Length - hstart)) width
+                let visible = if visLen <= 0 then "" else line.Substring(hstart, visLen)
+
+                if focused && idx = curRow then
+                    // reuse Input's left / atCursor / right block-cursor split
+                    let cw = curCol - hstart
+
+                    let leftPart =
+                        if cw <= 0 then
+                            ""
+                        else
+                            visible.Substring(0, min cw visible.Length)
+
+                    let atCursor =
+                        if cw >= 0 && cw < visible.Length then
+                            string visible.[cw]
+                        else
+                            " "
+
+                    let rightPart =
+                        if cw + 1 <= visible.Length then
+                            visible.Substring(min (max 0 (cw + 1)) visible.Length)
+                        else
+                            ""
+
+                    Stack.hstackOf
+                        [ Stack.sized Length.Content (Text.text leftPart textStyle)
+                          Stack.sized (Length.Cells 1) (Text.text atCursor cursorStyle)
+                          Stack.sized Length.Content (Text.text rightPart textStyle) ]
+                else
+                    Text.text visible textStyle
+
+            Stack.vstackOf
+                [ for y in offY .. min (lines.Length - 1) (offY + height - 1) ->
+                      Stack.sized (Length.Cells 1) (renderLine y lines.[y]) ]
