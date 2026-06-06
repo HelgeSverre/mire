@@ -4,9 +4,7 @@
   "tools": {
     "fantomas": {
       "version": "7.0.5",
-      "commands": [
-        "fantomas"
-      ],
+      "commands": ["fantomas"],
       "rollForward": false
     }
   }

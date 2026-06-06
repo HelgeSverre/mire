@@ -5,7 +5,7 @@
 ## Problem
 
 `Overlay of Rect * LayoutNode<'msg> list` measures every layer against the full
-area and renders them in z-order (`Filled` occludes). There is no way to *place*
+area and renders them in z-order (`Filled` occludes). There is no way to _place_
 a layer: a centered modal or a top-right toast can't be expressed. Today the
 demos hand-roll centering with a private `centered w h size node` helper built
 from `Dock` spacers — duplicated in `Mire.FeedDemo` and `Mire.SpreadsheetDemo`.
@@ -23,7 +23,7 @@ prerequisite for `Modal` and `Toast`.
    point/rect (cursor-relative completion, tooltip-on-a-word) is deferred until
    `Completion`/`Tooltip` (v0.3) need it.
 3. **Deliverable:** the node + a `Widgets.Overlay` helper + a `Modal` widget
-   (the *layout half*) + tests, dogfooded by rewiring the FeedDemo and
+   (the _layout half_) + tests, dogfooded by rewiring the FeedDemo and
    SpreadsheetDemo modals/`centered` helpers.
 
 ## The node — `Mire/Layout/Layout.fs`
