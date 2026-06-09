@@ -43,3 +43,5 @@ skills-lock.json
 
 # ---- Browser automation artifacts ----
 browser/
+
+.agents/
