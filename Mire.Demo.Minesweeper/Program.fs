@@ -18,53 +18,6 @@ open Mire.Demo.Minesweeper
 
 let private cellWidth = 2 // each cell is one glyph plus a trailing space
 
-module private Styles =
-    let frame = Style.Default.WithForeground(Color.Rgb(0x33uy, 0x3Auy, 0x44uy))
-    let hidden = Style.Default.WithForeground(Color.Rgb(0x5Cuy, 0x63uy, 0x70uy))
-
-    let flag =
-        Style.Default.WithForeground(Color.Rgb(0xFFuy, 0xCAuy, 0x28uy)).WithBold(true)
-
-    let mine =
-        Style.Default.WithForeground(Color.Rgb(0xFFuy, 0x57uy, 0x22uy)).WithBold(true)
-
-    let zero = Style.Default.WithForeground(Color.Rgb(0x40uy, 0x46uy, 0x52uy))
-    let status = Style.Default.WithForeground(Color.Rgb(0xCBuy, 0xD0uy, 0xD8uy))
-    let hint = Style.Default.WithForeground(Color.Rgb(0x80uy, 0x86uy, 0x90uy))
-
-    let won =
-        Style.Default.WithForeground(Color.Rgb(0x4Cuy, 0xAFuy, 0x50uy)).WithBold(true)
-
-    let lost =
-        Style.Default.WithForeground(Color.Rgb(0xFFuy, 0x57uy, 0x22uy)).WithBold(true)
-
-    // cursor = dark glyph on light grey, like the spreadsheet demo
-    let cursor =
-        Style.Default
-            .WithForeground(Color.Rgb(0x10uy, 0x14uy, 0x18uy))
-            .WithBackground(Color.Rgb(0x9Auy, 0xA2uy, 0xAEuy))
-
-    // classic 1-8 number colours
-    let private num1 = Style.Default.WithForeground(Color.Rgb(0x42uy, 0xA5uy, 0xF5uy)) // blue
-    let private num2 = Style.Default.WithForeground(Color.Rgb(0x66uy, 0xBBuy, 0x6Auy)) // green
-    let private num3 = Style.Default.WithForeground(Color.Rgb(0xEFuy, 0x53uy, 0x50uy)) // red
-    let private num4 = Style.Default.WithForeground(Color.Rgb(0x3Fuy, 0x51uy, 0xB5uy)) // navy
-    let private num5 = Style.Default.WithForeground(Color.Rgb(0xB7uy, 0x1Cuy, 0x1Cuy)) // maroon
-    let private num6 = Style.Default.WithForeground(Color.Rgb(0x26uy, 0xC6uy, 0xDAuy)) // teal
-    let private num7 = Style.Default.WithForeground(Color.Rgb(0xECuy, 0xEFuy, 0xF1uy)) // near-white
-    let private num8 = Style.Default.WithForeground(Color.Rgb(0x90uy, 0x90uy, 0x90uy)) // grey
-
-    let number (n: int) : Style =
-        match n with
-        | 1 -> num1
-        | 2 -> num2
-        | 3 -> num3
-        | 4 -> num4
-        | 5 -> num5
-        | 6 -> num6
-        | 7 -> num7
-        | _ -> num8
-
 // model --------------------------------------------------------------------
 type Model =
     { Board: Board
@@ -157,18 +110,18 @@ let update (msg: Msg) (m: Model) : Model * Cmd<Msg> =
 /// (glyph-string of width `cellWidth`, style) for a cell in its current state.
 let private cellContent (cell: Cell) : string * Style =
     match cell.State with
-    | Hidden -> "· ", Styles.hidden
-    | Flagged -> "⚑ ", Styles.flag
+    | Hidden -> "· ", Theme.hidden
+    | Flagged -> "⚑ ", Theme.flag
     | Revealed ->
-        if cell.Mine then "✸ ", Styles.mine
-        elif cell.Adjacent = 0 then "  ", Styles.zero
-        else string cell.Adjacent + " ", Styles.number cell.Adjacent
+        if cell.Mine then "✸ ", Theme.mine
+        elif cell.Adjacent = 0 then "  ", Theme.zero
+        else string cell.Adjacent + " ", Theme.numberStyle cell.Adjacent
 
 let private renderCell (m: Model) (r: int) (c: int) : LayoutNode<Msg> =
     let text, style = cellContent m.Board.Cells.[r, c]
 
     if (r, c) = m.Cursor then
-        Backdrop.behind Styles.cursor (Text.text text Styles.cursor)
+        Backdrop.behind Theme.cursor (Text.text text Theme.cursor)
     else
         Text.text text style
 
@@ -182,22 +135,22 @@ let private formatTime (ms: int) : string =
 let view (m: Model) : LayoutNode<Msg> =
     let face, faceStyle =
         match m.Board.Status with
-        | Playing -> "🙂", Styles.status
-        | Won -> "😎 you win!", Styles.won
-        | Lost -> "😵 boom", Styles.lost
+        | Playing -> "🙂", Theme.status
+        | Won -> "😎 you win!", Theme.won
+        | Lost -> "😵 boom", Theme.lost
 
     let statusBar =
         Text.text (sprintf " %s   ⚑ %d   ⏱ %s" face (Board.minesRemaining m.Board) (formatTime m.ElapsedMs)) faceStyle
 
     let grid =
         Box.box
-            Styles.frame
+            Theme.frame
             [ Stack.vstackOf [ for r in 0 .. m.Board.Rows - 1 -> Stack.sized (Length.Cells 1) (renderRow m r) ] ]
 
     let footer =
         Text.text
             " arrows/WASD move · Space reveal · F flag · C chord · R restart · 1/2/3 size · Ctrl+C quit"
-            Styles.hint
+            Theme.hint
 
     Dock.dock [ Dock.top 1 statusBar; Dock.bottom 1 footer; Dock.fill grid ]
 

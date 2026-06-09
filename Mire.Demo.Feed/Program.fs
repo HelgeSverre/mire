@@ -25,28 +25,8 @@ let private seedUrls =
       "https://hnrss.org/frontpage"
       "https://www.theverge.com/rss/index.xml" ]
 
-// styles -------------------------------------------------------------------
-let private sTitle = Style.Default.WithForeground(Color.White).WithBold(true)
-let private sDim = Style.Default.WithForeground(Color.Rgb(0x88uy, 0x88uy, 0x8Fuy))
-let private sBody = Style.Default.WithForeground(Color.Rgb(0xCCuy, 0xCCuy, 0xD2uy))
-
-let private sBorder =
-    Style.Default.WithForeground(Color.Rgb(0x3Cuy, 0x44uy, 0x50uy))
-
-let private sAccent =
-    Style.Default.WithForeground(Color.Rgb(0x4Cuy, 0xAFuy, 0x50uy)).WithBold(true)
-
-let private sRow = Style.Default.WithForeground(Color.Rgb(0xB6uy, 0xBAuy, 0xC2uy))
-let private sErr = Style.Default.WithForeground(Color.Rgb(0xFFuy, 0x57uy, 0x22uy))
-// selection = dark text on emerald, applied as a full-width row fill
-let private sSel =
-    Style.Default.WithForeground(Color.Rgb(0x08uy, 0x14uy, 0x0Auy)).WithBackground(Color.Rgb(0x4Cuy, 0xAFuy, 0x50uy))
-// opaque fills behind overlays so they occlude the panes underneath
-let private sPanelBg =
-    Style.Default.WithBackground(Color.Rgb(0x12uy, 0x16uy, 0x1Cuy))
-
-let private sModalBg =
-    Style.Default.WithBackground(Color.Rgb(0x06uy, 0x08uy, 0x0Buy))
+// styles — all from brand/palette.fs via Theme.theme
+let private T = Theme.theme
 
 let private spinnerFrames = [| "⠋"; "⠙"; "⠹"; "⠸"; "⠼"; "⠴"; "⠦"; "⠧"; "⠇"; "⠏" |]
 
@@ -524,9 +504,9 @@ let private padTo (width: int) (s: string) : string =
 /// A bordered panel with a one-line title row above its content.
 let private panel (heading: string) (content: LayoutNode<Msg>) : LayoutNode<Msg> =
     Box.box
-        sBorder
+        T.border
         [ Stack.vstackOf
-              [ Stack.sized (Length.Cells 1) (Text.text (" " + heading) sAccent)
+              [ Stack.sized (Length.Cells 1) (Text.text (" " + heading) T.accent)
                 Stack.sized Length.Fill content ] ]
 
 let private statusText (m: Model) : string =
@@ -579,13 +559,13 @@ let private feedsPanelLayer (m: Model) (ps: FeedsPanelState) (w: int) (h: int) :
 
     let content =
         Stack.vstackOf
-            [ Stack.sized (Length.Cells 1) (Text.text (sprintf " Feeds (%d)" (List.length m.Feeds)) sAccent)
-              Stack.sized (Length.Cells 1) (Text.text colHeader sDim)
-              Stack.sized Length.Fill (ListView.view listH sSel sRow ps.Cursor rows)
-              Stack.sized (Length.Cells 1) (Text.text " Enter/a add · d delete · r reload · ↑/↓ move · Esc close" sDim) ]
+            [ Stack.sized (Length.Cells 1) (Text.text (sprintf " Feeds (%d)" (List.length m.Feeds)) T.accent)
+              Stack.sized (Length.Cells 1) (Text.text colHeader T.fgMuted)
+              Stack.sized Length.Fill (ListView.view listH T.selectionAccent T.fg ps.Cursor rows)
+              Stack.sized (Length.Cells 1) (Text.text " Enter/a add · d delete · r reload · ↑/↓ move · Esc close" T.fgMuted) ]
 
     let box =
-        LayoutNode.Overlay(rect0, [ Backdrop.solid sPanelBg; Box.box sBorder [ content ] ])
+        LayoutNode.Overlay(rect0, [ Backdrop.solid T.bgElevated; Box.box T.border [ content ] ])
 
     Dock.dock [ Dock.top panelH box; Dock.fill Spacer.spacer ]
 
@@ -601,22 +581,22 @@ let private addModalLayer (m: Model) (ms: AddModalState) (w: int) (h: int) : Lay
 
     let errLine =
         match ms.Error with
-        | Some InvalidUrl -> Text.text " ( ! ) Invalid URL" sErr
-        | Some Duplicate -> Text.text " ( ! ) Feed already added" sErr
-        | Some(LoadFailedErr _) -> Text.text " ( ! ) Could not load feed" sErr
+        | Some InvalidUrl -> Text.text " ( ! ) Invalid URL" T.danger
+        | Some Duplicate -> Text.text " ( ! ) Feed already added" T.danger
+        | Some(LoadFailedErr _) -> Text.text " ( ! ) Could not load feed" T.danger
         | None -> Spacer.spacer
 
     let body =
         Stack.vstackOf
             [ Stack.sized (Length.Cells 1) Spacer.spacer
-              Stack.sized (Length.Cells 1) (Text.text " Feed URL:" sDim)
-              Stack.sized (Length.Cells 1) (Text.text (" ❯ " + ms.Input + "▏") sBody)
+              Stack.sized (Length.Cells 1) (Text.text " Feed URL:" T.fgMuted)
+              Stack.sized (Length.Cells 1) (Text.text (" ❯ " + ms.Input + "▏") T.fg)
               Stack.sized (Length.Cells 1) errLine
               Stack.sized (Length.Cells 1) Spacer.spacer
-              Stack.sized (Length.Cells 1) (Text.text ("  " + buttonLabel) sAccent)
-              Stack.sized (Length.Cells 1) (Text.text " Enter add · Esc cancel" sDim) ]
+              Stack.sized (Length.Cells 1) (Text.text ("  " + buttonLabel) T.accent)
+              Stack.sized (Length.Cells 1) (Text.text " Enter add · Esc cancel" T.fgMuted) ]
 
-    Modal.modal sModalBg sBorder sAccent mw mh "Add feed" body
+    Modal.modal T.bg T.border T.accent mw mh "Add feed" body
 
 let private filterLayer (m: Model) (fs: FilterState) (w: int) (h: int) : LayoutNode<Msg> =
     let n = List.length m.Feeds
@@ -636,10 +616,10 @@ let private filterLayer (m: Model) (fs: FilterState) (w: int) (h: int) : LayoutN
 
     let body =
         Stack.vstackOf
-            [ Stack.sized Length.Fill (ListView.view listH sSel sRow fs.Cursor rows)
-              Stack.sized (Length.Cells 1) (Text.text " Space toggle · a all · Enter apply · Esc cancel" sDim) ]
+            [ Stack.sized Length.Fill (ListView.view listH T.selectionAccent T.fg fs.Cursor rows)
+              Stack.sized (Length.Cells 1) (Text.text " Space toggle · a all · Enter apply · Esc cancel" T.fgMuted) ]
 
-    Modal.modal sModalBg sBorder sAccent mw mh "Filter feeds" body
+    Modal.modal T.bg T.border T.accent mw mh "Filter feeds" body
 
 let view (m: Model) : LayoutNode<Msg> =
     let w = max 24 m.Size.Width
@@ -655,47 +635,47 @@ let view (m: Model) : LayoutNode<Msg> =
 
     // header
     let header =
-        Box.box sBorder [ Text.text (sprintf " Mire Feeds   %s" (statusText m)) sTitle ]
+        Box.box T.border [ Text.text (sprintf " Mire Feeds   %s" (statusText m)) T.title ]
 
     // article list
     let labels = merged |> List.map (fun a -> truncate (listInnerW - 1) a.Title)
     let listBorder = if Focus.isFocused Ids.list m.Focus then "Articles ▸" else "Articles"
 
     let listPane =
-        panel (sprintf "%s (%d)" listBorder count) (ListView.view listInnerH sSel sRow m.Sel labels)
+        panel (sprintf "%s (%d)" listBorder count) (ListView.view listInnerH T.selectionAccent T.fg m.Sel labels)
 
     // reader pane
     let readerContent =
         match List.tryItem m.Sel merged with
         | None ->
             if anyLoading m then
-                Text.text "  fetching…" sDim
+                Text.text "  fetching…" T.fgMuted
             elif count = 0 then
-                Text.text "  (no articles — press Ctrl+U to add a feed)" sDim
+                Text.text "  (no articles — press Ctrl+U to add a feed)" T.fgMuted
             else
-                Text.text "  (no article selected)" sDim
+                Text.text "  (no article selected)" T.fgMuted
         | Some a ->
             let titleLines = Feed.wrap readerInnerW a.Title
-            let bodyLines = Feed.wrap bodyW a.Body |> List.map (fun l -> Text.text l sBody)
+            let bodyLines = Feed.wrap bodyW a.Body |> List.map (fun l -> Text.text l T.fg)
             // viewport rows for the body scroller: reader content (bodyH - 3) minus
             // the title lines and the meta/link/rule rows.
             let readerBodyH = max 1 (bodyH - 6 - titleLines.Length)
 
             Stack.vstackOf
-                [ Stack.sized (Length.Cells(max 1 titleLines.Length)) (Text.text (String.concat "\n" titleLines) sTitle)
+                [ Stack.sized (Length.Cells(max 1 titleLines.Length)) (Text.text (String.concat "\n" titleLines) T.title)
                   Stack.sized
                       (Length.Cells 1)
-                      (Text.text (truncate readerInnerW (sprintf "from %s · %s" a.SourceFeed a.Date)) sDim)
+                      (Text.text (truncate readerInnerW (sprintf "from %s · %s" a.SourceFeed a.Date)) T.fgMuted)
                   Stack.sized
                       (Length.Cells 1)
-                      (Text.text (truncate readerInnerW a.Link) (sDim.WithUnderline(UnderlineStyle.Single)))
-                  Stack.sized (Length.Cells 1) (Text.text (String('─', readerInnerW)) sBorder)
+                      (Text.text (truncate readerInnerW a.Link) (T.fgMuted.WithUnderline(UnderlineStyle.Single)))
+                  Stack.sized (Length.Cells 1) (Text.text (String('─', readerInnerW)) T.border)
                   Stack.sized
                       Length.Fill
                       (Dock.dock
                           [ Dock.left 1 Spacer.spacer
                             Dock.fill (
-                                ScrollView.vertical readerBodyH bodyLines.Length m.ReaderScroll sBorder sAccent (Stack.vstack bodyLines)
+                                ScrollView.vertical readerBodyH bodyLines.Length m.ReaderScroll T.border T.accent (Stack.vstack bodyLines)
                             ) ]) ]
 
     let readerHeading = if Focus.isFocused Ids.reader m.Focus then "Reading ▸" else "Reading"
@@ -707,7 +687,7 @@ let view (m: Model) : LayoutNode<Msg> =
               Stack.sized Length.Fill readerPane ]
 
     let footer =
-        Text.text " ↑/↓ navigate · Tab pane · Enter read · Ctrl+U feeds · f filter · r reload · Ctrl+C quit" sDim
+        Text.text " ↑/↓ navigate · Tab pane · Enter read · Ctrl+U feeds · f filter · r reload · Ctrl+C quit" T.fgMuted
 
     let baseTree = Dock.dock [ Dock.top 3 header; Dock.bottom 1 footer; Dock.fill body ]
 

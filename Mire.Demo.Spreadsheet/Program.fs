@@ -18,39 +18,6 @@ let private columnWidth = 9
 let private rowLabelWidth = 4
 let private cellPitch = columnWidth + 1 // a cell plus its left │ gridline
 
-module private Styles =
-    let text = Style.Default.WithForeground(Color.Rgb(0xCBuy, 0xD0uy, 0xD8uy))
-    let number = Style.Default.WithForeground(Color.Rgb(0x8Fuy, 0xD6uy, 0xFFuy))
-
-    let header =
-        Style.Default.WithForeground(Color.Rgb(0x7Cuy, 0x84uy, 0x90uy)).WithBold(true)
-
-    let border = Style.Default.WithForeground(Color.Rgb(0x33uy, 0x3Auy, 0x44uy))
-    let error = Style.Default.WithForeground(Color.Rgb(0xFFuy, 0x57uy, 0x22uy))
-    let hint = Style.Default.WithForeground(Color.Rgb(0x80uy, 0x86uy, 0x90uy))
-
-    // active-cell cursor = dark text on light grey
-    let cursor =
-        Style.Default
-            .WithForeground(Color.Rgb(0x10uy, 0x14uy, 0x18uy))
-            .WithBackground(Color.Rgb(0x9Auy, 0xA2uy, 0xAEuy))
-
-    // editing cell = dark text on emerald
-    let editing =
-        Style.Default
-            .WithForeground(Color.Rgb(0x06uy, 0x16uy, 0x0Auy))
-            .WithBackground(Color.Rgb(0x4Cuy, 0xAFuy, 0x50uy))
-
-    // a cell referenced by the current formula = subtle lighter slate fill
-    let referencedBg = Color.Rgb(0x2Auy, 0x32uy, 0x40uy)
-
-    // the live reference-picker target = slightly brighter than `referenced`
-    let targetBg = Color.Rgb(0x3Euy, 0x4Cuy, 0x66uy)
-
-    // the block caret inside the editing cell
-    let caret =
-        Style.Default.WithForeground(Color.Rgb(0x06uy, 0x16uy, 0x0Auy)).WithBackground(Color.White)
-
 // text fitting (cell content is short/ASCII-ish; char-width is fine here) ----
 let private fitLeft (width: int) (s: string) =
     if s.Length >= width then
@@ -325,31 +292,31 @@ let private renderCell (m: Model) (refs: Set<Sheet.CellRef>) (row: int) (col: in
 
     match m.Editing with
     | Some buffer when focused ->
-        Backdrop.behind Styles.editing (Input.render columnWidth Styles.editing Styles.caret true buffer)
+        Backdrop.behind Theme.editing (Input.render columnWidth Theme.editing Theme.caret true buffer)
     | _ ->
         let value = Map.tryFind (row, col) m.Values |> Option.defaultValue Sheet.Blank
         let cellStr = formatCell value
 
         if focused then
-            Backdrop.behind Styles.cursor (Text.text cellStr Styles.cursor)
+            Backdrop.behind Theme.cursor (Text.text cellStr Theme.cursor)
         else
             let fg =
                 match value with
-                | Sheet.Err _ -> Styles.error
-                | Sheet.Num _ -> Styles.number
-                | _ -> Styles.text
+                | Sheet.Err _ -> Theme.error
+                | Sheet.Num _ -> Theme.number
+                | _ -> Theme.text
 
             // tint cells the current formula references (and the live picker target)
             let highlightBg =
-                if m.Target = Some(row, col) then Some Styles.targetBg
-                elif refs.Contains(row, col) then Some Styles.referencedBg
+                if m.Target = Some(row, col) then Some Theme.targetBg
+                elif refs.Contains(row, col) then Some Theme.referencedBg
                 else None
 
             match highlightBg with
             | Some bg -> Text.text cellStr (fg.WithBackground bg)
             | None -> Text.text cellStr fg
 
-let private gridline = Stack.sized (Length.Cells 1) (Text.text "│" Styles.border)
+let private gridline = Stack.sized (Length.Cells 1) (Text.text "│" Theme.border)
 
 let private renderRow
     (m: Model)
@@ -362,7 +329,7 @@ let private renderRow
         [ yield
               Stack.sized
                   (Length.Cells rowLabelWidth)
-                  (Text.text (fitRight rowLabelWidth (string (row + 1))) Styles.header)
+                  (Text.text (fitRight rowLabelWidth (string (row + 1))) Theme.header)
           for col in firstCol..lastCol do
               yield gridline
               yield Stack.sized (Length.Cells columnWidth) (renderCell m refs row col) ]
@@ -379,12 +346,12 @@ let view (m: Model) : LayoutNode<Msg> =
             (buffer.Text.Substring(0, buffer.Cursor)
              + "▏"
              + buffer.Text.Substring(buffer.Cursor)),
-            Style.Default.WithForeground(Color.Rgb(0x7Fuy, 0xE0uy, 0x9Cuy))
-        | None -> cursorInput, Styles.text
+            Theme.green
+        | None -> cursorInput, Theme.text
 
     let bar =
         Box.box
-            Styles.border
+            Theme.border
             [ Text.text (sprintf " %s   │ %s" (Sheet.cellName (fst m.Cursor) (snd m.Cursor)) barText) barStyle ]
 
     let cols = visibleColCount m.Size
@@ -397,17 +364,17 @@ let view (m: Model) : LayoutNode<Msg> =
     // vertically through TopRow; columns scroll horizontally through LeftCol.
     let header =
         Stack.hstackOf
-            [ yield Stack.sized (Length.Cells rowLabelWidth) (Text.text (String(' ', rowLabelWidth)) Styles.header)
+            [ yield Stack.sized (Length.Cells rowLabelWidth) (Text.text (String(' ', rowLabelWidth)) Theme.header)
               for col in firstCol..lastCol do
                   yield gridline
 
                   yield
                       Stack.sized
                           (Length.Cells columnWidth)
-                          (Text.text (fitCenter columnWidth (Sheet.columnLabel col)) Styles.header) ]
+                          (Text.text (fitCenter columnWidth (Sheet.columnLabel col)) Theme.header) ]
 
     let rule =
-        Stack.sized (Length.Cells 1) (Text.text (separatorLine visibleCols) Styles.border)
+        Stack.sized (Length.Cells 1) (Text.text (separatorLine visibleCols) Theme.border)
 
     let lastRow = min (Sheet.rowCount - 1) (m.TopRow + visible - 1)
 
@@ -427,12 +394,12 @@ let view (m: Model) : LayoutNode<Msg> =
               yield Stack.sized (Length.Cells 1) (renderRow m refs firstCol lastCol row)
               yield rule ]
 
-    let grid = Box.box Styles.border [ Stack.vstackOf gridChildren ]
+    let grid = Box.box Theme.border [ Stack.vstackOf gridChildren ]
 
     let footer =
         Text.text
             " arrows move · type or Enter to edit · in a =formula Shift+arrows pick a ref, Enter inserts, Esc cancels · Ctrl+C quit"
-            Styles.hint
+            Theme.hint
 
     Dock.dock [ Dock.top 3 bar; Dock.bottom 1 footer; Dock.fill grid ]
 

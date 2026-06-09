@@ -5,6 +5,10 @@ open Mire.Renderer
 open Mire.Layout
 open Mire.App
 open Mire.Widgets
+open Mire.Demo.List
+
+// style shorthands from brand/palette.fs via Theme.theme
+let private T = Theme.theme
 
 // ---------------------------------------------------------------------------
 // Mire Widget Gallery — a sidebar + detail-pane app showcasing every layout
@@ -93,7 +97,7 @@ module Catalog =
 
 // Sample data reused by the live view and the dump.
 let private scrollRows =
-    [ for i in 1..30 -> Text.text (sprintf "  %2d  scrollable content row %d" i i) Style.text ]
+    [ for i in 1..30 -> Text.text (sprintf "  %2d  scrollable content row %d" i i) T.fg ]
 
 let private listLabels =
     [ "apple"
@@ -217,9 +221,6 @@ let update (msg: Msg) (model: Model) : Model * Cmd<Msg> =
 // ---------------------------------------------------------------------------
 
 module Detail =
-    let private bg (r: byte) (g: byte) (b: byte) =
-        Style.Default.WithBackground(Color.Rgb(r, g, b))
-
     /// A full-width colored swatch row carrying a label.
     let private swatch (style: Style) (label: string) =
         Backdrop.behind style (Text.text label style)
@@ -228,23 +229,28 @@ module Detail =
         match demo with
         | TextDemo ->
             Stack.vstack
-                [ Text.text "plain text" Style.text
+                [ Text.text "plain text" T.fg
                   Text.title "a bold title"
                   Text.dimText "dimmed secondary text"
-                  Text.text "wide glyphs: 日本語 emoji 🚀 ok" Style.text
-                  Text.text "two\nlines via \\n" Style.text ]
+                  Text.text "wide glyphs: 日本語 emoji 🚀 ok" T.fg
+                  Text.text "two\nlines via \\n" T.fg ]
         | FilledDemo ->
+            let swatchBg (c: Mire.Brand.Palette.Color) (label: string) =
+                let (r, g, b) = c.Rgb
+                let style = Style.Default.WithBackground(Color.Rgb(r, g, b))
+                swatch style label
+
             Stack.vstackOf
-                [ Stack.sized (Length.Cells 1) (swatch (bg 0x4Auy 0x90uy 0xD9uy) " info blue ")
-                  Stack.sized (Length.Cells 1) (swatch (bg 0x4Cuy 0xAFuy 0x50uy) " success green ")
-                  Stack.sized (Length.Cells 1) (swatch (bg 0xFFuy 0xA0uy 0x00uy) " warning amber ")
-                  Stack.sized (Length.Cells 1) (swatch (bg 0xFFuy 0x57uy 0x22uy) " danger orange ") ]
+                [ Stack.sized (Length.Cells 1) (swatchBg Mire.Brand.Palette.Accent.a100 " a100 emerald light ")
+                  Stack.sized (Length.Cells 1) (swatchBg Mire.Brand.Palette.Accent.a500 " a500 emerald ")
+                  Stack.sized (Length.Cells 1) (swatchBg Mire.Brand.Palette.Accent.a700 " a700 emerald dark ")
+                  Stack.sized (Length.Cells 1) (swatchBg Mire.Brand.Palette.Neutrals.n800 " n800 neutral ") ]
         | BoxDemo ->
             Box.box
-                Style.border
+                T.border
                 [ Stack.vstack
                       [ Text.title " Panel "
-                        Text.text "bordered container" Style.text
+                        Text.text "bordered container" T.fg
                         Text.dimText "title + body via a nested Stack" ] ]
         | StatusBarDemo ->
             // StatusBar.statusBar now flows its groups horizontally (it wraps them
@@ -252,51 +258,51 @@ module Detail =
             // left/center/right spread, compose explicitly with `Stack.flex` spacers
             // pushing the groups to the edges.
             Box.box
-                Style.border
+                T.border
                 [ Stack.hstackOf
-                      [ Stack.sized Length.Content (Text.text " gallery " Style.title)
+                      [ Stack.sized Length.Content (Text.text " gallery " T.title)
                         Stack.flex
-                        Stack.sized Length.Content (Text.text " center " Style.text)
+                        Stack.sized Length.Content (Text.text " center " T.fg)
                         Stack.flex
-                        Stack.sized Length.Content (Text.text " right " Style.highlight) ] ]
+                        Stack.sized Length.Content (Text.text " right " T.selection) ] ]
         | StackDemo ->
             Stack.vstack
                 [ Text.dimText "hstack (Content):"
                   Stack.hstack
-                      [ Text.text "[ a ]" Style.info
-                        Text.text "[ b ]" Style.success
-                        Text.text "[ c ]" Style.warning ]
+                      [ Text.text "[ a ]" T.info
+                        Text.text "[ b ]" T.success
+                        Text.text "[ c ]" T.warning ]
                   Text.dimText "vstackOf Cells/Fill/Content:"
                   Stack.vstackOf
-                      [ Stack.sized (Length.Cells 1) (Text.text "Cells 1 — fixed" Style.text)
-                        Stack.sized Length.Fill (Box.box Style.border [ Text.text "Fill" Style.text ])
-                        Stack.sized Length.Content (Text.text "Content" Style.dim) ] ]
+                      [ Stack.sized (Length.Cells 1) (Text.text "Cells 1 — fixed" T.fg)
+                        Stack.sized Length.Fill (Box.box T.border [ Text.text "Fill" T.fg ])
+                        Stack.sized Length.Content (Text.text "Content" T.fgMuted) ] ]
         | DockDemo ->
             Dock.dock
-                [ Dock.top 1 (Text.text "Top (1)" Style.title)
-                  Dock.bottom 1 (Text.text "Bottom (1)" Style.highlight)
-                  Dock.left 8 (Box.box Style.border [ Text.text "Left" Style.info ])
-                  Dock.fill (Box.box Style.border [ Text.text "Fill" Style.text ]) ]
+                [ Dock.top 1 (Text.text "Top (1)" T.title)
+                  Dock.bottom 1 (Text.text "Bottom (1)" T.selection)
+                  Dock.left 8 (Box.box T.border [ Text.text "Left" T.info ])
+                  Dock.fill (Box.box T.border [ Text.text "Fill" T.fg ]) ]
         | ScrollDemo -> Scroll.vertical model.ScrollOffset (Stack.vstack scrollRows)
         | OverlayDemo ->
             let bgRows =
-                Stack.vstack [ for i in 1..6 -> Text.text (sprintf "background row %d" i) Style.dim ]
+                Stack.vstack [ for i in 1..6 -> Text.text (sprintf "background row %d" i) T.fgMuted ]
 
             LayoutNode.Overlay(
                 Rect.Create(0, 0, 0, 0),
                 [ bgRows
-                  Backdrop.solid Style.bg
+                  Backdrop.solid T.bg
                   Box.box
-                      Style.border
-                      [ Stack.vstack [ Text.title " MODAL "; Text.text "occludes the rows behind" Style.text ] ] ]
+                      T.border
+                      [ Stack.vstack [ Text.title " MODAL "; Text.text "occludes the rows behind" T.fg ] ] ]
             )
-        | ListViewDemo -> ListView.view (List.length listLabels) Style.highlight Style.text model.ListSel listLabels
+        | ListViewDemo -> ListView.view (List.length listLabels) T.selection T.fg model.ListSel listLabels
         | InputDemo ->
             let focused = model.Focus = Detail
 
             Stack.vstack
                 [ Text.dimText "single-line editor over TextBuffer:"
-                  Box.box Style.border [ Input.render 30 Style.text Style.highlight focused model.Input ]
+                  Box.box T.border [ Input.render 30 T.fg T.selection focused model.Input ]
                   Text.dimText (
                       if focused then
                           "typing is live"
@@ -305,16 +311,16 @@ module Detail =
                   ) ]
         | StylesDemo ->
             Stack.vstack
-                [ Text.text "text" Style.text
-                  Text.text "title" Style.title
-                  Text.text "dim" Style.dim
-                  Text.text "success" Style.success
-                  Text.text "warning" Style.warning
-                  Text.text "danger" Style.danger
-                  Text.text "info" Style.info
-                  Text.text "key" Style.key
-                  Text.text "counter" Style.counter
-                  Text.text "highlight" Style.highlight ]
+                [ Text.text "text" T.fg
+                  Text.text "title" T.title
+                  Text.text "dim" T.fgMuted
+                  Text.text "success" T.success
+                  Text.text "warning" T.warning
+                  Text.text "danger" T.danger
+                  Text.text "info" T.info
+                  Text.text "key" T.key
+                  Text.text "counter" T.success
+                  Text.text "highlight" T.selection ]
 
 // ---------------------------------------------------------------------------
 
@@ -323,9 +329,9 @@ let private sidebar (model: Model) : LayoutNode<Msg> =
 
     let border =
         if model.Focus = Sidebar then
-            Style.highlight
+            T.selection
         else
-            Style.border
+            T.border
 
     Box.box
         border
@@ -333,16 +339,16 @@ let private sidebar (model: Model) : LayoutNode<Msg> =
               [ Stack.sized (Length.Cells 1) (Text.title " Widgets ")
                 Stack.sized
                     Length.Fill
-                    (ListView.view (List.length labels) Style.highlight Style.text model.Selected labels) ] ]
+                    (ListView.view (List.length labels) T.selection T.fg model.Selected labels) ] ]
 
 let private detailPane (model: Model) : LayoutNode<Msg> =
     let entry = Catalog.entries.[model.Selected]
 
     let border =
         if model.Focus = Detail then
-            Style.highlight
+            T.selection
         else
-            Style.border
+            T.border
 
     Box.box
         border
@@ -363,8 +369,8 @@ let private hints (model: Model) : string =
 
 let view (model: Model) : LayoutNode<Msg> =
     Dock.dock
-        [ Dock.top 3 (Box.box Style.border [ Text.title " Mire — Widget Gallery " ])
-          Dock.bottom 3 (Box.box Style.border [ Text.text (hints model) Style.highlight ])
+        [ Dock.top 3 (Box.box T.border [ Text.title " Mire — Widget Gallery " ])
+          Dock.bottom 3 (Box.box T.border [ Text.text (hints model) T.selection ])
           Dock.fill (Dock.dock [ Dock.left 22 (sidebar model); Dock.fill (detailPane model) ]) ]
 
 let mapInput (input: InputEvent) : Msg option =
