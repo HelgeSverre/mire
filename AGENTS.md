@@ -13,10 +13,12 @@ Guidance for working in this repository.
 ## Build & run
 
 ```sh
-dotnet build Mire.slnx                    # build all four projects (solution is .slnx, the modern XML format)
+dotnet build Mire.slnx                    # build all eight projects (solution is .slnx, the modern XML format)
 dotnet run --project Mire.Demo.List            # the scrollable-list demo
 dotnet run --project Mire.Demo.Agent       # the agent-shell demo (feature testbed; not wired to an LLM)
-dotnet run --project Mire.Demo.List -- --dump  # headless: print sample layouts as text (no raw mode) — use this to verify layout
+dotnet run --project Mire.Demo.KitchenSink    # the comprehensive widget/feature showcase
+dotnet run --project Mire.Demo.Feed         # the multi-feed RSS reader
+dotnet run --project Mire.Demo.KitchenSink -- --dump  # headless: print sample layouts as text (no raw mode) — use this to verify layout
 dotnet run --project Mire.Tests           # run the Expecto test suite
 dotnet build Mire/Mire.fsproj             # build just the framework
 ```
@@ -29,13 +31,17 @@ Verifying TUI changes is hard to automate: the demo takes over the terminal (alt
 
 ## Project layout & dependency order
 
-Four projects:
+Eight projects:
 
 ```
-Mire            the framework — one assembly, layered by folder
-Mire.Demo.List       Exe — scrollable-list demo            ─┐
-Mire.Demo.Agent  Exe — agent-shell demo / testbed       ├─ all reference Mire
-Mire.Tests      Expecto tests                          ─┘
+Mire                     the framework — one assembly, layered by folder
+Mire.Demo.List           Exe — scrollable-list demo        ─┐
+Mire.Demo.Agent          Exe — agent-shell demo / testbed   │
+Mire.Demo.KitchenSink    Exe — comprehensive widget showcase │
+Mire.Demo.Feed           Exe — multi-feed RSS reader        ├─ all reference Mire
+Mire.Demo.Spreadsheet    Exe — A1 grid + formula engine     │
+Mire.Demo.Minesweeper    Exe — keyboard Minesweeper         │
+Mire.Tests               Expecto tests                    ─┘
 ```
 
 The **framework is a single project** (`Mire/`) organized by folder, where the
@@ -46,8 +52,8 @@ folder order encodes the layering. Each folder is also its namespace
 Mire/Core/       pure value types (Point, Size, Rect, Color, Style, Cell, Region, Grapheme, input events). No I/O.
 Mire/Protocol/   ANSI (escape-sequence strings), TerminalMode (raw mode via stty + libc poll/read), InputParser (bytes → InputEvent).
 Mire/Renderer/   Surface (cell grid + draw primitives), Diff (DiffRun computation + writing to a TextWriter). Diff uses Protocol.ANSI.
-Mire/Layout/     LayoutNode<'msg> DU, Layout.measure (assigns rects), Layout.render (paints to a Surface).
-Mire/Widgets/    convenience widgets (Text, Box, Panel, StatusBar, Spacer, Dock, Stack, Scroll, Backdrop) + predefined styles.
+Mire/Layout/     LayoutNode<'msg> DU, Layout.measure (assigns rects), Layout.render (paints to a Surface), Focus (keyboard focus ring).
+Mire/Widgets/    convenience widgets (Text, Box, Panel, StatusBar, Spacer, Dock, Stack, Scroll, Backdrop, ListView, Table, Input, TextArea, Overlay, Modal, Toast, ScrollView, CommandPalette, Completion, SplitView, Tooltip, Spinner, ProgressBar, Tabs, Toggle, Separator, Badge, KeyHint, Markdown) + AppTheme (swappable style set).
 Mire/App/        Cmd, Sub, Program, Program builders, Runtime.run (the ~30 FPS Elmish loop).
 ```
 
@@ -58,7 +64,7 @@ it depends on. Widgets and App both sit on Layout and don't depend on each other
 
 ## F#-specific things that will bite you
 
-- **Compile order is significant — and it's the whole layering mechanism now.** F# requires definitions before use, both within a file and across files. The `<Compile Include=.../>` order in `Mire/Mire.fsproj` is the build order _and_ the dependency contract: `Core/* → Protocol/* → Renderer/* → Layout/Layout.fs → Widgets/Widgets.fs → App/Program.fs`. If you add a file, insert its `<Compile>` entry in the right folder block, in the right position. Referencing a type defined in a later file fails the build — that's the guardrail that keeps the layering honest within the single assembly.
+- **Compile order is significant — and it's the whole layering mechanism now.** F# requires definitions before use, both within a file and across files. The `<Compile Include=.../>` order in `Mire/Mire.fsproj` is the build order _and_ the dependency contract: `Core/* → Protocol/* → Renderer/* → Layout/Layout.fs → Layout/Focus.fs → Widgets/Widgets.fs → Widgets/Markdown.fs → Widgets/Theme.fs → App/Program.fs`. If you add a file, insert its `<Compile>` entry in the right folder block, in the right position. Referencing a type defined in a later file fails the build — that's the guardrail that keeps the layering honest within the single assembly.
 - Value types use `[<Struct>]` (`Point`, `Size`, `Rect`, `Color`, `Style`, `Cell`). Records are immutable; "mutation" is done with `with` copies. `Style` exposes fluent `WithForeground`/`WithBold`/… helpers that return new records — follow that pattern rather than adding mutable fields.
 - `Color` is a struct DU (`Rgb of byte*byte*byte | Default`) — colors are truecolor RGB. Style/color → ANSI conversion lives on the types themselves (`Color.ToAnsiFg`, `Style.ToAnsi`).
 - The runtime loop is hand-rolled and uses a `mutable state` record reassigned with `{ state with ... }`, plus a locked message queue. Match that style if you extend the loop.
@@ -72,6 +78,7 @@ it depends on. Widgets and App both sit on Layout and don't depend on each other
 
 ## When extending the framework
 
-- New layout nodes go in `Mire/Layout/Layout.fs` — add the case to the `LayoutNode<'msg>` DU and handle it in **both** `measure` and `render`. `Stack`/`Scroll`/`Dock` (with `Content`/`Fill`) and the `Filled` node are implemented; `Overlay` z-orders and occludes but doesn't yet position/anchor its layers (see `ROADMAP.md`).
+- New layout nodes go in `Mire/Layout/Layout.fs` — add the case to the `LayoutNode<'msg>` DU and handle it in **both** `measure` and `render`. `Stack`/`Scroll`/`Dock` (with `Content`/`Fill`) and the `Filled` node are implemented; `Overlay` z-orders and occludes, and `Positioned` sizes + places a layer (9-point) within the area — see `ROADMAP.md`.
 - New input decoding goes in `Mire/Protocol/InputParser.fs`. Keys, Ctrl chords, and Shift+Tab decode; mouse/paste/focus and the Kitty `CSI u` modifier form are _enabled_ by the runtime but **not yet decoded** — a known gap, not a bug to "rediscover."
+- New styling abstractions go in `Mire/Widgets/Theme.fs`. The `AppTheme` record is the swappable theme type — apps build their own instance from a palette (see `brand/palette.fs`). Add new semantic style fields there rather than hardcoding RGBs in `Style.*`.
 - The base widgets live in `Mire/Widgets/`. Agent-domain components (chat transcript, tool calls, diff view, …) are **prototyped at the app level in `Mire.Demo.Agent`**, not yet extracted into a reusable layer. The spec puts the reusable versions in an optional layer above `App`; preserve that separation — the framework must not depend on agent concepts.

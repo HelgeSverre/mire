@@ -62,6 +62,7 @@ dotnet run --project Mire.Demo.KitchenSink # every widget — a cyclable showcas
 
 # Verify layout headlessly — prints sample layouts as text, no raw mode
 dotnet run --project Mire.Demo.List -- --dump
+dotnet run --project Mire.Demo.KitchenSink -- --dump
 dotnet run --project Mire.Demo.Feed -- --dump
 
 # Run the test suite (Expecto) — 148 tests
@@ -73,7 +74,7 @@ dotnet run --project Mire.Tests
 - **Mire.Demo.Feed** (RSS reader): a managed feed list merged into one newest-first stream, two panes + a per-feed filter, async loading. The first app migrated to the framework's `Focus` manager.
 - **Mire.Demo.Spreadsheet** (spreadsheet): a 26×100 A1 grid with in-cell editing (`TextBuffer` + `Input`), formula references, and a small engine (`=B2*C2`, `=SUM(A1:A3)`, …).
 - **Mire.Demo.Minesweeper** (Minesweeper): arrows/WASD move, Space reveal, F flag, C chord.
-- **Mire.Demo.KitchenSink** (widget showcase): a sidebar gallery of all 20 widgets in many configs; ↑/↓ select, Tab into a pane to drive it. Also `-- --dump`.
+- **Mire.Demo.KitchenSink** (widget showcase): a sidebar gallery of 23 categories covering every layout primitive, widget, and overlay/palette area; ↑/↓ select, Tab into a pane to drive it. Also `-- --dump`.
 
 ## The model
 
@@ -119,7 +120,7 @@ The framework is a single assembly organized by folder; the folder order is the 
 | **Mire/Protocol**  | Core                             | `ANSI` escape sequence strings; `TerminalMode` (raw mode setup via `stty` + libc `poll`/`read`); `InputParser` (raw bytes → `InputEvent`).                                                                                                                                                                     |
 | **Mire/Renderer**  | Core, Protocol                   | `Surface` (a `Width × Height` grid of `Cell`s with drawing primitives) and `Diff` (computes minimal `DiffRun`s between two surfaces and writes them out).                                                                                                                                                      |
 | **Mire/Layout**    | Core, Renderer                   | `LayoutNode<'msg>` tree (`Dock`, `Stack`, `Box`, `Text`, `Filled`, `Scroll`, `Overlay`, `Positioned`) + `measure`/`render`, and `Focus` (a pure keyboard focus ring + modal trap).                                                                                                                             |
-| **Mire/Widgets**   | Core, Layout                     | Convenience widgets: `Text`, `Box`/`Panel`, `StatusBar`, `Stack`/`Dock`/`Spacer`/`Backdrop` helpers, virtualized `ListView` and `Table`, `Input` (over `TextBuffer`), `Overlay`/`Modal`, `Toast`, `ScrollView`, `CommandPalette`, `Completion`, `Separator`/`Badge`/`KeyHint`, and predefined semantic styles. |
+| **Mire/Widgets**   | Core, Layout                     | Convenience widgets: `Text`, `Box`/`Panel`, `StatusBar`, `Stack`/`Dock`/`Spacer`/`Backdrop` helpers, virtualized `ListView` and `Table`, `Input` (single-line over `TextBuffer`), `TextArea` (multi-line), `Overlay`/`Modal`, `Toast`, `ScrollView`, `CommandPalette`, `Completion`, `SplitView`, `Tooltip`, `Spinner`, `ProgressBar`, `Tabs`, `Toggle`, `Separator`/`Badge`/`KeyHint`, `Markdown` (with `MarkdownStyle`), and `AppTheme` (swappable style set). |
 | **Mire/App**       | Core, Protocol, Renderer, Layout | The runtime: `Cmd<'msg>`, `Sub<'msg>`, `Program<'model,'msg>`, `Program` builders, and `Runtime.run`.                                                                                                                                                                                                          |
 
 The layering is deliberate: **Core** is pure types, **Protocol** is terminal I/O, **Renderer** turns a virtual screen into a terminal diff, **Layout** turns a node tree into positioned draw calls, and **App** ties it together with an Elmish loop. The widget layer sits on Layout; an (optional) agent-domain layer would sit on top in the design — the base framework should never need to know what an LLM is. It's one assembly today because the whole framework is ~1.5k lines; the folder seams (and `<Compile>` order) keep the layering honest without six `.fsproj` files of ceremony.
@@ -147,11 +148,12 @@ This repo is a working foundation with a v0.3 core widget layer. What works toda
 - ✅ Elmish `Runtime.run` (commands, subscriptions, resize, `Cmd.quit`) + the `Program` builder API
 - ✅ Widgets: virtualized `ListView` + `Table` (sticky header, windowed rows, single/multi-select), `CommandPalette` (fuzzy), `Completion` (cursor-anchored), `Input` (over `TextBuffer`), `Modal` + `Overlay` positioning, `Toast`, `ScrollView` (with scrollbar), `StatusBar`, `Separator`/`Badge`/`KeyHint`, `Backdrop`, flex `Spacer`
 - ✅ A keyboard **`Focus` manager** — a tab-order ring + a modal focus-trap stack, dogfooded in `Mire.Demo.Feed`
-- ✅ Headless `--dump` mode and an Expecto suite (115 tests)
+- ✅ Headless `--dump` mode and an Expecto suite (148 tests)
+- ✅ **`AppTheme`** record — a swappable theme type in `Mire.Widgets`; the KitchenSink and Agent demos use it with the brand palette
 
 Not yet (described in `SPEC.md` as the target):
 
-- ⏳ Remaining widgets: `TextArea` (multi-line), `Markdown`, `SplitView`, `Tooltip`, `ImagePreview`
+- ⏳ Remaining widget: `ImagePreview` (Kitty graphics protocol)
 - ⏳ The runtime-owned / mouse-driven half of focus (spatial hit-testing)
 - ⏳ Kitty graphics (images), OSC 8 hyperlink cells, theme notifications
 - ⏳ The agent-domain components (chat transcript, tool-call views, diff viewer, file tree, prompt box) — prototyped at the app level in `Mire.Demo.Agent`, not yet extracted into a reusable layer
