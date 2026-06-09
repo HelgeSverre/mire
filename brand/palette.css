@@ -1,6 +1,6 @@
 /* Mire — brand palette
  * Generated from brand/palette.json. Do not edit by hand — regenerate.
- * Accent: Emerald #1A8870. Neutrals: true gray.
+ * Accent: Emerald #1A9A7E. Neutrals: true gray.
  */
 
 :root {
@@ -18,11 +18,11 @@
   --neutral-950: #050505;
 
   /* accent scale (emerald) */
-  --accent-100: #9dfee2;
-  --accent-300: #6bcdb2;
-  --accent-500: #1a8870;
-  --accent-700: #006750;
-  --accent-900: #003724;
+  --accent-100: #d0f5e8;
+  --accent-300: #7dd4b8;
+  --accent-500: #1a9a7e;
+  --accent-700: #006f56;
+  --accent-900: #003d2e;
 
   /* semantic — light mode default */
   --bg: var(--neutral-50);

@@ -1,0 +1,1429 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Mire — Brand & Design Guide</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Mire brand and design guide: mark, typography, color, voice, logo usage, and TUI surface rules." />
+  <meta name="theme-color" content="#1A9A7E" />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+   <link id="brand-fonts" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" />
+   <noscript><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" /></noscript>
+  <link rel="stylesheet" href="palette.css" />
+  <style>
+    /* JetBrains Mono is self-hosted from the full release build: the Google Fonts /
+       @fontsource subsets omit box-drawing glyphs (U+2500-257F), so terminal
+       diagrams fall back to a system font with a different advance width and
+       the box borders misalign. */
+    @font-face {
+      font-family: "JetBrains Mono";
+      font-style: normal;
+      font-weight: 400;
+      font-display: swap;
+      src: url("fonts/JetBrainsMono-Regular.woff2") format("woff2");
+    }
+
+    @font-face {
+      font-family: "JetBrains Mono";
+      font-style: normal;
+      font-weight: 500;
+      font-display: swap;
+      src: url("fonts/JetBrainsMono-Medium.woff2") format("woff2");
+    }
+
+    @font-face {
+      font-family: "JetBrains Mono";
+      font-style: normal;
+      font-weight: 700;
+      font-display: swap;
+      src: url("fonts/JetBrainsMono-Bold.woff2") format("woff2");
+    }
+
+    :root {
+      color-scheme: light dark;
+
+      /* Semantic color tokens */
+      --surface-page: var(--bg);
+      --surface-panel: #ffffff;
+      --surface-raised: var(--bg-elevated);
+      --surface-rail: var(--neutral-100);
+      --surface-inverse: var(--neutral-950);
+      --text-primary: var(--fg);
+      --text-secondary: var(--fg-muted);
+      --text-subtle: var(--fg-subtle);
+      --text-inverse: var(--neutral-50);
+      --border-default: var(--border);
+      --accent-brand: var(--accent);
+      --accent-readable: var(--accent-strong);
+      --accent-soft: var(--accent-bg);
+      --accent-on-fill: var(--accent-fg);
+
+      /* Typography tokens */
+      --font-body: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
+      --font-code: var(--font-mono);
+      --text-xs: 0.75rem;
+      --text-sm: 0.875rem;
+      --text-base: 1rem;
+      --text-lg: 1.125rem;
+      --text-xl: 1.25rem;
+      --text-2xl: 1.5rem;
+      --text-3xl: 2rem;
+      --text-4xl: 2.5rem;
+      --leading-tight: 1.18;
+      --leading-title: 1.22;
+      --leading-body: 1.55;
+      --leading-compact: 1.42;
+      --measure: 62ch;
+
+      /* Space and shape tokens */
+      --space-1: 0.25rem;
+      --space-2: 0.5rem;
+      --space-3: 0.75rem;
+      --space-4: 1rem;
+      --space-5: 1.25rem;
+      --space-6: 1.5rem;
+      --space-8: 2rem;
+      --space-10: 2.5rem;
+      --space-12: 3rem;
+      --space-16: 4rem;
+      --radius-1: 0.25rem;
+      --radius-2: 0.5rem;
+      --rail-width: clamp(14rem, 16.666vw, 19rem);
+      --content-width: 72rem;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --surface-panel: #0d0d0d;
+        --surface-rail: var(--neutral-900);
+        --surface-inverse: var(--neutral-50);
+        --text-inverse: var(--neutral-950);
+        --accent-readable: var(--accent-300);
+      }
+    }
+
+    [data-theme="dark"] {
+      --surface-panel: #0d0d0d;
+      --surface-rail: var(--neutral-900);
+      --surface-inverse: var(--neutral-50);
+      --text-inverse: var(--neutral-950);
+      --accent-readable: var(--accent-300);
+    }
+
+    [data-theme="light"] {
+      --surface-panel: #ffffff;
+      --surface-rail: var(--neutral-100);
+      --surface-inverse: var(--neutral-950);
+      --text-inverse: var(--neutral-50);
+      --accent-readable: var(--accent-700);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      min-height: 100%;
+      scroll-padding-top: var(--space-8);
+    }
+
+    body {
+      min-height: 100%;
+      margin: 0;
+      padding-right: var(--rail-width);
+      background: var(--surface-page);
+      color: var(--text-primary);
+      font-family: var(--font-body);
+      font-size: var(--text-base);
+      line-height: var(--leading-body);
+      text-rendering: optimizeLegibility;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    a {
+      color: inherit;
+    }
+
+    code,
+    pre,
+    kbd {
+      font-family: var(--font-code);
+    }
+
+    code {
+      font-size: 0.92em;
+      color: var(--text-primary);
+    }
+
+    pre code {
+      font-size: 1em;
+    }
+
+    pre {
+      max-width: min(100%, 76ch);
+      margin: var(--space-4) 0;
+      padding: var(--space-5);
+      overflow-x: auto;
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-1);
+      background: var(--surface-raised);
+      font-size: var(--text-sm);
+      line-height: 1.25;
+      font-kerning: none;
+      font-variant-ligatures: none;
+    }
+
+    table {
+      width: min(100%, 48rem);
+      margin: var(--space-4) 0;
+      border-collapse: collapse;
+      font-size: var(--text-sm);
+    }
+
+    th,
+    td {
+      padding: var(--space-3) var(--space-4);
+      border-bottom: 1px solid var(--border-default);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      font-family: var(--font-mono);
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    .right-rail {
+      position: fixed;
+      inset: 0 0 0 auto;
+      z-index: 10;
+      display: flex;
+      width: var(--rail-width);
+      min-height: 100vh;
+      align-items: center;
+      justify-content: center;
+      padding: var(--space-6);
+      border-left: 1px solid var(--border-strong);
+      background: var(--surface-rail);
+    }
+
+    .rail-inner {
+      width: min(100%, 12rem);
+    }
+
+    .rail-brand {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      margin-bottom: var(--space-6);
+      font-family: var(--font-mono);
+      font-size: var(--text-sm);
+      font-weight: 700;
+    }
+
+    .rail-mark {
+      color: var(--accent-brand);
+      font-size: var(--text-xl);
+      line-height: 1;
+    }
+
+    .theme-switch:focus-visible,
+    .toc a:focus-visible,
+    summary:focus-visible {
+      outline: 2px solid var(--accent-readable);
+      outline-offset: 3px;
+    }
+
+    .toc {
+      display: flex;
+      max-height: min(68vh, 34rem);
+      flex-direction: column;
+      gap: var(--space-1);
+      overflow-y: auto;
+      padding: var(--space-1) 0;
+      font-family: var(--font-mono);
+      scrollbar-width: thin;
+    }
+
+    .toc a {
+      display: block;
+      padding: var(--space-2) 0 var(--space-2) var(--space-3);
+      border-left: 2px solid transparent;
+      color: var(--text-secondary);
+      font-size: var(--text-xs);
+      line-height: var(--leading-compact);
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .toc a:hover {
+      border-left-color: var(--border-strong);
+      color: var(--text-primary);
+    }
+
+    .toc a[aria-current="true"] {
+      border-left-color: var(--accent-readable);
+      color: var(--accent-readable);
+    }
+
+    .page {
+      width: min(100%, var(--content-width));
+      margin: 0 auto;
+      padding: var(--space-12) clamp(var(--space-5), 5vw, var(--space-16));
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: var(--space-5);
+      padding-bottom: var(--space-10);
+      border-bottom: 1px solid var(--border-default);
+    }
+
+    .hero-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-4);
+    }
+
+    .eyebrow,
+    .manual-label,
+    .spec-label,
+    .sample-size,
+    .variant-name,
+    .asset-name,
+    .rule-number {
+      font-family: var(--font-mono);
+      font-size: var(--text-xs);
+      font-weight: 500;
+      line-height: var(--leading-compact);
+      color: var(--text-secondary);
+      text-transform: uppercase;
+    }
+
+    .theme-switch {
+      display: inline-grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      align-items: center;
+      padding: 0.125rem;
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-1);
+      background: var(--surface-raised);
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      font-size: var(--text-xs);
+      font-weight: 500;
+      line-height: 1;
+      cursor: pointer;
+      position: fixed;
+      top: var(--space-4);
+      left: var(--space-4);
+      z-index: 100;
+    }
+
+    .theme-option {
+      min-width: 3.375rem;
+      padding: 0.5rem var(--space-2);
+      border-radius: calc(var(--radius-1) - 0.125rem);
+      text-align: center;
+    }
+
+    [data-theme="light"] .theme-option-light,
+    [data-theme="dark"] .theme-option-dark {
+      background: var(--surface-panel);
+      color: var(--text-primary);
+    }
+
+    .theme-switch:hover {
+      border-color: var(--border-strong);
+    }
+
+    h1,
+    h2,
+    h3,
+    .logo-text,
+    .hero-mark {
+      font-family: var(--font-mono);
+      letter-spacing: 0;
+    }
+
+    h1,
+    h2,
+    h3,
+    p,
+    ul,
+    ol {
+      max-width: var(--measure);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: var(--text-4xl);
+      font-weight: 700;
+      line-height: var(--leading-tight);
+    }
+
+    h2 {
+      margin: 0 0 var(--space-4);
+      font-size: var(--text-2xl);
+      font-weight: 700;
+      line-height: var(--leading-title);
+    }
+
+    h3 {
+      margin: var(--space-8) 0 var(--space-3);
+      font-size: var(--text-lg);
+      font-weight: 700;
+      line-height: var(--leading-title);
+    }
+
+    p {
+      margin: var(--space-3) 0;
+      color: var(--text-secondary);
+    }
+
+    strong {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+
+    ul,
+    ol {
+      margin: var(--space-4) 0;
+      padding-left: 1.25rem;
+      color: var(--text-secondary);
+    }
+
+    li + li {
+      margin-top: var(--space-2);
+    }
+
+    .hero-lockup {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      color: var(--text-primary);
+    }
+
+    .hero-mark {
+      width: var(--text-4xl);
+      height: var(--text-4xl);
+      flex: 0 0 auto;
+      color: var(--accent-brand);
+      stroke: currentColor;
+    }
+
+    .hero-summary {
+      margin: 0;
+      font-size: var(--text-xl);
+      line-height: 1.45;
+    }
+
+    .manual-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: var(--space-4);
+      margin-top: var(--space-6);
+    }
+
+    .manual-tile,
+    .specimen,
+    .swatch,
+    .asset-card,
+    .violation,
+    .logo-variant,
+    .badge-variant {
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-1);
+      background: var(--surface-panel);
+    }
+
+    .manual-tile {
+      padding: var(--space-5);
+    }
+
+    .manual-tile p {
+      margin-bottom: 0;
+      font-size: var(--text-sm);
+    }
+
+    section {
+      padding: var(--space-12) 0;
+      border-bottom: 1px solid var(--border-default);
+    }
+
+    section:last-of-type {
+      border-bottom: 0;
+    }
+
+    .section-header {
+      display: grid;
+      gap: var(--space-2);
+      margin-bottom: var(--space-6);
+    }
+
+    .section-header p {
+      margin: 0;
+      font-size: var(--text-lg);
+    }
+
+    .token-table {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: var(--space-4);
+      margin: var(--space-6) 0;
+    }
+
+    .specimen {
+      padding: var(--space-5);
+    }
+
+    .specimen-row {
+      display: grid;
+      grid-template-columns: 7rem minmax(0, 1fr);
+      gap: var(--space-5);
+      align-items: baseline;
+      padding: var(--space-3) 0;
+      border-bottom: 1px solid var(--border-default);
+    }
+
+    .specimen-row:last-child {
+      border-bottom: 0;
+    }
+
+    .sample-text {
+      margin: 0;
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      line-height: var(--leading-title);
+    }
+
+    .type-xs { font-size: var(--text-xs); }
+    .type-sm { font-size: var(--text-sm); }
+    .type-base { font-size: var(--text-base); }
+    .type-lg { font-size: var(--text-lg); }
+    .type-xl { font-size: var(--text-xl); }
+    .type-2xl { font-size: var(--text-2xl); }
+    .type-3xl { font-size: var(--text-3xl); }
+    .type-4xl { font-size: var(--text-4xl); }
+
+    .palette-grid,
+    .logo-grid,
+    .badge-grid,
+    .asset-grid,
+    .violation-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: var(--space-4);
+      margin: var(--space-6) 0;
+    }
+
+    .swatch {
+      overflow: hidden;
+    }
+
+    .swatch-chip {
+      display: grid;
+      min-height: 6rem;
+      place-items: center;
+      font-family: var(--font-mono);
+      font-size: var(--text-sm);
+      font-weight: 700;
+    }
+
+    .swatch-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: var(--space-2);
+      padding: var(--space-2) var(--space-3);
+      border-top: 1px solid var(--border-default);
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      font-size: var(--text-xs);
+    }
+
+    .bg-neutral-50 { background: var(--neutral-50); color: var(--neutral-900); }
+    .bg-neutral-100 { background: var(--neutral-100); color: var(--neutral-900); }
+    .bg-neutral-200 { background: var(--neutral-200); color: var(--neutral-900); }
+    .bg-neutral-300 { background: var(--neutral-300); color: var(--neutral-900); }
+    .bg-neutral-400 { background: var(--neutral-400); color: var(--neutral-900); }
+    .bg-neutral-500 { background: var(--neutral-500); color: var(--neutral-950); }
+    .bg-neutral-600 { background: var(--neutral-600); color: var(--neutral-50); }
+    .bg-neutral-700 { background: var(--neutral-700); color: var(--neutral-50); }
+    .bg-neutral-800 { background: var(--neutral-800); color: var(--neutral-50); }
+    .bg-neutral-900 { background: var(--neutral-900); color: var(--neutral-50); }
+    .bg-neutral-950 { background: var(--neutral-950); color: var(--neutral-50); }
+    .bg-accent-100 { background: var(--accent-100); color: var(--neutral-900); }
+    .bg-accent-300 { background: var(--accent-300); color: var(--neutral-900); }
+    .bg-accent-500 { background: var(--accent-500); color: var(--neutral-950); }
+    .bg-accent-700 { background: var(--accent-700); color: var(--neutral-50); }
+    .bg-accent-900 { background: var(--accent-900); color: var(--neutral-50); }
+
+    .logo-variant,
+    .badge-variant,
+    .asset-card,
+    .violation {
+      display: grid;
+      gap: var(--space-3);
+      padding: var(--space-4);
+      align-content: start;
+    }
+
+    .logo-preview {
+      display: flex;
+      min-height: 5rem;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-3);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-1);
+      background: var(--surface-page);
+    }
+
+    .logo-preview-dark {
+      border-color: var(--neutral-800);
+      background: var(--neutral-950);
+      color: var(--neutral-50);
+    }
+
+    .logo-preview-black {
+      background: var(--neutral-50);
+      color: var(--neutral-950);
+    }
+
+    .logo-preview-accent {
+      border-color: var(--accent-700);
+      background: var(--accent-500);
+      color: var(--neutral-950);
+    }
+
+    .logo-preview-strong {
+      border-color: var(--accent-900);
+      background: var(--accent-700);
+      color: var(--neutral-50);
+    }
+
+    .logo-preview-deep {
+      border-color: var(--accent-700);
+      background: var(--accent-900);
+      color: var(--neutral-50);
+    }
+
+    .logo-preview-soft {
+      border-color: var(--accent-300);
+      background: var(--accent-100);
+      color: var(--neutral-950);
+    }
+
+    .logo-symbol {
+      width: 2rem;
+      height: 2rem;
+      flex: 0 0 auto;
+      stroke: currentColor;
+    }
+
+    .logo-symbol-brand {
+      color: var(--accent-brand);
+    }
+
+    .logo-text {
+      font-size: var(--text-xl);
+      font-weight: 700;
+    }
+
+    .variant-desc,
+    .asset-desc,
+    .violation-desc {
+      margin: 0;
+      color: var(--text-secondary);
+      font-size: var(--text-sm);
+      line-height: 1.5;
+    }
+
+    .badge {
+      display: inline-flex;
+      width: fit-content;
+      align-items: center;
+      min-height: 1.75rem;
+      padding: var(--space-1) var(--space-3);
+      border: 1px solid;
+      border-radius: var(--radius-1);
+      font-family: var(--font-mono);
+      font-size: var(--text-xs);
+      font-weight: 500;
+      line-height: 1;
+      text-transform: lowercase;
+    }
+
+    .badge-status {
+      border-color: var(--accent-readable);
+      background: var(--accent-soft);
+      color: var(--text-primary);
+    }
+
+    .badge-neutral {
+      border-color: var(--border-default);
+      background: var(--surface-raised);
+      color: var(--text-secondary);
+    }
+
+    .badge-version {
+      border-color: var(--border-strong);
+      background: var(--surface-raised);
+      color: var(--text-primary);
+    }
+
+    .badge-pill {
+      border-color: transparent;
+      border-radius: 999px;
+    }
+
+    .badge-pill-accent {
+      background: var(--accent-brand);
+      color: var(--accent-on-fill);
+    }
+
+    .rule-list {
+      display: grid;
+      gap: var(--space-5);
+      margin-top: var(--space-6);
+    }
+
+    .rule {
+      display: grid;
+      grid-template-columns: 3rem minmax(0, 1fr);
+      gap: var(--space-4);
+      padding-top: var(--space-5);
+      border-top: 1px solid var(--border-default);
+    }
+
+    .rule-title {
+      margin: 0;
+      font-family: var(--font-mono);
+      font-size: var(--text-lg);
+      font-weight: 700;
+      line-height: var(--leading-title);
+    }
+
+    .example-pair {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: var(--space-4);
+      margin-top: var(--space-4);
+    }
+
+    .example {
+      padding: var(--space-4);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-1);
+      background: var(--surface-panel);
+      font-size: var(--text-sm);
+    }
+
+    .example-good {
+      border-color: var(--accent-readable);
+      background: var(--accent-soft);
+      color: var(--text-primary);
+    }
+
+    .example-bad {
+      color: var(--text-secondary);
+      text-decoration: line-through;
+    }
+
+    .asset-icon {
+      width: 3rem;
+      height: 3rem;
+      color: var(--accent-brand);
+      stroke: currentColor;
+    }
+
+    .violation {
+      position: relative;
+      padding-right: var(--space-8);
+    }
+
+    .violation::after {
+      content: "x";
+      position: absolute;
+      top: var(--space-3);
+      right: var(--space-4);
+      color: var(--text-subtle);
+      font-family: var(--font-mono);
+      font-weight: 700;
+    }
+
+    details {
+      margin-top: var(--space-4);
+    }
+
+    summary {
+      cursor: pointer;
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      font-size: var(--text-sm);
+      font-weight: 500;
+    }
+
+    summary:hover {
+      color: var(--text-primary);
+    }
+
+    .footer {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding-top: var(--space-10);
+      border-top: 1px solid var(--border-default);
+      color: var(--text-secondary);
+      font-size: var(--text-sm);
+    }
+
+    .footer-icon {
+      width: 1rem;
+      height: 1rem;
+      stroke: currentColor;
+    }
+
+    @media (max-width: 1100px) {
+      .manual-grid,
+      .token-table,
+      .palette-grid,
+      .logo-grid,
+      .badge-grid,
+      .asset-grid,
+      .violation-grid,
+      .example-pair {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 900px) {
+      body {
+        padding-right: 0;
+      }
+
+      .right-rail {
+        position: sticky;
+        inset: 0 auto auto 0;
+        width: 100%;
+        min-height: auto;
+        align-items: stretch;
+        justify-content: stretch;
+        padding: var(--space-3) var(--space-4);
+        border-right: 0;
+        border-bottom: 1px solid var(--border-strong);
+        border-left: 0;
+      }
+
+      .rail-inner {
+        display: grid;
+        width: 100%;
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: var(--space-3);
+        align-items: center;
+      }
+
+      .rail-brand,
+      .hero-top {
+        margin: 0;
+      }
+
+      .toc {
+        grid-column: 1 / -1;
+        max-height: none;
+        flex-direction: row;
+        overflow-x: auto;
+        overflow-y: hidden;
+      }
+
+      .toc a {
+        border-bottom: 2px solid transparent;
+        border-left: 0;
+        padding: var(--space-1) var(--space-2);
+      }
+
+      .toc a:hover {
+        border-bottom-color: var(--border-strong);
+        border-left-color: transparent;
+      }
+
+      .toc a[aria-current="true"] {
+        border-bottom-color: var(--accent-readable);
+        border-left-color: transparent;
+      }
+
+      .page {
+        padding: var(--space-8) var(--space-4);
+      }
+
+      .theme-switch {
+        position: relative;
+        top: auto;
+        left: auto;
+        z-index: auto;
+      }
+
+    }
+
+    @media (max-width: 640px) {
+      .manual-grid,
+      .token-table,
+      .palette-grid,
+      .logo-grid,
+      .badge-grid,
+      .asset-grid,
+      .violation-grid,
+      .example-pair {
+        grid-template-columns: 1fr;
+      }
+
+      .specimen-row,
+      .rule {
+        grid-template-columns: 1fr;
+        gap: var(--space-2);
+      }
+
+    }
+
+    @media print {
+      body {
+        padding-right: 0;
+        background: #ffffff;
+        color: #000000;
+      }
+
+      .right-rail {
+        display: none;
+      }
+    }
+  </style>
+  <script>
+    (function () {
+      const saved = localStorage.getItem("mire-theme") ||
+        (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+      document.documentElement.setAttribute("data-theme", saved);
+    })();
+
+    function updateToggle() {
+      const theme = document.documentElement.getAttribute("data-theme");
+      const button = document.querySelector(".theme-switch");
+      if (!button) return;
+      button.setAttribute("aria-pressed", theme === "dark" ? "true" : "false");
+    }
+
+    function toggleTheme() {
+      const html = document.documentElement;
+      const next = html.getAttribute("data-theme") === "dark" ? "light" : "dark";
+      html.setAttribute("data-theme", next);
+      localStorage.setItem("mire-theme", next);
+      updateToggle();
+    }
+
+    function updateCurrentSection(id) {
+      document.querySelectorAll(".toc a").forEach((link) => link.removeAttribute("aria-current"));
+      const active = document.querySelector(`.toc a[href="#${id}"]`);
+      if (active) active.setAttribute("aria-current", "true");
+    }
+
+    function watchSections() {
+      const sections = Array.from(document.querySelectorAll("main section[id]"));
+      if (!sections.length || !("IntersectionObserver" in window)) return;
+
+      const observer = new IntersectionObserver((entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+        if (visible) updateCurrentSection(visible.target.id);
+      }, {
+        rootMargin: "-20% 0px -65% 0px",
+        threshold: [0, 0.2, 0.6]
+      });
+
+      sections.forEach((section) => observer.observe(section));
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      document.getElementById("brand-fonts")?.setAttribute("media", "all");
+      updateToggle();
+      document.querySelector(".theme-switch")?.addEventListener("click", toggleTheme);
+      watchSections();
+    });
+  </script>
+</head>
+<body>
+  <aside class="right-rail" aria-label="Page controls">
+    <div class="rail-inner">
+      <div class="rail-brand" aria-label="Mire">
+        <button class="theme-switch" type="button" aria-pressed="false" aria-label="Toggle color theme">
+          <span class="theme-option theme-option-light">Light</span>
+          <span class="theme-option theme-option-dark">Dark</span>
+        </button>
+        <span class="rail-mark">└</span>
+        <span>mire</span>
+      </div>
+      <nav class="toc" aria-label="Section navigation">
+        <a href="#overview" aria-current="true">Overview</a>
+        <a href="#foundations">Foundations</a>
+        <a href="#typography">Typography</a>
+        <a href="#color">Color</a>
+        <a href="#mark">Mark</a>
+        <a href="#logo">Logo</a>
+        <a href="#badges">Badges</a>
+        <a href="#tui">TUI</a>
+        <a href="#voice">Voice</a>
+        <a href="#rules">Rules</a>
+        <a href="#assets">Assets</a>
+      </nav>
+    </div>
+  </aside>
+
+  <div class="page">
+    <header class="hero">
+      <div class="hero-top">
+        <p class="eyebrow">Brand system</p>
+      </div>
+      <div class="hero-lockup">
+        <svg class="hero-mark" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M6 4 V18 H20"/></svg>
+        <h1>mire</h1>
+      </div>
+      <p class="hero-summary">A retained-mode TUI runtime for F#. The brand is a box-drawing mark, a terminal mono identity, a readable documentation face, and one emerald moment.</p>
+      <div class="manual-grid" aria-label="Brand summary">
+        <div class="manual-tile">
+          <div class="manual-label">Mark</div>
+          <p><code>└</code> is the framing primitive Mire renders with. It is not a decorative icon.</p>
+        </div>
+        <div class="manual-tile">
+          <div class="manual-label">Type</div>
+          <p>IBM Plex Sans carries long reading. JetBrains Mono carries identity, code, labels, and specimens.</p>
+        </div>
+        <div class="manual-tile">
+          <div class="manual-label">Color</div>
+          <p>Neutral surfaces do the work. Emerald appears only where it adds meaning.</p>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section id="overview">
+        <div class="section-header">
+          <p class="eyebrow">Overview</p>
+          <h2>Use the manual as the source of brand behavior.</h2>
+          <p>This page documents the reusable decisions: type roles, color roles, logo usage, badges, terminal surfaces, voice rules, and violations.</p>
+        </div>
+        <div class="token-table">
+          <div class="specimen">
+            <div class="spec-label">Core formula</div>
+            <p><strong><code>└</code> + JetBrains Mono + Emerald <code>#1A9A7E</code></strong></p>
+            <p>That is the identity. Web documentation may add IBM Plex Sans for reading, but the brand signal stays mono.</p>
+          </div>
+          <div class="specimen">
+            <div class="spec-label">Hierarchy rule</div>
+            <p><strong>Size, weight, position, neutral contrast, then color.</strong></p>
+            <p>Color is not the default way to create emphasis. Use it last, and use it once.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="foundations">
+        <div class="section-header">
+          <p class="eyebrow">Foundations</p>
+          <h2>Named tokens keep the page consistent.</h2>
+          <p>The manual uses primitive palette tokens, semantic surface/text tokens, a compact type scale, and an 8px spacing scale.</p>
+        </div>
+        <div class="token-table">
+          <div class="specimen">
+            <div class="spec-label">Semantic color</div>
+            <pre><code>--surface-page
+--surface-panel
+--surface-rail
+--text-primary
+--text-secondary
+--border-default
+--accent-brand
+--accent-readable</code></pre>
+          </div>
+          <div class="specimen">
+            <div class="spec-label">Scale</div>
+            <pre><code>--text-xs  12px
+--text-sm  14px
+--text-base 16px
+--text-xl  20px
+--text-4xl 40px
+--space-1..16 4px..64px</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <section id="typography">
+        <div class="section-header">
+          <p class="eyebrow">Typography</p>
+          <h2>Two faces, two jobs.</h2>
+          <p>IBM Plex Sans handles reading. JetBrains Mono preserves the terminal identity and renders code, labels, tokens, badges, navigation, and specimens.</p>
+        </div>
+
+        <h3>Type roles</h3>
+        <table>
+          <tr><th>Role</th><th>Typeface</th><th>Use</th></tr>
+          <tr><td>Body</td><td>IBM Plex Sans</td><td>Paragraphs, lists, descriptions, table body cells</td></tr>
+          <tr><td>Identity</td><td>JetBrains Mono</td><td>Logo, headings, TOC, labels, badges, code, terminal samples</td></tr>
+          <tr><td>Code</td><td>JetBrains Mono</td><td>Inline code, code blocks, token names, CLI examples</td></tr>
+        </table>
+
+        <h3>Type scale</h3>
+        <div class="specimen">
+          <div class="specimen-row">
+            <span class="sample-size">4xl</span>
+            <p class="sample-text type-4xl">Diff-based rendering</p>
+          </div>
+          <div class="specimen-row">
+            <span class="sample-size">3xl</span>
+            <p class="sample-text type-3xl">Brand manual heading</p>
+          </div>
+          <div class="specimen-row">
+            <span class="sample-size">2xl</span>
+            <p class="sample-text type-2xl">Section heading</p>
+          </div>
+          <div class="specimen-row">
+            <span class="sample-size">xl</span>
+            <p class="sample-text type-xl">Lead copy and specimens</p>
+          </div>
+          <div class="specimen-row">
+            <span class="sample-size">base</span>
+            <p class="sample-text type-base">Readable body copy, max 62ch</p>
+          </div>
+          <div class="specimen-row">
+            <span class="sample-size">sm / xs</span>
+            <p class="sample-text type-sm">Dense UI, captions, labels, tokens</p>
+          </div>
+        </div>
+
+        <h3>Reading rules</h3>
+        <ul>
+          <li>Body text uses <code>line-height: 1.55</code> and a max width near <code>62ch</code>.</li>
+          <li>Headings and labels use <code>letter-spacing: 0</code>. Do not tighten mono text.</li>
+          <li>Use weights <code>400</code>, <code>500</code>, <code>600</code>, and <code>700</code>. Never use <code>300</code>.</li>
+        </ul>
+      </section>
+
+      <section id="color">
+        <div class="section-header">
+          <p class="eyebrow">Color</p>
+          <h2>True grays carry the system. Emerald is the signal.</h2>
+          <p>The palette is intentionally narrow. Use semantic tokens in interfaces; use primitive tokens only for specimens and documentation.</p>
+        </div>
+
+        <h3>Neutrals</h3>
+        <div class="palette-grid">
+          <div class="swatch"><div class="swatch-chip bg-neutral-50">50</div><div class="swatch-meta"><span>#FAFAFA</span><span>250</span></div></div>
+          <div class="swatch"><div class="swatch-chip bg-neutral-100">100</div><div class="swatch-meta"><span>#F3F3F3</span><span>243</span></div></div>
+          <div class="swatch"><div class="swatch-chip bg-neutral-200">200</div><div class="swatch-meta"><span>#E6E6E6</span><span>230</span></div></div>
+          <div class="swatch"><div class="swatch-chip bg-neutral-300">300</div><div class="swatch-meta"><span>#D4D4D4</span><span>212</span></div></div>
+          <div class="swatch"><div class="swatch-chip bg-neutral-400">400</div><div class="swatch-meta"><span>#AFAFAF</span><span>175</span></div></div>
+          <div class="swatch"><div class="swatch-chip bg-neutral-500">500</div><div class="swatch-meta"><span>#868686</span><span>134</span></div></div>
+          <div class="swatch"><div class="swatch-chip bg-neutral-600">600</div><div class="swatch-meta"><span>#606060</span><span>96</span></div></div>
+          <div class="swatch"><div class="swatch-chip bg-neutral-700">700</div><div class="swatch-meta"><span>#464646</span><span>70</span></div></div>
+          <div class="swatch"><div class="swatch-chip bg-neutral-800">800</div><div class="swatch-meta"><span>#292929</span><span>41</span></div></div>
+          <div class="swatch"><div class="swatch-chip bg-neutral-900">900</div><div class="swatch-meta"><span>#121212</span><span>18</span></div></div>
+          <div class="swatch"><div class="swatch-chip bg-neutral-950">950</div><div class="swatch-meta"><span>#050505</span><span>5</span></div></div>
+        </div>
+
+        <h3>Emerald</h3>
+        <div class="palette-grid">
+          <div class="swatch"><div class="swatch-chip bg-accent-100">100</div><div class="swatch-meta"><span>#D0F5E8</span><span>soft</span></div></div>
+          <div class="swatch"><div class="swatch-chip bg-accent-300">300</div><div class="swatch-meta"><span>#7DD4B8</span><span>dark UI</span></div></div>
+          <div class="swatch"><div class="swatch-chip bg-accent-500">500</div><div class="swatch-meta"><span>#1A9A7E</span><span>brand</span></div></div>
+          <div class="swatch"><div class="swatch-chip bg-accent-700">700</div><div class="swatch-meta"><span>#006F56</span><span>readable</span></div></div>
+          <div class="swatch"><div class="swatch-chip bg-accent-900">900</div><div class="swatch-meta"><span>#003D2E</span><span>deep</span></div></div>
+        </div>
+
+        <h3>Contrast rules</h3>
+        <pre><code>Light body:   --text-primary on --surface-page  AAA
+Light muted:  --text-secondary on --surface-page AA
+Dark body:    --text-primary on --surface-page  AAA
+Dark muted:   --text-secondary on --surface-page AA
+Accent fill:  --accent-on-fill on --accent-brand AA
+Nav active:   --accent-readable on --surface-rail AA</code></pre>
+      </section>
+
+      <section id="mark">
+        <div class="section-header">
+          <p class="eyebrow">Mark</p>
+          <h2>The mark is a box-drawing corner.</h2>
+          <p>The symbol is <code>└</code>, the framing primitive Mire renders with. It is not a literal M, badge, mascot, or app icon shape.</p>
+        </div>
+        <div class="token-table">
+          <div>
+            <h3>Do</h3>
+            <ul>
+              <li>Use <code>symbol-mono.svg</code> when the context sets the color.</li>
+              <li>Use <code>symbol.svg</code> for the single accent moment on a surface.</li>
+              <li>Preserve the 2px safe padding and the original aspect ratio.</li>
+            </ul>
+          </div>
+          <div>
+            <h3>Do not</h3>
+            <ul>
+              <li>Frame it in a circle, pill, or rounded square.</li>
+              <li>Add shadow, glow, outline, gradient, rotation, or animation.</li>
+              <li>Place it on a busy background.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="logo">
+        <div class="section-header">
+          <p class="eyebrow">Logo</p>
+          <h2>Use only the lockups the system defines.</h2>
+          <p>The mark is always present in full logo use. The wordmark is optional when space is tight or the surrounding context already says Mire.</p>
+        </div>
+
+        <div class="logo-grid">
+          <div class="logo-variant">
+            <div class="logo-preview">
+              <svg class="logo-symbol logo-symbol-brand" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M6 4 V18 H20"/></svg>
+              <span class="logo-text">mire</span>
+            </div>
+            <div class="variant-name">Branded / light</div>
+            <p class="variant-desc">Emerald mark with neutral wordmark.</p>
+          </div>
+          <div class="logo-variant">
+            <div class="logo-preview logo-preview-dark">
+              <svg class="logo-symbol logo-symbol-brand" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M6 4 V18 H20"/></svg>
+              <span class="logo-text">mire</span>
+            </div>
+            <div class="variant-name">Branded / dark</div>
+            <p class="variant-desc">Same mark, inverse wordmark.</p>
+          </div>
+          <div class="logo-variant">
+            <div class="logo-preview">
+              <svg class="logo-symbol" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M6 4 V18 H20"/></svg>
+              <span class="logo-text">mire</span>
+            </div>
+            <div class="variant-name">Monochrome</div>
+            <p class="variant-desc">Inherits current text color.</p>
+          </div>
+          <div class="logo-variant">
+            <div class="logo-preview logo-preview-accent">
+              <svg class="logo-symbol" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M6 4 V18 H20"/></svg>
+              <span class="logo-text">mire</span>
+            </div>
+            <div class="variant-name">On accent 500</div>
+            <p class="variant-desc">Dark text only. White fails AA on this fill.</p>
+          </div>
+          <div class="logo-variant">
+            <div class="logo-preview logo-preview-strong">
+              <svg class="logo-symbol" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M6 4 V18 H20"/></svg>
+              <span class="logo-text">mire</span>
+            </div>
+            <div class="variant-name">On accent 700</div>
+            <p class="variant-desc">White text passes AA on the stronger fill.</p>
+          </div>
+          <div class="logo-variant">
+            <div class="logo-preview logo-preview-soft">
+              <svg class="logo-symbol" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M6 4 V18 H20"/></svg>
+              <span class="logo-text">mire</span>
+            </div>
+            <div class="variant-name">On accent 100</div>
+            <p class="variant-desc">Use dark text on the soft accent field.</p>
+          </div>
+          <div class="logo-variant">
+            <div class="logo-preview logo-preview-dark">
+              <svg class="logo-symbol" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M6 4 V18 H20"/></svg>
+            </div>
+            <div class="variant-name">Symbol only</div>
+            <p class="variant-desc">Use when the surrounding UI already identifies Mire.</p>
+          </div>
+          <div class="logo-variant">
+            <div class="logo-preview logo-preview-black">
+              <span class="logo-text">mire</span>
+            </div>
+            <div class="variant-name">Wordmark only</div>
+            <p class="variant-desc">Use sparingly. The mark is preferred.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="badges">
+        <div class="section-header">
+          <p class="eyebrow">Badges</p>
+          <h2>Badges are compact metadata, not decoration.</h2>
+          <p>Use mono labels, stable sizing, and semantic color roles. Status badges may use soft emerald because status is the subject.</p>
+        </div>
+        <div class="badge-grid">
+          <div class="badge-variant">
+            <span class="badge badge-status">stable</span>
+            <div class="variant-name">Status</div>
+            <p class="variant-desc">Soft accent fill and readable border.</p>
+          </div>
+          <div class="badge-variant">
+            <span class="badge badge-neutral">F#</span>
+            <div class="variant-name">Neutral</div>
+            <p class="variant-desc">Language, runtime, license, and feature tags.</p>
+          </div>
+          <div class="badge-variant">
+            <span class="badge badge-version">v0.1.0</span>
+            <div class="variant-name">Version</div>
+            <p class="variant-desc">Raised neutral fill with stronger border.</p>
+          </div>
+          <div class="badge-variant">
+            <span class="badge badge-pill badge-pill-accent">retained-mode</span>
+            <div class="variant-name">Accent pill</div>
+            <p class="variant-desc">Use only when it is the one accent moment.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="tui">
+        <div class="section-header">
+          <p class="eyebrow">TUI surface</p>
+          <h2>The terminal carries the brand through spacing and restraint.</h2>
+          <p>The terminal supplies the font. Mire supplies the mark, palette discipline, box drawing, and predictable hierarchy.</p>
+        </div>
+
+        <h3>Banner</h3>
+        <pre><code>  └ mire   a retained-mode TUI runtime for F#</code></pre>
+        <pre><code>  └
+  │   mire
+  └─  elmish for the terminal</code></pre>
+
+        <h3>Surface tokens</h3>
+        <table>
+          <tr><th>Element</th><th>Token</th></tr>
+          <tr><td>Body text</td><td><code>--text-primary</code></td></tr>
+          <tr><td>Comments / muted</td><td><code>--text-secondary</code></td></tr>
+          <tr><td>Hints / completions</td><td><code>--text-subtle</code></td></tr>
+          <tr><td>Borders / box drawing</td><td><code>--border-default</code></td></tr>
+          <tr><td>Active line</td><td><code>--surface-raised</code></td></tr>
+          <tr><td>The one accent moment</td><td><code>--accent-brand</code></td></tr>
+        </table>
+      </section>
+
+      <section id="voice">
+        <div class="section-header">
+          <p class="eyebrow">Voice</p>
+          <h2>Write like a tool manual, not a launch page.</h2>
+          <p>Lead with behavior, show real output, name limits plainly, and remove adjectives that do not carry facts.</p>
+        </div>
+        <div class="rule-list">
+          <div class="rule">
+            <div class="rule-number">01</div>
+            <div>
+              <p class="rule-title">Lead with the verb.</p>
+              <p>What it does comes first. The category can come later.</p>
+              <div class="example-pair">
+                <div class="example example-good">Diffs a cell grid and paints only the runs that changed.</div>
+                <div class="example example-bad">Mire is a framework that provides a rendering layer.</div>
+              </div>
+            </div>
+          </div>
+          <div class="rule">
+            <div class="rule-number">02</div>
+            <div>
+              <p class="rule-title">Numbers or nothing.</p>
+              <p>"Fast" needs a number or it gets cut.</p>
+              <div class="example-pair">
+                <div class="example example-good">Redraws at ~30 FPS; a diff touches only changed cells.</div>
+                <div class="example example-bad">Blazing-fast, buttery-smooth rendering.</div>
+              </div>
+            </div>
+          </div>
+          <div class="rule">
+            <div class="rule-number">03</div>
+            <div>
+              <p class="rule-title">You, never "users".</p>
+              <p>Address the reader directly.</p>
+              <div class="example-pair">
+                <div class="example example-good">You write update and view; Mire owns the loop.</div>
+                <div class="example example-bad">Users implement their update logic.</div>
+              </div>
+            </div>
+          </div>
+          <div class="rule">
+            <div class="rule-number">04</div>
+            <div>
+              <p class="rule-title">Show, do not say.</p>
+              <p>A terminal frame beats a paragraph. Real code beats a feature list.</p>
+              <pre><code>┌ counter ──────────┐
+│ count: 7          │
+│ [+] inc  [-] dec  │
+└───────────────────┘</code></pre>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="rules">
+        <div class="section-header">
+          <p class="eyebrow">Rules</p>
+          <h2>The brand breaks when decoration replaces structure.</h2>
+          <p>Shipping any of these in a Mire surface means the brand has drifted.</p>
+        </div>
+        <details>
+          <summary>Show violations</summary>
+          <div class="violation-grid">
+            <div class="violation"><div class="variant-name">Gradients</div><p class="violation-desc">Purple/blue gradients, mesh backgrounds, or any gradient at all.</p></div>
+            <div class="violation"><div class="variant-name">Glass</div><p class="violation-desc">Blurred cards, translucent panels, and floating glow effects.</p></div>
+            <div class="violation"><div class="variant-name">Bento</div><p class="violation-desc">2x2 marketing grids or "Fast / Simple / Powerful" feature cards.</p></div>
+            <div class="violation"><div class="variant-name">Logo walls</div><p class="violation-desc">Trusted-by strips, icon grids, and generic social proof.</p></div>
+            <div class="violation"><div class="variant-name">AI badges</div><p class="violation-desc">"Powered by AI" framing or product-copy shortcuts.</p></div>
+            <div class="violation"><div class="variant-name">Emoji</div><p class="violation-desc">No emoji in copy, headings, commits, or release notes.</p></div>
+            <div class="violation"><div class="variant-name">Light weights</div><p class="violation-desc">Font weight 300 reads as low-contrast slop.</p></div>
+            <div class="violation"><div class="variant-name">Generic claims</div><p class="violation-desc">"Build the future" and "all-in-one platform" do not belong here.</p></div>
+          </div>
+        </details>
+      </section>
+
+      <section id="assets">
+        <div class="section-header">
+          <p class="eyebrow">Assets</p>
+          <h2>Edit the source, then regenerate.</h2>
+          <p>The palette and mark files are the durable source of truth. Do not hand-tune generated outputs unless the generator changes too.</p>
+        </div>
+        <div class="asset-grid">
+          <div class="asset-card">
+            <svg class="asset-icon" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M6 4 V18 H20"/></svg>
+            <div class="asset-name">symbol.svg</div>
+            <p class="asset-desc">Emerald mark on transparent background.</p>
+          </div>
+          <div class="asset-card">
+            <svg class="asset-icon" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M6 4 V18 H20"/></svg>
+            <div class="asset-name">symbol-mono.svg</div>
+            <p class="asset-desc">CurrentColor mark for surfaces that set text color.</p>
+          </div>
+          <div class="asset-card">
+            <svg class="asset-icon" viewBox="0 0 16 16" fill="none" stroke-width="3" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M5 3 V11 H13"/></svg>
+            <div class="asset-name">favicon.svg</div>
+            <p class="asset-desc">16x16 hand-tuned browser tab mark.</p>
+          </div>
+          <div class="asset-card">
+            <div class="asset-name">palette.json</div>
+            <p class="asset-desc">Canonical palette source for generated outputs.</p>
+          </div>
+          <div class="asset-card">
+            <div class="asset-name">palette.css</div>
+            <p class="asset-desc">CSS custom properties for web surfaces.</p>
+          </div>
+          <div class="asset-card">
+            <div class="asset-name">palette.fs</div>
+            <p class="asset-desc">F# module for TUI rendering.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <svg class="footer-icon" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter" aria-hidden="true"><path d="M6 4 V18 H20"/></svg>
+      <span>Mire — a retained-mode TUI runtime for F#</span>
+    </footer>
+  </div>
+</body>
+</html>

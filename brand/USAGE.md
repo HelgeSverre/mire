@@ -1,7 +1,8 @@
 # Mire — Brand Usage
 
-The brand is `└` + JetBrains Mono + Emerald `#1A8870`. That's it. If you reach
-for a second font or a second color, stop and reconsider.
+The brand is `└` + JetBrains Mono + Emerald `#1A8870`. Web documentation may add
+IBM Plex Sans for long-form reading, but the identity still comes from the mark,
+mono type, spacing, and restraint.
 
 ## Files
 
@@ -13,7 +14,7 @@ for a second font or a second color, stop and reconsider.
 | `palette.json`    | Canonical color source              | Build tooling — edit this, regenerate the rest               |
 | `palette.css`     | CSS custom properties, light + dark | Web app, marketing site                                      |
 | `palette.fs`      | F# module (`Mire.Brand.Palette`)    | TUI rendering                                                |
-| `typography.md`   | JetBrains Mono + sizes              | Writing CSS or terminal output                               |
+| `typography.md`   | Type roles + sizes                  | Writing web docs, CSS, or terminal output                    |
 | `voice.md`        | The five voice rules                | Any copy you write                                           |
 | `USAGE.md`        | This file                           | Onboarding                                                   |
 
@@ -37,13 +38,23 @@ It is not a literal "M" and never should be.
 
 ## One accent rule
 
-In any single web viewport, TUI screen, or 12-character CLI span, emerald appears
-**at most once**. If the header symbol is emerald and the primary button is
-emerald, pick one. Remove the other.
+In any normal web viewport, TUI screen, or 12-character CLI span, emerald appears
+**at most once**. Palette and specimen sections may show multiple emerald values
+because color is the subject. If the header symbol is emerald and the primary
+button is emerald, pick one. Remove the other.
 
-Hierarchy comes from, in order: size → weight (400/500/700) → position →
+Hierarchy comes from, in order: size → weight (400/500/600/700) → position →
 neutral contrast (`--fg` → `--fg-muted` → `--fg-subtle`). Color is the last
 layer, applied once.
+
+## Typography roles
+
+Use **IBM Plex Sans** for web documentation body copy, descriptions, lists, and
+table body cells. Use **JetBrains Mono** for logo, headings, navigation, labels,
+badges, code, CLI output, token names, and terminal examples.
+
+Terminal surfaces still use the user's terminal font. Recommend JetBrains Mono
+in docs and screenshots so the rendered examples match the brand.
 
 ## CLI / TUI surface
 
