@@ -33,3 +33,13 @@ codedb.snapshot
 
 # ---- Claude Code (machine-local agent settings) ----
 .claude/settings.local.json
+
+# ---- Node (deps for prototypes / browser tools) ----
+node_modules/
+package-lock.json
+
+# ---- OpenCode / agent skill state ----
+skills-lock.json
+
+# ---- Browser automation artifacts ----
+browser/
