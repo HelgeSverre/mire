@@ -883,17 +883,12 @@ let private rect0 = Rect.Create(0, 0, 0, 0)
 let private opaque (border: Style) (content: LayoutNode<Msg>) : LayoutNode<Msg> =
     LayoutNode.Overlay(rect0, [ Backdrop.solid Style.Default; Box.box border [ content ] ])
 
-/// Center a w×h node within `size` by insetting it with margin spacers.
-let private centered (w: int) (h: int) (size: Size) (node: LayoutNode<Msg>) : LayoutNode<Msg> =
-    let lm = max 0 ((size.Width - w) / 2)
-    let tm = max 0 ((size.Height - h) / 2)
-
-    Dock.dock
-        [ Dock.top tm Spacer.spacer
-          Dock.bottom tm Spacer.spacer
-          Dock.left lm Spacer.spacer
-          Dock.right lm Spacer.spacer
-          Dock.fill node ]
+/// Center a w×h node — delegates to the framework's `Overlay.centered` (a
+/// `Positioned`/`Center` layer; it sizes + centers within the area, so the
+/// screen `size` isn't needed). The `size` param is kept so the call sites that
+/// pass `m.Size` stay unchanged.
+let private centered (w: int) (h: int) (_size: Size) (node: LayoutNode<Msg>) : LayoutNode<Msg> =
+    Mire.Widgets.Overlay.centered w h node
 
 let private header (m: Model) : LayoutNode<Msg> =
     Box.box
