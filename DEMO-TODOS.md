@@ -52,7 +52,7 @@ Each is small, independent, and stress-tests a widget — ROADMAP "What's next" 
 - [x] **`Widgets.Spinner`** — `Blocks.spinner` delegates to `Spinner.frameOf Spinner.braille` instead of a hand-rolled frame table. _Done._
 - [x] **OSC 52 clipboard (dogfood)** — the `copy` command puts the last assistant message on the system clipboard via `Cmd.setClipboard`. _Done._
 - [x] **OSC 8 links (dogfood)** — transcript markdown links carry real URLs through `Widgets.Markdown` → `Style.Link` → `Diff` OSC 8 (no demo code needed; it falls out of the framework wiring). _Done._
-- [ ] **Mouse** — `InputParser` decodes SGR 1006, but the demo's `mapInput` has no `Mouse` case; modal buttons / list rows / MCP actions are still keyboard-only. (Full hit-testing is ROADMAP v0.5; basic click-on-button is doable now)
+- 🟡 **Mouse** — wheel scrolls the transcript (`mapInput` decodes SGR-1006 `ScrollUp`/`ScrollDown` → `ScrollWheel`). _Click-on-button / list-row hit-testing still pending (needs the demo to track widget rects; full retained hit-testing is ROADMAP v0.5)._
 - [ ] **Focus manager** — the demo still routes keys manually off its own `Overlay` field; migrate to `Mire.Layout.Focus` (`pushTrap`/`popTrap`), the way `Mire.Demo.Feed` does
 - [ ] **`Widgets.Modal` / `Overlay.centered`** — the demo centers overlays with its own `centered`/`opaque` Dock-spacer helpers; the framework versions replace them
 - [x] **`ScrollView`** — the transcript pane now uses `ScrollView.vertical` (track/thumb scrollbar). _Skill-explorer + MCP-tools panes still on bare `Scroll`._

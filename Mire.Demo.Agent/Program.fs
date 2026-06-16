@@ -130,6 +130,7 @@ type Msg =
     | ToolResolve of int * ToolStatus * string * string
     | SpinnerTick
     | Resized of Size
+    | ScrollWheel of int // mouse-wheel scroll of the transcript (+down / -up)
     | Ignore
 
 // fake MCP servers for the /mcp manager
@@ -802,6 +803,12 @@ let update (msg: Msg) (m: Model) : Model * Cmd<Msg> =
         | SkillOverlay ss -> updateSkills k ss m
         | ModalOverlay ms -> updateModal k ms m
         | McpOverlay ms -> updateMcp k ms m
+    // Mouse wheel scrolls the transcript when no overlay is up (overlays are
+    // keyboard-driven). Dogfoods the SGR-1006 mouse decoding.
+    | ScrollWheel d ->
+        match m.Overlay with
+        | NoOverlay -> scrollBy d m
+        | _ -> m, Cmd.none
     | RunCommand c -> runCommand c m
     | StreamChunk ->
         match m.Streaming with
@@ -1317,6 +1324,11 @@ let mapInput (e: InputEvent) : Msg option =
         key |> Option.map KeyMsg
     | Paste _ -> Some(KeyMsg(KEdit e))
     | Resize sz -> Some(Resized sz)
+    | Mouse me ->
+        match me.Button with
+        | ScrollUp -> Some(ScrollWheel -3)
+        | ScrollDown -> Some(ScrollWheel 3)
+        | _ -> None
     | _ -> None
 
 let subscriptions (m: Model) : Sub<Msg> list =
