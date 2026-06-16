@@ -16,6 +16,10 @@ type Cmd<'msg> =
     /// recognizes this and breaks its loop so the normal teardown (alt-screen
     /// exit, raw-mode restore) runs — the same exit path as the Ctrl+C intercept.
     | Quit
+    /// Copy text to the system clipboard via OSC 52. The runtime writes the
+    /// sequence straight to the terminal (outside the cell diff — a clipboard
+    /// write paints nothing).
+    | SetClipboard of string
 
 module Cmd =
     let none = NoOp
@@ -26,15 +30,26 @@ module Cmd =
     /// Request a clean exit of the runtime loop from `update`.
     let quit: Cmd<'msg> = Quit
 
-    /// Execute a command. `requestQuit` is the runtime's hook for `Cmd.quit`; it
-    /// lets a command signal the loop to stop without abrupt control flow.
-    let rec dispatch (requestQuit: unit -> unit) (send: 'msg -> unit) (cmd: Cmd<'msg>) : unit =
+    /// Copy `text` to the system clipboard (OSC 52). Works on terminals with
+    /// clipboard write enabled (Ghostty/Kitty/iTerm2); silently ignored elsewhere.
+    let setClipboard (text: string) : Cmd<'msg> = SetClipboard text
+
+    /// Execute a command. `requestQuit` is the runtime's hook for `Cmd.quit` and
+    /// `setClipboard` its hook for `Cmd.setClipboard`; both let a command reach the
+    /// runtime without abrupt control flow.
+    let rec dispatch
+        (requestQuit: unit -> unit)
+        (setClipboard: string -> unit)
+        (send: 'msg -> unit)
+        (cmd: Cmd<'msg>)
+        : unit =
         match cmd with
         | NoOp -> ()
-        | Batch cmds -> cmds |> List.iter (dispatch requestQuit send)
+        | Batch cmds -> cmds |> List.iter (dispatch requestQuit setClipboard send)
         | AsyncCmd f -> Async.Start(f send)
         | OfMsg msg -> send msg
         | Quit -> requestQuit ()
+        | SetClipboard text -> setClipboard text
 
 type Sub<'msg> =
     | TerminalResize of (Size -> 'msg)
@@ -52,6 +67,12 @@ type Program<'model, 'msg> =
         /// matched event is consumed as "quit" and never reaches the app. Default:
         /// Ctrl+C. The quit *binding* is app-owned, not baked into the runtime.
         QuitOn: InputEvent -> bool
+        /// Forward Kitty key *release* events to `MapInput`. Default `false`: the
+        /// runtime requests event-type reporting from the terminal, so every key
+        /// now produces a press *and* a release — dropping releases keeps the
+        /// common case (one message per keystroke) unchanged. Opt in for apps that
+        /// track key-down/up (games, chords). `Repeat` events always pass through.
+        KeyReleases: bool
     }
 
 module Program =
@@ -70,7 +91,8 @@ module Program =
             fun e ->
                 match e with
                 | Key ke -> ke.Key = Key.Char "c" && ke.Modifiers.Ctrl
-                | _ -> false }
+                | _ -> false
+          KeyReleases = false }
 
     let withMapInput (f: InputEvent -> 'msg option) (program: Program<'model, 'msg>) = { program with MapInput = f }
 
@@ -84,6 +106,12 @@ module Program =
     /// consumed as quit and never reaches the app. Set `fun _ -> false` to make
     /// Ctrl+C a normal key and exit only via `Cmd.quit`.
     let withQuitOn (f: InputEvent -> bool) (program: Program<'model, 'msg>) = { program with QuitOn = f }
+
+    /// Opt in to receiving Kitty key *release* events in `MapInput` (default off —
+    /// releases are dropped so each keystroke is one message). `Repeat` always
+    /// passes through regardless.
+    let withKeyReleases (enabled: bool) (program: Program<'model, 'msg>) =
+        { program with KeyReleases = enabled }
 
 type RuntimeState<'model, 'msg> =
     { Model: 'model
@@ -134,8 +162,20 @@ module Runtime =
         let mutable quitRequested = false
         let requestQuit () = quitRequested <- true
 
+        // `Cmd.setClipboard` hook: write the OSC 52 sequence straight to the
+        // terminal (it paints no cells, so it bypasses the diff).
+        let writeClipboard (text: string) =
+            Console.Out.Write(ANSI.setClipboard text)
+            Console.Out.Flush()
+
+        // Bracketed-paste reassembly: bytes carried from a read that ended mid-paste
+        // (no end marker yet) are prepended to the next read. Capped so a lost end
+        // marker can't grow the buffer without bound.
+        let mutable pasteCarry: byte[] = [||]
+        let pasteCap = 1 <<< 20 // 1 MiB
+
         // Dispatch initial command
-        Cmd.dispatch requestQuit sendMsg initialCmd
+        Cmd.dispatch requestQuit writeClipboard sendMsg initialCmd
 
         let sw = Diagnostics.Stopwatch.StartNew()
         let mutable lastTick = TimeSpan.Zero
@@ -170,17 +210,33 @@ module Runtime =
                             | TerminalResize f -> sendMsg (f currentSize)
                             | _ -> ()
 
-                    // Process input
-                    match InputParser.readEvent () with
-                    | Some inputEvent ->
-                        // the quit policy (default Ctrl+C) is consulted before MapInput
-                        if program.QuitOn inputEvent then
-                            state <- { state with Running = false }
-                        else
-                            match program.MapInput inputEvent with
-                            | Some msg -> sendMsg msg
-                            | None -> ()
-                    | None -> ()
+                    // Process input. Read raw bytes (not readEvent) so a bracketed
+                    // paste split across reads can be reassembled before parsing.
+                    let rawBytes = InputParser.readRawBytes ()
+                    let toParse, newCarry = InputParser.stepPasteBuffer pasteCap pasteCarry rawBytes
+                    pasteCarry <- newCarry
+
+                    if toParse.Length > 0 then
+                        match InputParser.parseBytes toParse with
+                        | Some inputEvent ->
+                            // Event-type reporting is enabled, so keys arrive as
+                            // press + release. Drop releases unless the app opted in
+                            // (else every keystroke would fire twice).
+                            let isDroppedRelease =
+                                match inputEvent with
+                                | Key ke -> ke.EventType = Release && not program.KeyReleases
+                                | _ -> false
+
+                            if isDroppedRelease then
+                                ()
+                            // the quit policy (default Ctrl+C) is consulted before MapInput
+                            elif program.QuitOn inputEvent then
+                                state <- { state with Running = false }
+                            else
+                                match program.MapInput inputEvent with
+                                | Some msg -> sendMsg msg
+                                | None -> ()
+                        | None -> ()
 
                     // Process messages
                     let mutable hasMsgs = true
@@ -202,7 +258,7 @@ module Runtime =
                                     Model = newModel
                                     NeedsRender = true }
 
-                            Cmd.dispatch requestQuit sendMsg cmd
+                            Cmd.dispatch requestQuit writeClipboard sendMsg cmd
                         | None -> hasMsgs <- false
 
                     // A command (or the initial cmd) requested shutdown. Fold it in

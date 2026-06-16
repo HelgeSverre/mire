@@ -41,9 +41,12 @@ module ANSI =
     let beginSync = ESC + "[?2026h"
     let endSync = ESC + "[?2026l"
 
-    // Kitty keyboard protocol
-    let enableKittyKeyboard = CSI + ">1u"
-    let disableKittyKeyboard = CSI + "<1u"
+    // Kitty keyboard protocol. Push flags 1|2 = 3: 1 = disambiguate escape codes,
+    // 2 = report event types (press/repeat/release). The disable form pops the
+    // pushed level. (The runtime drops Release events unless the app opts in, so
+    // reporting them here is transparent to apps that don't care — see Program.)
+    let enableKittyKeyboard = CSI + ">3u"
+    let disableKittyKeyboard = CSI + "<u"
 
     // Styles
     let resetStyle = CSI + "0m"
@@ -65,6 +68,12 @@ module ANSI =
     let hyperlink (url, text) =
         $"\x1b]8;;{url}\x1b\\{text}\x1b]8;;\x1b\\"
 
+    /// Open a hyperlink: cells written after this carry the link until `osc8Close`.
+    /// (The Diff writer brackets each linked run with these so the link attribute
+    /// is scoped to exactly that run, even across cursor moves.)
+    let osc8Open (url: string) = $"\x1b]8;;{url}\x1b\\"
+    let osc8Close = "\x1b]8;;\x1b\\"
+
     // OSC 52 clipboard
     let setClipboard (text: string) =
         let b64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(text))
@@ -72,15 +81,6 @@ module ANSI =
 
 module TerminalMode =
     open System.Runtime.InteropServices
-
-    [<DllImport("libc", SetLastError = true)>]
-    extern int tcgetattr(int fd, IntPtr termios)
-
-    [<DllImport("libc", SetLastError = true)>]
-    extern int tcsetattr(int fd, int actions, IntPtr termios)
-
-    [<DllImport("libc", SetLastError = true)>]
-    extern int ioctl(int fd, uint64 request, IntPtr arg)
 
     // Platform-specific raw mode setup
     let setupRawMode () =
@@ -90,8 +90,8 @@ module TerminalMode =
             Console.InputEncoding <- Encoding.UTF8
             Console.CursorVisible <- false
         else
-            // Unix: use stty or termios
-            // For now, use Console APIs which work on Unix too with .NET 6+
+            // Unix: UTF-8 console + raw mode via stty (below). `poll`/`read` on fd 0
+            // handle input; `Console.WindowWidth/Height` handle size.
             Console.OutputEncoding <- Encoding.UTF8
             Console.InputEncoding <- Encoding.UTF8
             Console.CursorVisible <- false

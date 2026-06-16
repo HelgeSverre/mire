@@ -25,8 +25,9 @@ state of the code.
    stress-tests a widget. The list lives in [`DEMO-TODOS.md`](DEMO-TODOS.md).
 3. **Wide-char correctness** (Known gaps) — the trailing-cell artifact and
    BMP-only width are the sharpest correctness edges in the renderer.
-4. **v0.5 niceties** — OSC 8 link cells, Kitty release/repeat, paste buffering,
-   OSC 52 clipboard, Kitty graphics, the runtime/mouse half of focus.
+4. **v0.5 niceties** — Kitty graphics (`ImagePreview`), theme notifications, and
+   the runtime/mouse half of focus. (OSC 8 links, OSC 52 clipboard, Kitty
+   release/repeat, and paste reassembly all shipped — see v0.5 below.)
 5. **Performance tiers** — only when they hurt; frame coalescing for streaming
    is the first one an agent UI will actually feel.
 
@@ -146,12 +147,12 @@ Recommended order — each step names its extraction source in the demo:
 - [ ] Widget gallery app — a dedicated demo exercising every widget in all its
       states (build after the brand-default theme + Agent refactor land)
 
-### v0.5 — Kitty/Ghostty niceties ⬜
+### v0.5 — Kitty/Ghostty niceties 🟡
 
-- [ ] Full Kitty keyboard protocol decode — 🟡 `CSI u` **modifier** decoding done (see archive); remaining: request + decode release/repeat **event types** (push "report event types", parse the `:event` sub-param) and the private-use functional codepoints
-- [ ] Buffer large bracketed pastes split across `read()`s (today each chunk becomes its own `Paste`)
-- [ ] OSC 8 hyperlinks — render `Cell.Link` (sequences exist in `ANSI`; cells don't carry links yet)
-- [ ] OSC 52 clipboard — sequences exist in `ANSI`; wire a `Cmd` (copy-to-clipboard) that emits them
+- [x] Full Kitty keyboard protocol decode — `CSI u` **modifier** decoding (see archive) **and event types**: the runtime pushes `CSI > 3 u` (disambiguate + report events) and `InputParser` decodes the `:event` sub-param into `Press`/`Repeat`/`Release`. The runtime drops `Release` unless `Program.withKeyReleases`. _Remaining:_ the private-use functional codepoints.
+- [x] Buffer large bracketed pastes split across `read()`s — the runtime carries an unfinished paste (via `InputParser.stepPasteBuffer`, capped at 1 MiB) and reassembles it into one `Paste`
+- [x] OSC 8 hyperlinks — `Style.Link` (`WithLink url`); the `Diff` writer brackets a linked run in OSC 8 open/close and `Markdown` link spans carry their URL
+- [x] OSC 52 clipboard — `Cmd.setClipboard text`, written to the terminal by the runtime (same hook shape as `Cmd.quit`)
 - [ ] Kitty graphics protocol → `ImagePreview` with text fallback
 - [ ] Light/dark theme notifications
 - [ ] Richer mouse (hit-testing → focus/selection) — the runtime-owned half of focus: `Focusable` node + retained region table (the `Region`/`RenderMode` scaffolding in `Core/Region.fs` is the forward declaration)
@@ -192,10 +193,9 @@ every push/PR; NuGet packaging with OIDC trusted publishing on `v*` releases.
 Things that work "well enough" today but have a sharp edge worth remembering:
 
 - **`Box` is single-child by design.** A `Box` renders one child filling its inner rect; passing multiple children overlaps them — flow is `Stack`'s job, so nest a `Stack` (the `panel`/`statusBar` helpers do this internally).
-- **Input decoding has two remaining gaps.** Keyboard (incl. Kitty `CSI u` chords), mouse (SGR 1006), bracketed paste, and focus events all decode. Still missing: Kitty **release/repeat** event types aren't requested (only the disambiguate flag `CSI > 1 u` is pushed), so keys only ever emit `… Press`; and a **large paste split across `read()`s** isn't buffered — each chunk becomes its own `Paste`. Both tracked under v0.5.
+- **Input decoding is feature-complete for the targeted terminals.** Keyboard (Kitty `CSI u` chords + press/repeat/release event types), mouse (SGR 1006), bracketed paste (reassembled across reads), and focus events all decode. The only remaining nicety is the Kitty private-use functional codepoints (v0.5).
 - **Wide-char rendering is BMP-only and leaves a trailing cell.** Tracked as Cross-cutting — Correctness above.
-- **Dead scaffolding & externs.** `RegionId` is load-bearing (the `Mire.Layout.Focus` key), but `Region`/`RenderMode` (and the `Focusable`/`ZIndex`/`Clip` fields) in `Core/Region.fs` are wired to nothing — forward declarations for the v0.5 runtime-owned focus / z-ordering. The `tcgetattr`/`tcsetattr`/`ioctl` libc externs in `TerminalMode` are unused (raw mode uses the `stty` subprocess; size uses `Console.WindowWidth/Height`); the "For now, use Console APIs" comment in `setupRawMode` is stale.
-- **OSC 8 / OSC 52 are defined but unwired.** `ANSI` carries the sequences; nothing emits them (`Cell` has no link field, no clipboard `Cmd`). Tracked under v0.5 — don't let the README oversell them.
+- **Dead scaffolding.** `RegionId` is load-bearing (the `Mire.Layout.Focus` key), but `Region`/`RenderMode` (and the `Focusable`/`ZIndex`/`Clip` fields) in `Core/Region.fs` are wired to nothing — forward declarations for the v0.5 runtime-owned focus / z-ordering. (The unused `tcgetattr`/`tcsetattr`/`ioctl` externs and the stale "For now, use Console APIs" comment in `TerminalMode` were removed.)
 - **Solution file is `Mire.slnx`** (modern XML format), not `Mire.sln`.
 
 ---

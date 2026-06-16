@@ -61,6 +61,29 @@ module InputParser =
 
                 Some(parms, final)
 
+    /// Kitty `CSI u` event type lives in the modifier field's `:`-subparameter
+    /// (`CSI code ; mod:event u`): 1/absent = press, 2 = repeat, 3 = release.
+    /// `parseCsi` drops subparameters, so read it from the raw bytes here.
+    let private kittyEventType (bytes: byte[]) : KeyEventType =
+        if bytes.Length < 3 then
+            Press
+        else
+            let paramStr = Encoding.ASCII.GetString(bytes, 2, bytes.Length - 3)
+            let fields = paramStr.Split(';')
+
+            if fields.Length < 2 then
+                Press
+            else
+                let subs = fields.[1].Split(':')
+
+                if subs.Length < 2 then
+                    Press
+                else
+                    match Int32.TryParse subs.[1] with
+                    | true, 2 -> Repeat
+                    | true, 3 -> Release
+                    | _ -> Press
+
     let private parseEscSequence (bytes: byte[]) : KeyEvent option =
         if bytes.Length < 2 then
             None
@@ -76,10 +99,16 @@ module InputParser =
                     let mods = modifiersOf (nth 1)
 
                     match final with
-                    // Kitty key encoding: ESC [ <codepoint> ; <modifiers> u
+                    // Kitty key encoding: ESC [ <codepoint> ; <modifiers>[:<event>] u
                     | 'u' ->
                         match parms with
-                        | cp :: _ -> Some(mkKey (keyOfCodepoint cp) None mods)
+                        | cp :: _ ->
+                            let evt = kittyEventType bytes
+
+                            Some
+                                { mkKey (keyOfCodepoint cp) None mods with
+                                    EventType = evt
+                                    Repeat = (evt = Repeat) }
                         | [] -> None
                     // Cursor / navigation keys; modifiers arrive as `ESC [ 1 ; <mod> <final>`.
                     | 'A' -> Some(mkKey ArrowUp None mods)
@@ -166,6 +195,25 @@ module InputParser =
             Some(Paste(Encoding.UTF8.GetString(bytes, cStart, cEnd - cStart)))
         else
             None
+
+    /// True if `bytes` begins a bracketed paste whose end marker hasn't arrived
+    /// yet — the runtime should keep buffering before handing it to `parseBytes`.
+    let isIncompletePaste (bytes: byte[]) : bool =
+        startsWith pasteStart bytes && indexOf pasteEnd bytes pasteStart.Length < 0
+
+    /// Paste-reassembly step for the runtime read loop. Given the bytes carried
+    /// from prior reads and a fresh read, decide whether to keep buffering (an
+    /// unfinished bracketed paste still under `cap` bytes) or to flush. Returns
+    /// `(bytesToParseNow, newCarry)`; an empty first element means "keep waiting".
+    /// The `cap` bounds a missing end-marker so the carry can't grow without limit.
+    let stepPasteBuffer (cap: int) (carry: byte[]) (incoming: byte[]) : byte[] * byte[] =
+        let combined =
+            if carry.Length = 0 then incoming else Array.append carry incoming
+
+        if combined.Length > 0 && combined.Length < cap && isIncompletePaste combined then
+            [||], combined
+        else
+            combined, [||]
 
     /// SGR mouse (1006): `ESC [ < b ; x ; y` then `M` (press) or `m` (release).
     /// Coords are 1-based on the wire; reported 0-based. `b` bits: 0-1 = button,
@@ -344,6 +392,17 @@ module InputParser =
             parseBytes bytes
         else
             None
+
+    /// Read whatever raw input bytes are waiting (with a short settle delay so a
+    /// multi-byte escape sequence arrives whole). `[||]` if nothing is available.
+    /// The runtime uses this (rather than `readEvent`) so it can reassemble a
+    /// bracketed paste split across reads via `stepPasteBuffer` before parsing.
+    let readRawBytes () : byte[] =
+        if TerminalMode.stdinAvailable () then
+            System.Threading.Thread.Sleep(1)
+            TerminalMode.readStdinBytes ()
+        else
+            [||]
 
     let readEventBlocking (timeoutMs: int) : InputEvent option =
         let sw = Diagnostics.Stopwatch.StartNew()

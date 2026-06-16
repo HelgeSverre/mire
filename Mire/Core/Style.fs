@@ -15,7 +15,12 @@ type Style =
       Italic: bool
       Underline: UnderlineStyle option
       Dim: bool
-      Strikethrough: bool }
+      Strikethrough: bool
+      /// OSC 8 hyperlink target. `None` = plain text. The Diff writer brackets a
+      /// run carrying `Some url` in OSC 8 open/close sequences; `ToAnsi` ignores
+      /// it (a link is not an SGR attribute). Because it's part of the record,
+      /// structural equality splits diff runs at link boundaries automatically.
+      Link: string option }
 
     static member Default =
         { Foreground = None
@@ -24,7 +29,8 @@ type Style =
           Italic = false
           Underline = None
           Dim = false
-          Strikethrough = false }
+          Strikethrough = false
+          Link = None }
 
     member this.WithForeground(color: Color) =
         { Foreground = Some color
@@ -33,7 +39,8 @@ type Style =
           Italic = this.Italic
           Underline = this.Underline
           Dim = this.Dim
-          Strikethrough = this.Strikethrough }
+          Strikethrough = this.Strikethrough
+          Link = this.Link }
 
     member this.WithBackground(color: Color) =
         { Foreground = this.Foreground
@@ -42,7 +49,8 @@ type Style =
           Italic = this.Italic
           Underline = this.Underline
           Dim = this.Dim
-          Strikethrough = this.Strikethrough }
+          Strikethrough = this.Strikethrough
+          Link = this.Link }
 
     member this.WithBold(value: bool) =
         { Foreground = this.Foreground
@@ -51,7 +59,8 @@ type Style =
           Italic = this.Italic
           Underline = this.Underline
           Dim = this.Dim
-          Strikethrough = this.Strikethrough }
+          Strikethrough = this.Strikethrough
+          Link = this.Link }
 
     member this.WithItalic(value: bool) =
         { Foreground = this.Foreground
@@ -60,7 +69,8 @@ type Style =
           Italic = value
           Underline = this.Underline
           Dim = this.Dim
-          Strikethrough = this.Strikethrough }
+          Strikethrough = this.Strikethrough
+          Link = this.Link }
 
     member this.WithUnderline(style: UnderlineStyle) =
         { Foreground = this.Foreground
@@ -69,7 +79,8 @@ type Style =
           Italic = this.Italic
           Underline = Some style
           Dim = this.Dim
-          Strikethrough = this.Strikethrough }
+          Strikethrough = this.Strikethrough
+          Link = this.Link }
 
     member this.WithDim(value: bool) =
         { Foreground = this.Foreground
@@ -78,7 +89,8 @@ type Style =
           Italic = this.Italic
           Underline = this.Underline
           Dim = value
-          Strikethrough = this.Strikethrough }
+          Strikethrough = this.Strikethrough
+          Link = this.Link }
 
     member this.WithStrikethrough(value: bool) =
         { Foreground = this.Foreground
@@ -87,7 +99,20 @@ type Style =
           Italic = this.Italic
           Underline = this.Underline
           Dim = this.Dim
-          Strikethrough = value }
+          Strikethrough = value
+          Link = this.Link }
+
+    /// Attach an OSC 8 hyperlink target. The text renders normally; terminals
+    /// that support OSC 8 make the run clickable.
+    member this.WithLink(url: string) =
+        { Foreground = this.Foreground
+          Background = this.Background
+          Bold = this.Bold
+          Italic = this.Italic
+          Underline = this.Underline
+          Dim = this.Dim
+          Strikethrough = this.Strikethrough
+          Link = Some url }
 
     member this.ToAnsi() =
         let parts = System.Collections.Generic.List<string>()

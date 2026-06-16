@@ -124,20 +124,20 @@ The layering is deliberate: **Core** is pure types, **Protocol** is terminal I/O
 
 - Alternate screen (`?1049h`) and synchronized output (`?2026h`)
 - Truecolor foreground/background (`38;2` / `48;2`)
-- Kitty keyboard protocol (`>1u`)
+- Kitty keyboard protocol with event-type reporting (`>3u`) — modifier chords plus press/repeat/release (releases are dropped unless an app opts in via `Program.withKeyReleases`)
 - Mouse tracking (`?1002` / `?1006`) and focus events (`?1004`)
-- Bracketed paste (`?2004`)
+- Bracketed paste (`?2004`), reassembled across reads
 - Underline styles beyond single (double, curly, dotted, dashed)
-- OSC 8 hyperlink and OSC 52 clipboard sequences are defined in `ANSI` but not
-  yet emitted by anything — link-carrying cells and a clipboard `Cmd` are
-  roadmap items (v0.5)
+- OSC 8 hyperlinks — `Style.WithLink url` makes a run clickable (the `Diff` writer brackets it); `Markdown` links carry their real URL
+- OSC 52 clipboard — `Cmd.setClipboard text` copies to the system clipboard
 
 ## Current status
 
 This repo is a working foundation with a v0.3 core widget layer. What works today:
 
 - ✅ Core value types, color/style → ANSI, cell model, grapheme-cluster-aware widths
-- ✅ Raw-mode terminal setup; byte-level input decoding — keys (incl. Kitty `CSI u` chords + legacy fallbacks), **mouse (SGR 1006), bracketed paste, and focus events**
+- ✅ Raw-mode terminal setup; byte-level input decoding — keys (incl. Kitty `CSI u` chords + press/repeat/release event types + legacy fallbacks), **mouse (SGR 1006), bracketed paste (reassembled across reads), and focus events**
+- ✅ OSC 8 hyperlinks (`Style.WithLink`, emitted by `Diff`) and OSC 52 clipboard (`Cmd.setClipboard`)
 - ✅ `Surface` drawing primitives + frame-to-frame `Diff`, bracketed in synchronized output (`?2026`)
 - ✅ Layout: `Dock`, `Stack`, `Box`, `Filled`, `Scroll`, `Overlay`, and `Positioned` (9-point placement) — `measure`/`render` with `Cells`/`Fraction`/`Content`/`Fill` sizing
 - ✅ Elmish `Runtime.run` (commands, subscriptions, resize, `Cmd.quit`) + the `Program` builder API
@@ -150,8 +150,7 @@ Not yet (described in `SPEC.md` as the target):
 
 - ⏳ Remaining widget: `ImagePreview` (Kitty graphics protocol)
 - ⏳ The runtime-owned / mouse-driven half of focus (spatial hit-testing)
-- ⏳ Kitty graphics (images), OSC 8 hyperlink cells, OSC 52 clipboard wiring, theme notifications
-- ⏳ Kitty key release/repeat event types (keys only emit `Press`) and buffering of large pastes split across reads
+- ⏳ Kitty graphics (images) and light/dark theme notifications
 - ⏳ Text selection in `TextBuffer` (so `Input`/`TextArea` are cursor-only)
 - ⏳ The agent-domain components (chat transcript, tool-call views, diff viewer, file tree, prompt box) — prototyped at the app level in `Mire.Demo.Agent`, not yet extracted into a reusable layer (roadmap v0.4, the next phase)
 

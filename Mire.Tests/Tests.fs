@@ -180,6 +180,55 @@ let inputTests =
                   (InputParser.parseBytes (System.Text.Encoding.ASCII.GetBytes "\x1b[O"))
                   (Some FocusLost)
                   "ESC[O → FocusLost"
+          }
+          // Kitty event types (CSI u `mod:event` subparam) — enabled by `CSI > 3 u`.
+          test "Kitty CSI u: release event (ESC[97;5:3u)" {
+              let k =
+                  asKey (InputParser.parseBytes (System.Text.Encoding.ASCII.GetBytes "\x1b[97;5:3u"))
+
+              Expect.equal (k |> Option.map (fun k -> k.Key)) (Some(Char "a")) "key is 'a'"
+              Expect.equal (k |> Option.map (fun k -> k.EventType)) (Some Release) "subparam :3 → Release"
+          }
+          test "Kitty CSI u: repeat event (ESC[97;1:2u)" {
+              let k =
+                  asKey (InputParser.parseBytes (System.Text.Encoding.ASCII.GetBytes "\x1b[97;1:2u"))
+
+              Expect.equal (k |> Option.map (fun k -> k.EventType)) (Some Repeat) "subparam :2 → Repeat"
+              Expect.isTrue (k |> Option.exists (fun k -> k.Repeat)) "Repeat event sets the Repeat flag"
+          }
+          test "Kitty CSI u: absent event subparam defaults to Press" {
+              let k =
+                  asKey (InputParser.parseBytes (System.Text.Encoding.ASCII.GetBytes "\x1b[112;5u"))
+
+              Expect.equal (k |> Option.map (fun k -> k.EventType)) (Some Press) "no `:event` → Press"
+          }
+          // Bracketed-paste reassembly across reads (runtime carry buffer).
+          test "stepPasteBuffer carries an unfinished paste, then flushes on completion" {
+              let part1 = System.Text.Encoding.ASCII.GetBytes "\x1b[200~hello "
+              let part2 = System.Text.Encoding.ASCII.GetBytes "world\x1b[201~"
+              let toParse1, carry1 = InputParser.stepPasteBuffer (1 <<< 20) [||] part1
+              Expect.isEmpty (List.ofArray toParse1) "incomplete paste buffers; nothing to parse yet"
+              let toParse2, carry2 = InputParser.stepPasteBuffer (1 <<< 20) carry1 part2
+              Expect.isEmpty (List.ofArray carry2) "carry cleared once the end marker arrives"
+
+              Expect.equal
+                  (InputParser.parseBytes toParse2)
+                  (Some(Paste "hello world"))
+                  "the two reads reassemble into one Paste"
+          }
+          test "stepPasteBuffer flushes ordinary input immediately" {
+              let bytes = System.Text.Encoding.ASCII.GetBytes "abc"
+              let toParse, carry = InputParser.stepPasteBuffer (1 <<< 20) [||] bytes
+              Expect.equal (List.ofArray toParse) (List.ofArray bytes) "non-paste bytes pass straight through"
+              Expect.isEmpty (List.ofArray carry) "nothing carried"
+          }
+          test "stepPasteBuffer flushes at the cap (lost end marker can't grow unbounded)" {
+              let big =
+                  Array.append (System.Text.Encoding.ASCII.GetBytes "\x1b[200~") (Array.zeroCreate 50)
+
+              let toParse, carry = InputParser.stepPasteBuffer 8 [||] big
+              Expect.isNonEmpty (List.ofArray toParse) "an over-cap incomplete paste is flushed, not buffered"
+              Expect.isEmpty (List.ofArray carry) "carry cleared at the cap"
           } ]
 
 // Frame diffing ------------------------------------------------------------
@@ -222,6 +271,35 @@ let diffTests =
               Expect.stringContains out ANSI.beginSync "frame opens with BSU (mode 2026)"
               Expect.stringContains out ANSI.endSync "frame closes with ESU (mode 2026)"
               Expect.isLessThan (out.IndexOf ANSI.beginSync) (out.IndexOf ANSI.endSync) "BSU precedes ESU"
+          }
+          test "renderToTerminal brackets a linked run in OSC 8 (open before text, close after)" {
+              use sw = new System.IO.StringWriter()
+              let url = "https://example.com"
+
+              Diff.renderToTerminal
+                  [ { X = 0
+                      Y = 0
+                      Text = "link"
+                      Style = Style.Default.WithLink url } ]
+                  sw
+
+              let out = sw.ToString()
+              Expect.stringContains out (ANSI.osc8Open url) "opens OSC 8 with the URL"
+              Expect.stringContains out ANSI.osc8Close "closes OSC 8 before the frame ends"
+              Expect.isLessThan (out.IndexOf(ANSI.osc8Open url)) (out.IndexOf "link") "link opens before its text"
+              Expect.isLessThan (out.IndexOf "link") (out.IndexOf ANSI.osc8Close) "link closes after its text"
+          }
+          test "renderToTerminal emits no OSC 8 for an unlinked run" {
+              use sw = new System.IO.StringWriter()
+
+              Diff.renderToTerminal
+                  [ { X = 0
+                      Y = 0
+                      Text = "plain"
+                      Style = Style.Default } ]
+                  sw
+
+              Expect.isFalse ((sw.ToString()).Contains ANSI.osc8Close) "no link → no OSC 8 sequence"
           }
           test "cursor advances by display width across a wide-grapheme run" {
               // After a width-2 run at x=0, a contiguous run starting at x=2 is
@@ -1325,7 +1403,7 @@ let cmdQuitTests =
         [ test "Cmd.quit triggers requestQuit and sends no message" {
               let mutable quit = false
               let sent = ResizeArray<int>()
-              Cmd.dispatch (fun () -> quit <- true) (fun (m: int) -> sent.Add m) Cmd.quit
+              Cmd.dispatch (fun () -> quit <- true) ignore (fun (m: int) -> sent.Add m) Cmd.quit
               Expect.isTrue quit "Cmd.quit invokes the runtime's requestQuit callback"
               Expect.isEmpty sent "Cmd.quit does not enqueue any message"
           }
@@ -1334,10 +1412,15 @@ let cmdQuitTests =
               let sent = ResizeArray<int>()
               let rq () = quit <- true
               let send (m: int) = sent.Add m
-              Cmd.dispatch rq send Cmd.none
-              Cmd.dispatch rq send (Cmd.ofMsg 7)
+              Cmd.dispatch rq ignore send Cmd.none
+              Cmd.dispatch rq ignore send (Cmd.ofMsg 7)
               Expect.isFalse quit "neither none nor ofMsg requests quit"
               Expect.sequenceEqual sent (seq { 7 }) "ofMsg still delivers its message"
+          }
+          test "Cmd.setClipboard invokes the clipboard hook with its text" {
+              let copied = ResizeArray<string>()
+              Cmd.dispatch ignore copied.Add (fun (_: int) -> ()) (Cmd.setClipboard "hello")
+              Expect.sequenceEqual copied (seq { "hello" }) "setClipboard routes its text to the runtime hook"
           }
           test "Cmd.batch propagates a nested Cmd.quit and still sends siblings" {
               let mutable quitCount = 0
@@ -1345,6 +1428,7 @@ let cmdQuitTests =
 
               Cmd.dispatch
                   (fun () -> quitCount <- quitCount + 1)
+                  ignore
                   (fun (m: int) -> sent.Add m)
                   (Cmd.batch [ Cmd.ofMsg 1; Cmd.quit; Cmd.ofMsg 2 ])
 

@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **OSC 8 hyperlinks (`Style.WithLink`).** `Style` gains a `Link: string option` field; `Style.WithLink url` attaches an OSC 8 target to a run. The `Diff` writer brackets a linked run in OSC 8 open/close (tracking link state across cursor moves and closing any open link at frame end), and `ToAnsi` ignores the link (it's not an SGR attribute). Because `Link` is part of the struct, structural equality splits diff runs at link boundaries automatically. `Widgets.Markdown` now carries each `[text](url)` link's real URL onto the styled link text. Verified end-to-end through a pty: the Agent demo's `markdown` sample emits exactly one `OSC 8 open`/`close` pair around the link.
+- **OSC 52 clipboard (`Cmd.setClipboard`).** A new `Cmd.setClipboard text` copies to the system clipboard; the runtime interprets it like `Cmd.quit` — writing the OSC 52 sequence straight to the terminal (outside the cell diff, since it paints nothing).
+- **Kitty key event types (press / repeat / release).** The runtime now pushes `CSI > 3 u` (disambiguate **+ report event types**), and `InputParser` decodes the `:event` sub-parameter of the `CSI u` modifier field into the existing `Press`/`Repeat`/`Release`. To keep the common case unchanged, the runtime **drops `Release` events by default** (else every keystroke would fire twice); `Program.withKeyReleases true` opts in. `Repeat` always passes through (held keys still work).
+- **Bracketed-paste reassembly across reads.** A paste split across multiple `read()`s used to arrive as several `Paste` events (or garbage). The runtime now carries an unfinished paste (no end marker yet) and prepends it to the next read, reassembling it into one `Paste` — bounded at 1 MiB so a lost end marker can't grow the buffer without limit. The decision is a pure, tested function (`InputParser.stepPasteBuffer`).
+
+### Changed
+
+- **Removed dead scaffolding in `Mire.Protocol`.** Deleted the unused `tcgetattr`/`tcsetattr`/`ioctl` libc externs (raw mode uses the `stty` subprocess; size uses `Console.WindowWidth/Height`) and the stale "For now, use Console APIs" comment in `setupRawMode`.
+
 ### Removed
 
 - **Consolidated to three demos: `Mire.Demo.Agent`, `Mire.Demo.Feed`, `Mire.Demo.Spreadsheet`.** Deleted `Mire.Demo.List`, `Mire.Demo.KitchenSink`, and `Mire.Demo.Minesweeper`. The Agent demo is now the canonical/comprehensive showcase — its theme, styling, and behavior are being promoted to the framework's core approach (subsequent entries). The KitchenSink gallery's widget coverage will return as a dedicated gallery app once the brand-default theme and Agent refactor land (tracked in `ROADMAP.md`). The solution dropped from eight projects to five (framework + 3 demos + tests); `Mire.slnx`, the `Mire.Tests` Minesweeper `Board` tests + project reference (137 tests remain), the `justfile` recipes, and the docs follow.

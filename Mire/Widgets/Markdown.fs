@@ -91,7 +91,17 @@ module Markdown =
                 if closeB > 0 && closeB + 1 < n && text.[closeB + 1] = '(' then
                     let closeP = text.IndexOf(')', closeB)
                     let endP = if closeP < 0 then n else closeP
-                    emit (i + 1) closeB s.Link
+                    // Carry the real URL as an OSC 8 link on the styled link text
+                    // (the `(url)` part itself is not emitted).
+                    let urlStart = closeB + 2
+
+                    let linkStyle =
+                        if closeP > urlStart then
+                            s.Link.WithLink(text.Substring(urlStart, closeP - urlStart))
+                        else
+                            s.Link
+
+                    emit (i + 1) closeB linkStyle
                     i <- (if closeP < 0 then n else endP + 1)
                 else
                     res.Add(c, baseStyle)

@@ -87,6 +87,10 @@ module Diff =
         let mutable currentStyle = Style.Default
         let mutable currentX = -1
         let mutable currentY = -1
+        // OSC 8 link state. The link attribute is stateful in the terminal and
+        // persists across cursor moves until closed, so close it before writing
+        // any run that doesn't carry the same link.
+        let mutable currentLink: string option = None
 
         // Begin a synchronized update (DEC mode 2026) so the whole frame lands
         // atomically — the emulator won't read()/paint a half-written diff and
@@ -108,12 +112,29 @@ module Diff =
                 output.Write(run.Style.ToAnsi())
                 currentStyle <- run.Style
 
+            // Open/close the OSC 8 hyperlink to match this run's link.
+            if run.Style.Link <> currentLink then
+                match currentLink with
+                | Some _ -> output.Write(Mire.Protocol.ANSI.osc8Close)
+                | None -> ()
+
+                match run.Style.Link with
+                | Some url -> output.Write(Mire.Protocol.ANSI.osc8Open url)
+                | None -> ()
+
+                currentLink <- run.Style.Link
+
             // Write text
             output.Write(run.Text)
             // Advance by display width, not UTF-16 char count — wide graphemes
             // (CJK/emoji), combining marks, and ZWJ sequences would otherwise
             // desync currentX and corrupt the next "cursor already here?" check.
             currentX <- currentX + Grapheme.stringWidth run.Text
+
+        // Close any still-open hyperlink before ending the frame.
+        match currentLink with
+        | Some _ -> output.Write(Mire.Protocol.ANSI.osc8Close)
+        | None -> ()
 
         // Reset style
         if currentStyle <> Style.Default then
