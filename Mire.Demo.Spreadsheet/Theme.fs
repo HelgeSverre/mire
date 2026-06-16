@@ -33,55 +33,41 @@ module Theme =
           divider = Style.Default.WithBackground(ofPalette Palette.Semantic.Dark.border)
           accent = Style.Default.WithForeground(accent)
           accentFg = Style.Default.WithForeground(accentFg)
-          accentStrong =
-              Style.Default.WithForeground(Color.White).WithBackground(ofPalette Palette.Accent.a700)
+          accentStrong = Style.Default.WithForeground(Color.White).WithBackground(ofPalette Palette.Accent.a700)
           success = Style.Default.WithForeground(okColor)
           warning = Style.Default.WithForeground(Color.Rgb(0xFFuy, 0xA0uy, 0x00uy))
           danger = Style.Default.WithForeground(errColor)
           info = Style.Default.WithForeground(infoColor)
-          selection =
-              Style.Default
-                  .WithForeground(ofPalette Palette.Semantic.Dark.bg)
-                  .WithBackground(fg)
+          selection = Style.Default.WithForeground(ofPalette Palette.Semantic.Dark.bg).WithBackground(fg)
           selectionAccent = Style.Default.WithForeground(accentFg).WithBackground(accent)
           key = Style.Default.WithForeground(fgMuted).WithBold(true)
           markdown = Markdown.defaultStyle }
 
     // Spreadsheet-specific styles (domain colors, not brand tokens)
-    let text =
-        Style.Default.WithForeground(ofPalette Palette.Semantic.Dark.fg)
+    let text = Style.Default.WithForeground(ofPalette Palette.Semantic.Dark.fg)
 
-    let number =
-        Style.Default.WithForeground(Color.Rgb(0x8Fuy, 0xD6uy, 0xFFuy))
+    let number = Style.Default.WithForeground(Color.Rgb(0x8Fuy, 0xD6uy, 0xFFuy))
 
     let header =
         Style.Default.WithForeground(ofPalette Palette.Semantic.Dark.fgMuted).WithBold(true)
 
-    let border =
-        Style.Default.WithForeground(borderColor)
+    let border = Style.Default.WithForeground(borderColor)
 
-    let error =
-        Style.Default.WithForeground(errColor)
+    let error = Style.Default.WithForeground(errColor)
 
-    let hint =
-        Style.Default.WithForeground(ofPalette Palette.Semantic.Dark.fgMuted)
+    let hint = Style.Default.WithForeground(ofPalette Palette.Semantic.Dark.fgMuted)
 
     let cursor =
         Style.Default
             .WithForeground(ofPalette Palette.Semantic.Dark.bg)
             .WithBackground(ofPalette Palette.Semantic.Dark.fg)
 
-    let editing =
-        Style.Default.WithForeground(accentFg).WithBackground(accent)
+    let editing = Style.Default.WithForeground(accentFg).WithBackground(accent)
 
-    let referencedBg =
-        ofPalette Palette.Neutrals.n700
+    let referencedBg = ofPalette Palette.Neutrals.n700
 
-    let targetBg =
-        ofPalette Palette.Neutrals.n700
+    let targetBg = ofPalette Palette.Neutrals.n700
 
-    let caret =
-        Style.Default.WithForeground(accentFg).WithBackground(Color.White)
+    let caret = Style.Default.WithForeground(accentFg).WithBackground(Color.White)
 
-    let green =
-        Style.Default.WithForeground(Color.Rgb(0x7Fuy, 0xE0uy, 0x9Cuy))
+    let green = Style.Default.WithForeground(Color.Rgb(0x7Fuy, 0xE0uy, 0x9Cuy))

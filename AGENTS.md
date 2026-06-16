@@ -13,35 +13,31 @@ Guidance for working in this repository.
 ## Build & run
 
 ```sh
-dotnet build Mire.slnx                    # build all eight projects (solution is .slnx, the modern XML format)
-dotnet run --project Mire.Demo.List            # the scrollable-list demo
-dotnet run --project Mire.Demo.Agent       # the agent-shell demo (feature testbed; not wired to an LLM)
-dotnet run --project Mire.Demo.KitchenSink    # the comprehensive widget/feature showcase
+dotnet build Mire.slnx                    # build all five projects (solution is .slnx, the modern XML format)
+dotnet run --project Mire.Demo.Agent       # the agent-shell demo / comprehensive showcase (feature testbed; not wired to an LLM)
 dotnet run --project Mire.Demo.Feed         # the multi-feed RSS reader
-dotnet run --project Mire.Demo.KitchenSink -- --dump  # headless: print sample layouts as text (no raw mode) — use this to verify layout
+dotnet run --project Mire.Demo.Spreadsheet  # the A1 grid + formula engine
+dotnet run --project Mire.Demo.Agent -- --dump  # headless: print sample layouts as text (no raw mode) — use this to verify layout
 dotnet run --project Mire.Tests           # run the Expecto test suite
 dotnet build Mire/Mire.fsproj             # build just the framework
 ```
 
 There **is** a test project now: **Mire.Tests** (Expecto). Run it with `dotnet run --project Mire.Tests` (or `dotnet test`). It covers the pure functions — `Layout.measure`, `Diff.compute`, `Grapheme` width, `InputParser`. When you change those, add/extend a test. There is no linter/formatter configured.
 
-The `--dump` mode (in both `Mire.Demo.List` and `Mire.Demo.Agent`) complements the tests: it lays representative trees through `Layout.measure`/`Layout.render` (the exact path the runtime uses) onto a `Surface` and prints the cell grid as plain text, so layout changes can be eyeballed without taking over the terminal.
+The `--dump` mode (in `Mire.Demo.Agent`) complements the tests: it lays representative trees through `Layout.measure`/`Layout.render` (the exact path the runtime uses) onto a `Surface` and prints the cell grid as plain text, so layout changes can be eyeballed without taking over the terminal.
 
 Verifying TUI changes is hard to automate: the demo takes over the terminal (alternate screen, raw mode). Prefer to verify correctness by building (`dotnet build`) and by reasoning about the pure functions (`Diff.compute`, `Layout.measure`, `Style.ToAnsi`, parsers). Don't claim runtime behavior works unless you've actually run it.
 
 ## Project layout & dependency order
 
-Eight projects:
+Five projects:
 
 ```
 Mire                     the framework — one assembly, layered by folder
-Mire.Demo.List           Exe — scrollable-list demo        ─┐
-Mire.Demo.Agent          Exe — agent-shell demo / testbed   │
-Mire.Demo.KitchenSink    Exe — comprehensive widget showcase │
-Mire.Demo.Feed           Exe — multi-feed RSS reader        ├─ all reference Mire
-Mire.Demo.Spreadsheet    Exe — A1 grid + formula engine     │
-Mire.Demo.Minesweeper    Exe — keyboard Minesweeper         │
-Mire.Tests               Expecto tests                    ─┘
+Mire.Demo.Agent          Exe — agent-shell demo / comprehensive showcase ─┐
+Mire.Demo.Feed           Exe — multi-feed RSS reader                       ├─ all reference Mire
+Mire.Demo.Spreadsheet    Exe — A1 grid + formula engine                    │
+Mire.Tests               Expecto tests                                    ─┘
 ```
 
 The **framework is a single project** (`Mire/`) organized by folder, where the

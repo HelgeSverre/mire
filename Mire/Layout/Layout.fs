@@ -139,8 +139,7 @@ module Layout =
                 children
                 |> List.map (fun child ->
                     // How many cells this child consumes along its axis.
-                    let extentOf (len: Length) (axis: int) (dir: Direction) =
-                        resolveLength len axis dir child.Child
+                    let extentOf (len: Length) (axis: int) (dir: Direction) = resolveLength len axis dir child.Child
 
                     let childRect =
                         match child.Position with

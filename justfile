@@ -8,25 +8,25 @@ tests := "Mire.Tests/Mire.Tests.fsproj"
 default:
     @just --list
 
-# Watch and run the scrollable-list demo.
+# Watch and run the agent demo — the comprehensive showcase.
 dev *ARGS:
-    dotnet watch --project Mire.Demo.List run -- {{ARGS}}
+    dotnet watch --project Mire.Demo.Agent run -- {{ARGS}}
 
-# Run the scrollable-list demo.
+# Run the agent demo — the comprehensive showcase.
 run *ARGS:
-    dotnet run --project Mire.Demo.List -- {{ARGS}}
-
-# Run the agent-shell demo / testbed.
-agent *ARGS:
     dotnet run --project Mire.Demo.Agent -- {{ARGS}}
 
-# Run the kitchen-sink widget showcase.
-sink *ARGS:
-    dotnet run --project Mire.Demo.KitchenSink -- {{ARGS}}
+# Run the RSS-reader demo.
+feed *ARGS:
+    dotnet run --project Mire.Demo.Feed -- {{ARGS}}
+
+# Run the spreadsheet demo.
+sheet *ARGS:
+    dotnet run --project Mire.Demo.Spreadsheet -- {{ARGS}}
 
 # Headless layout dump (no raw mode) — eyeball layout changes.
 dump:
-    dotnet run --project Mire.Demo.List -- --dump
+    dotnet run --project Mire.Demo.Agent -- --dump
 
 # Build the solution.
 build:

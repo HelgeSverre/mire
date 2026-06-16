@@ -141,7 +141,10 @@ let init () =
       FeedsPanel = None
       AddModal = None
       Filter = None
-      Size = Size.Create(100, 30) },
+      // Capture the real terminal size up front: the runtime only emits a
+      // TerminalResize once the size *changes* from startup, so a hardcoded
+      // init size would otherwise stick until the user resized the window.
+      Size = Mire.Protocol.TerminalMode.getTerminalSize () |> Option.defaultValue (Size.Create(100, 30)) },
     Cmd.batch (seedUrls |> List.map loadFeedCmd)
 
 // derived ------------------------------------------------------------------
@@ -202,7 +205,10 @@ let private updateBase (k: Key2) (m: Model) : Model * Cmd<Msg> =
             Feeds = m.Feeds |> List.map (fun f -> { f with Status = FLoading }) },
         Cmd.batch (m.Feeds |> List.map (fun f -> loadFeedCmd f.Url))
     | KTab -> { m with Focus = Focus.next m.Focus }, Cmd.none // switch pane
-    | KEnter -> { m with Focus = Focus.focus Ids.reader m.Focus }, Cmd.none
+    | KEnter ->
+        { m with
+            Focus = Focus.focus Ids.reader m.Focus },
+        Cmd.none
     | KUp
     | KChar "k" ->
         if onList then
@@ -211,7 +217,9 @@ let private updateBase (k: Key2) (m: Model) : Model * Cmd<Msg> =
                 ReaderScroll = 0 },
             Cmd.none
         else
-            { m with ReaderScroll = max 0 (m.ReaderScroll - 1) }, Cmd.none
+            { m with
+                ReaderScroll = max 0 (m.ReaderScroll - 1) },
+            Cmd.none
     | KDown
     | KChar "j" ->
         if onList then
@@ -220,7 +228,9 @@ let private updateBase (k: Key2) (m: Model) : Model * Cmd<Msg> =
                 ReaderScroll = 0 },
             Cmd.none
         else
-            { m with ReaderScroll = m.ReaderScroll + 1 }, Cmd.none
+            { m with
+                ReaderScroll = m.ReaderScroll + 1 },
+            Cmd.none
     | KPageUp ->
         if onList then
             { m with
@@ -228,7 +238,9 @@ let private updateBase (k: Key2) (m: Model) : Model * Cmd<Msg> =
                 ReaderScroll = 0 },
             Cmd.none
         else
-            { m with ReaderScroll = max 0 (m.ReaderScroll - 10) }, Cmd.none
+            { m with
+                ReaderScroll = max 0 (m.ReaderScroll - 10) },
+            Cmd.none
     | KPageDown ->
         if onList then
             { m with
@@ -236,12 +248,17 @@ let private updateBase (k: Key2) (m: Model) : Model * Cmd<Msg> =
                 ReaderScroll = 0 },
             Cmd.none
         else
-            { m with ReaderScroll = m.ReaderScroll + 10 }, Cmd.none
+            { m with
+                ReaderScroll = m.ReaderScroll + 10 },
+            Cmd.none
     | _ -> m, Cmd.none
 
 let private updatePanel (k: Key2) (ps: FeedsPanelState) (m: Model) : Model * Cmd<Msg> =
     let n = List.length m.Feeds
-    let setCursor c = { m with FeedsPanel = Some { Cursor = c } }
+
+    let setCursor c =
+        { m with
+            FeedsPanel = Some { Cursor = c } }
 
     let openAdd () =
         { m with
@@ -562,7 +579,9 @@ let private feedsPanelLayer (m: Model) (ps: FeedsPanelState) (w: int) (h: int) :
             [ Stack.sized (Length.Cells 1) (Text.text (sprintf " Feeds (%d)" (List.length m.Feeds)) T.accent)
               Stack.sized (Length.Cells 1) (Text.text colHeader T.fgMuted)
               Stack.sized Length.Fill (ListView.view listH T.selectionAccent T.fg ps.Cursor rows)
-              Stack.sized (Length.Cells 1) (Text.text " Enter/a add · d delete · r reload · ↑/↓ move · Esc close" T.fgMuted) ]
+              Stack.sized
+                  (Length.Cells 1)
+                  (Text.text " Enter/a add · d delete · r reload · ↑/↓ move · Esc close" T.fgMuted) ]
 
     let box =
         LayoutNode.Overlay(rect0, [ Backdrop.solid T.bgElevated; Box.box T.border [ content ] ])
@@ -639,7 +658,12 @@ let view (m: Model) : LayoutNode<Msg> =
 
     // article list
     let labels = merged |> List.map (fun a -> truncate (listInnerW - 1) a.Title)
-    let listBorder = if Focus.isFocused Ids.list m.Focus then "Articles ▸" else "Articles"
+
+    let listBorder =
+        if Focus.isFocused Ids.list m.Focus then
+            "Articles ▸"
+        else
+            "Articles"
 
     let listPane =
         panel (sprintf "%s (%d)" listBorder count) (ListView.view listInnerH T.selectionAccent T.fg m.Sel labels)
@@ -662,7 +686,9 @@ let view (m: Model) : LayoutNode<Msg> =
             let readerBodyH = max 1 (bodyH - 6 - titleLines.Length)
 
             Stack.vstackOf
-                [ Stack.sized (Length.Cells(max 1 titleLines.Length)) (Text.text (String.concat "\n" titleLines) T.title)
+                [ Stack.sized
+                      (Length.Cells(max 1 titleLines.Length))
+                      (Text.text (String.concat "\n" titleLines) T.title)
                   Stack.sized
                       (Length.Cells 1)
                       (Text.text (truncate readerInnerW (sprintf "from %s · %s" a.SourceFeed a.Date)) T.fgMuted)
@@ -675,10 +701,21 @@ let view (m: Model) : LayoutNode<Msg> =
                       (Dock.dock
                           [ Dock.left 1 Spacer.spacer
                             Dock.fill (
-                                ScrollView.vertical readerBodyH bodyLines.Length m.ReaderScroll T.border T.accent (Stack.vstack bodyLines)
+                                ScrollView.vertical
+                                    readerBodyH
+                                    bodyLines.Length
+                                    m.ReaderScroll
+                                    T.border
+                                    T.accent
+                                    (Stack.vstack bodyLines)
                             ) ]) ]
 
-    let readerHeading = if Focus.isFocused Ids.reader m.Focus then "Reading ▸" else "Reading"
+    let readerHeading =
+        if Focus.isFocused Ids.reader m.Focus then
+            "Reading ▸"
+        else
+            "Reading"
+
     let readerPane = panel readerHeading readerContent
 
     let body =

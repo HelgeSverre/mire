@@ -54,13 +54,7 @@ module AppTheme =
           warning = Style.warning
           danger = Style.danger
           info = Style.info
-          selection =
-              Style.Default
-                  .WithForeground(Color.White)
-                  .WithBackground(Color.Rgb(0x4Auy, 0x90uy, 0xD9uy))
-          selectionAccent =
-              Style.Default
-                  .WithForeground(Color.White)
-                  .WithBackground(Color.Rgb(0x4Cuy, 0xAFuy, 0x50uy))
+          selection = Style.Default.WithForeground(Color.White).WithBackground(Color.Rgb(0x4Auy, 0x90uy, 0xD9uy))
+          selectionAccent = Style.Default.WithForeground(Color.White).WithBackground(Color.Rgb(0x4Cuy, 0xAFuy, 0x50uy))
           key = Style.key
           markdown = Markdown.defaultStyle }

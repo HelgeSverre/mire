@@ -7,7 +7,6 @@ open Mire.Renderer
 open Mire.Layout
 open Mire.App
 open Mire.Demo.Feed
-open Mire.Demo.Minesweeper
 
 // Helpers ------------------------------------------------------------------
 
@@ -1318,127 +1317,6 @@ let feedTests =
               Expect.isFalse (Feed.isValidUrl "notaurl") "plain text → invalid"
           } ]
 
-// Minesweeper --------------------------------------------------------------
-
-/// Build a fully-placed board from an explicit mine layout, computing adjacency
-/// by hand so reveal/chord tests are deterministic (no RNG involved).
-let private mkBoard (rows: int) (cols: int) (mines: (int * int) list) : Board =
-    let mineSet = Set.ofList mines
-
-    let adjacent r c =
-        let mutable n = 0
-
-        for dr in -1 .. 1 do
-            for dc in -1 .. 1 do
-                if dr <> 0 || dc <> 0 then
-                    let nr, nc = r + dr, c + dc
-
-                    if nr >= 0 && nr < rows && nc >= 0 && nc < cols && mineSet.Contains(nr, nc) then
-                        n <- n + 1
-
-        n
-
-    let cells =
-        Array2D.init rows cols (fun r c ->
-            { Mine = mineSet.Contains(r, c)
-              Adjacent = adjacent r c
-              State = Hidden })
-
-    { Rows = rows
-      Cols = cols
-      Mines = mines.Length
-      Cells = cells
-      Status = Playing
-      Placed = true
-      Difficulty = Beginner }
-
-let private noRng = System.Random(0) // unused when the board is already Placed
-
-let minesweeperTests =
-    testList
-        "Minesweeper"
-        [ test "dimensions match the three presets" {
-              Expect.equal (Board.dimensions Beginner) (9, 9, 10) "Beginner 9x9/10"
-              Expect.equal (Board.dimensions Intermediate) (16, 16, 40) "Intermediate 16x16/40"
-              Expect.equal (Board.dimensions Expert) (16, 30, 99) "Expert 16x30/99"
-          }
-          test "neighbor counts: corner 3, edge 5, interior 8" {
-              let b = Board.empty Beginner
-              Expect.equal (Board.neighbors b 0 0 |> List.length) 3 "corner has 3 neighbours"
-              Expect.equal (Board.neighbors b 0 4 |> List.length) 5 "top edge has 5"
-              Expect.equal (Board.neighbors b 4 4 |> List.length) 8 "interior has 8"
-          }
-          test "placeMines is first-click-safe and places the right count" {
-              let b = Board.placeMines (System.Random(123)) 4 4 (Board.empty Beginner)
-              // clicked cell + its 8 neighbours must be mine-free
-              for (r, c) in (4, 4) :: Board.neighbors b 4 4 do
-                  Expect.isFalse b.Cells.[r, c].Mine (sprintf "(%d,%d) in safe zone is not a mine" r c)
-
-              let mutable count = 0
-
-              for r in 0 .. b.Rows - 1 do
-                  for c in 0 .. b.Cols - 1 do
-                      if b.Cells.[r, c].Mine then
-                          count <- count + 1
-
-              Expect.equal count 10 "exactly 10 mines placed"
-          }
-          test "adjacency equals the actual neighbouring mine count" {
-              let b = Board.placeMines (System.Random(99)) 4 4 (Board.empty Beginner)
-
-              for r in 0 .. b.Rows - 1 do
-                  for c in 0 .. b.Cols - 1 do
-                      let actual =
-                          Board.neighbors b r c
-                          |> List.filter (fun (nr, nc) -> b.Cells.[nr, nc].Mine)
-                          |> List.length
-
-                      Expect.equal b.Cells.[r, c].Adjacent actual (sprintf "Adjacent correct at (%d,%d)" r c)
-          }
-          test "flood-fill opens the connected zero region and its border" {
-              // 1x3: mine at (0,0). Revealing (0,2) [adj 0] floods to (0,1) [adj 1].
-              let b = Board.reveal noRng 0 2 (mkBoard 1 3 [ (0, 0) ])
-              Expect.equal b.Cells.[0, 2].State Revealed "clicked zero-cell revealed"
-              Expect.equal b.Cells.[0, 1].State Revealed "numbered border revealed by flood"
-              Expect.equal b.Cells.[0, 0].State Hidden "the mine stays hidden"
-          }
-          test "revealing all non-mine cells wins" {
-              let b = Board.reveal noRng 0 2 (mkBoard 1 3 [ (0, 0) ])
-              Expect.equal b.Status Won "all safe cells revealed → Won"
-          }
-          test "revealing a mine loses and exposes mines" {
-              let b = Board.reveal noRng 0 0 (mkBoard 1 3 [ (0, 0) ])
-              Expect.equal b.Status Lost "stepped on a mine → Lost"
-              Expect.equal b.Cells.[0, 0].State Revealed "the mine is exposed"
-          }
-          test "toggleFlag round-trips and blocks reveal" {
-              let b = Board.toggleFlag 0 0 (mkBoard 1 3 [ (2, 2) ]) // arbitrary mine elsewhere
-              Expect.equal b.Cells.[0, 0].State Flagged "flag placed"
-              let b2 = Board.reveal noRng 0 0 b
-              Expect.equal b2.Cells.[0, 0].State Flagged "flagged cell cannot be revealed"
-              let b3 = Board.toggleFlag 0 0 b
-              Expect.equal b3.Cells.[0, 0].State Hidden "second toggle clears the flag"
-          }
-          test "chord with a correct flag clears neighbours" {
-              // mine at (0,0); reveal the (0,1) number, flag the mine, chord it.
-              let b = mkBoard 1 3 [ (0, 0) ] |> Board.reveal noRng 0 1 |> Board.toggleFlag 0 0
-              let b = Board.chord noRng 0 1 b
-              Expect.equal b.Cells.[0, 2].State Revealed "chord revealed the safe neighbour"
-              Expect.equal b.Status Won "board cleared"
-          }
-          test "chord with a wrong flag detonates" {
-              // mine at (0,0); reveal (0,1), wrongly flag (0,2), chord → reveals the mine.
-              let b = mkBoard 1 3 [ (0, 0) ] |> Board.reveal noRng 0 1 |> Board.toggleFlag 0 2
-              let b = Board.chord noRng 0 1 b
-              Expect.equal b.Status Lost "chording onto a mis-flagged board loses"
-          }
-          test "minesRemaining counts down with flags" {
-              let b = Board.empty Beginner
-              Expect.equal (Board.minesRemaining b) 10 "starts at mine count"
-              let b = Board.toggleFlag 0 0 b
-              Expect.equal (Board.minesRemaining b) 9 "one flag → 9 remaining"
-          } ]
-
 // Cmd.quit (quit-from-update) ----------------------------------------------
 
 let cmdQuitTests =
@@ -1606,5 +1484,4 @@ let all =
           markdownTests
           goldenFrameTests
           feedTests
-          minesweeperTests
           cmdQuitTests ]

@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Removed
+
+- **Consolidated to three demos: `Mire.Demo.Agent`, `Mire.Demo.Feed`, `Mire.Demo.Spreadsheet`.** Deleted `Mire.Demo.List`, `Mire.Demo.KitchenSink`, and `Mire.Demo.Minesweeper`. The Agent demo is now the canonical/comprehensive showcase — its theme, styling, and behavior are being promoted to the framework's core approach (subsequent entries). The KitchenSink gallery's widget coverage will return as a dedicated gallery app once the brand-default theme and Agent refactor land (tracked in `ROADMAP.md`). The solution dropped from eight projects to five (framework + 3 demos + tests); `Mire.slnx`, the `Mire.Tests` Minesweeper `Board` tests + project reference (137 tests remain), the `justfile` recipes, and the docs follow.
+
+### Fixed
+
+- **Spreadsheet (and Feed) opened in a fixed-size window regardless of the terminal.** Both demos hardcoded `Size.Create(100, 30)` at `init`, and the runtime only emits a `TerminalResize` once the size *changes* from startup — so on any terminal that wasn't exactly 100×30 the grid stayed boxed into that window until the user physically resized. `init` now seeds the model from `TerminalMode.getTerminalSize ()` (the pattern the Agent demo already used), so the first frame fills the real terminal. Verified through a pty: a 160-column terminal now paints out to column 160, an 80-column one to column 80.
+
+- **Full-width selection highlight in `Mire.Demo.Agent`'s other lists.** The command palette got the `Backdrop.behind` full-row treatment earlier, but its lookalikes didn't: the slash/`@mention` completion popup, the skill-explorer list, and the `/mcp` server + action lists still shaded only the cells under the glyphs. The plain-string lists (skills, MCP actions) now use the framework's `ListView.row` (which does this correctly); the multi-column rows (completion, MCP servers) apply the same backdrop pattern as the palette, with the whole selected row switching to the selection style. Verified against real runtime output through a pty: the selected row renders as one continuous run with the selection background spanning border to border.
+
 ### Changed
 
 - **Demo projects renamed to the `Mire.Demo.*` family.** `Mire.Demo` → `Mire.Demo.List`, `Mire.AgentDemo` → `Mire.Demo.Agent`, `Mire.FeedDemo` → `Mire.Demo.Feed`, `Mire.SpreadsheetDemo` → `Mire.Demo.Spreadsheet`, `Mire.MinesweeperDemo` → `Mire.Demo.Minesweeper` — one shared prefix that groups + sorts together. Dirs, `.fsproj`s, `namespace`/`open` decls, `Mire.slnx`, the `Mire.Tests` references, the `justfile`, and the living docs all follow; the dated design specs keep their historical names. No behavior change.

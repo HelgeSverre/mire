@@ -990,9 +990,7 @@ let private skillPanel (ss: SkillState) (m: Model) : LayoutNode<Msg> =
 
     let skillRows =
         Skills.all
-        |> List.mapi (fun i s ->
-            let style = if i = ss.Sel then Theme.selection else Theme.muted
-            Text.text (sprintf " %s" s.Name) style)
+        |> List.mapi (fun i s -> ListView.row Theme.selection Theme.muted (i = ss.Sel) (sprintf " %s" s.Name))
 
     let listNode =
         Box.box listBorder [ Scroll.vertical ss.ListScroll (Stack.vstack skillRows) ]
@@ -1101,8 +1099,13 @@ let private completionPopup (kind: CompletionKind) (sel: int) (m: Model) : Layou
                     Stack.hstackOf
                         [ Stack.sized (Length.Cells 18) (Text.text (" " + label) style)
                           Stack.sized Length.Fill (Text.text sub subStyle) ]
-
-            Stack.sized Length.Content node)
+            // Full-width highlight, same as the palette rows.
+            Stack.sized
+                Length.Content
+                (if i = sel then
+                     Backdrop.behind Theme.selection node
+                 else
+                     node))
 
     let content =
         Stack.vstackOf (Stack.sized (Length.Cells 1) (Text.text title Theme.subtle) :: rows)
@@ -1145,15 +1148,24 @@ let private mcpPanel (ms: McpState) (m: Model) : LayoutNode<Msg> =
         let rows =
             m.Mcp
             |> List.mapi (fun i s ->
-                let nameStyle = if i = ms.ServerSel then Theme.selection else Theme.text
+                let selected = i = ms.ServerSel
+                let nameStyle = if selected then Theme.selection else Theme.text
+                let metaStyle = if selected then Theme.selection else Theme.muted
+                let stStyle = if selected then Theme.selection else statusStyle s.Status
+
+                let rowContent =
+                    Stack.hstackOf
+                        [ Stack.sized (Length.Cells 14) (Text.text (" " + pad 13 s.Name) nameStyle)
+                          Stack.sized (Length.Cells 11) (Text.text (pad 11 s.Transport) metaStyle)
+                          Stack.sized (Length.Cells 14) (Text.text (pad 14 s.Status) stStyle)
+                          Stack.sized Length.Fill (Text.text (sprintf "%d" (List.length s.Tools)) metaStyle) ]
 
                 Stack.sized
                     Length.Content
-                    (Stack.hstackOf
-                        [ Stack.sized (Length.Cells 14) (Text.text (" " + pad 13 s.Name) nameStyle)
-                          Stack.sized (Length.Cells 11) (Text.text (pad 11 s.Transport) Theme.muted)
-                          Stack.sized (Length.Cells 14) (Text.text (pad 14 s.Status) (statusStyle s.Status))
-                          Stack.sized Length.Fill (Text.text (sprintf "%d" (List.length s.Tools)) Theme.muted) ]))
+                    (if selected then
+                         Backdrop.behind Theme.selection rowContent
+                     else
+                         rowContent))
 
         let content =
             Stack.vstackOf (
@@ -1179,8 +1191,7 @@ let private mcpPanel (ms: McpState) (m: Model) : LayoutNode<Msg> =
 
         let actionRows =
             mcpActions
-            |> List.mapi (fun i a ->
-                Text.text (sprintf "  %s" a) (if i = ms.ActionSel then Theme.selection else Theme.text))
+            |> List.mapi (fun i a -> ListView.row Theme.selection Theme.text (i = ms.ActionSel) (sprintf "  %s" a))
 
         let content =
             Stack.vstack (

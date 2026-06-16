@@ -50,16 +50,11 @@ module Theme =
         let heading1 = Style.Default.WithForeground(headingColor).WithBold(true)
         let heading2 = Style.Default.WithForeground(headingColor).WithBold(true)
         let heading3 = Style.Default.WithForeground(fgMuted).WithBold(true)
-        let code =
-            Style.Default.WithForeground(fg).WithBackground(bgElevated)
-        let codeKw =
-            Style.Default.WithForeground(infoColor).WithBackground(bgElevated)
-        let codeStr =
-            Style.Default.WithForeground(okColor).WithBackground(bgElevated)
-        let codeCom =
-            Style.Default.WithForeground(fgSubtle).WithBackground(bgElevated)
-        let codeNum =
-            Style.Default.WithForeground(Color.Cyan).WithBackground(bgElevated)
+        let code = Style.Default.WithForeground(fg).WithBackground(bgElevated)
+        let codeKw = Style.Default.WithForeground(infoColor).WithBackground(bgElevated)
+        let codeStr = Style.Default.WithForeground(okColor).WithBackground(bgElevated)
+        let codeCom = Style.Default.WithForeground(fgSubtle).WithBackground(bgElevated)
+        let codeNum = Style.Default.WithForeground(Color.Cyan).WithBackground(bgElevated)
 
         { Text = text
           Heading1 = heading1
@@ -87,8 +82,7 @@ module Theme =
           divider = Style.Default.WithBackground(ofPalette Palette.Semantic.Dark.border)
           accent = accentStyle
           accentFg = Style.Default.WithForeground(accentFg)
-          accentStrong =
-              Style.Default.WithForeground(Color.White).WithBackground(ofPalette Palette.Accent.a700)
+          accentStrong = Style.Default.WithForeground(Color.White).WithBackground(ofPalette Palette.Accent.a700)
           success = okStyle
           warning = warnStyle
           danger = errStyle

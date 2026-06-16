@@ -6,7 +6,7 @@ A small, composable F# runtime for building **modern terminal UIs** — coding a
 
 Mire is **opinionated about its target**. It assumes a modern, Kitty-compatible terminal (Ghostty first) and uses truecolor, the alternate screen, the Kitty keyboard protocol, bracketed paste, mouse tracking, OSC 8 hyperlinks, and synchronized output. There is intentionally no support for legacy consoles, 16-color fallbacks, or "works over every SSH/tmux setup ever."
 
-> **Status: v0.3 — a usable core widget layer.** The runtime, rendering pipeline, layout engine, a real widget library (virtualized lists & tables, a fuzzy command palette, cursor-anchored completion, single- and multi-line text editing, split views, tooltips, progress bars, spinners, tabs, toggles, markdown, overlay positioning + modals, toasts, a scrollview, a keyboard focus manager, plus separators/badges/key-hints), full keyboard/mouse/paste/focus input decoding, and **six** demo apps exist and run. The agent-domain component library in [`SPEC.md`](https://github.com/HelgeSverre/mire/blob/main/SPEC.md) is still design — prototyped only at the app level in `Mire.Demo.Agent`. See [Current status](#current-status).
+> **Status: v0.3 — a usable core widget layer.** The runtime, rendering pipeline, layout engine, a real widget library (virtualized lists & tables, a fuzzy command palette, cursor-anchored completion, single- and multi-line text editing, split views, tooltips, progress bars, spinners, tabs, toggles, markdown, overlay positioning + modals, toasts, a scrollview, a keyboard focus manager, plus separators/badges/key-hints), full keyboard/mouse/paste/focus input decoding, and **three** demo apps exist and run. The agent-domain component library in [`SPEC.md`](https://github.com/HelgeSverre/mire/blob/main/SPEC.md) is still design — prototyped only at the app level in `Mire.Demo.Agent`. See [Current status](#current-status).
 
 ## Installation
 
@@ -19,10 +19,13 @@ dotnet add package Mire
 Or as a `<PackageReference>` in your `.fsproj`:
 
 ```xml
-<PackageReference Include="Mire" Version="0.3.0" />
+<PackageReference Include="Mire" Version="0.0.2" />
 ```
 
-A minimal app — wire an Elmish `Program` and hand it to `Runtime.run` (see `Mire.Demo.List` for a complete one):
+> `0.0.2` is the latest version published to nuget.org; the repo is ahead of the
+> package (the next release publishes as `0.3.0` via the tagged-release workflow).
+
+A minimal app — wire an Elmish `Program` and hand it to `Runtime.run` (see `Mire.Demo.Agent` for a complete one):
 
 ```fsharp
 open Mire.Widgets
@@ -53,28 +56,21 @@ A `justfile` wraps the common commands (`just build`, `just test`, `just run`, `
 dotnet build Mire.slnx
 
 # Demos — each takes over the alternate screen; Ctrl+C quits
-dotnet run --project Mire.Demo.List             # a scrollable list
 dotnet run --project Mire.Demo.Agent        # an agent-shell testbed (not wired to an LLM)
 dotnet run --project Mire.Demo.Feed         # a multi-feed RSS reader
 dotnet run --project Mire.Demo.Spreadsheet  # an A1 grid + formula engine
-dotnet run --project Mire.Demo.Minesweeper  # keyboard Minesweeper
-dotnet run --project Mire.Demo.KitchenSink # every widget — a cyclable showcase
 
 # Verify layout headlessly — prints sample layouts as text, no raw mode
-dotnet run --project Mire.Demo.List -- --dump
-dotnet run --project Mire.Demo.KitchenSink -- --dump
+dotnet run --project Mire.Demo.Agent -- --dump
 dotnet run --project Mire.Demo.Feed -- --dump
 
-# Run the test suite (Expecto) — 148 tests
+# Run the test suite (Expecto)
 dotnet run --project Mire.Tests
 ```
 
-- **Mire.Demo.List** (scrollable list): `↑`/`↓` scroll, `PgUp`/`PgDn` jump by 10, `Home`/`End` top/bottom.
-- **Mire.Demo.Agent** (agent shell): type a command and press Enter — try `markdown`, `stream:long`, `tool:run`, `diff`, `permission`, or `help`. `Ctrl+P` command palette, `Ctrl+O` skill explorer, `Shift+Tab` switches mode, `Esc` closes overlays. A `Dummy` module supplies canned responses; what's real vs. faked is in [`DEMO-TODOS.md`](https://github.com/HelgeSverre/mire/blob/main/DEMO-TODOS.md), and [`prototype/agent-harness.html`](https://github.com/HelgeSverre/mire/blob/main/prototype/agent-harness.html) is a visual design reference.
+- **Mire.Demo.Agent** (agent shell): the comprehensive/canonical showcase demo. Type a command and press Enter — try `markdown`, `stream:long`, `tool:run`, `diff`, `permission`, or `help`. `Ctrl+P` command palette, `Ctrl+O` skill explorer, `Shift+Tab` switches mode, `Esc` closes overlays. A `Dummy` module supplies canned responses; what's real vs. faked is in [`DEMO-TODOS.md`](https://github.com/HelgeSverre/mire/blob/main/DEMO-TODOS.md), and [`prototype/agent-harness.html`](https://github.com/HelgeSverre/mire/blob/main/prototype/agent-harness.html) is a visual design reference.
 - **Mire.Demo.Feed** (RSS reader): a managed feed list merged into one newest-first stream, two panes + a per-feed filter, async loading. The first app migrated to the framework's `Focus` manager.
 - **Mire.Demo.Spreadsheet** (spreadsheet): a 26×100 A1 grid with in-cell editing (`TextBuffer` + `Input`), formula references, and a small engine (`=B2*C2`, `=SUM(A1:A3)`, …).
-- **Mire.Demo.Minesweeper** (Minesweeper): arrows/WASD move, Space reveal, F flag, C chord.
-- **Mire.Demo.KitchenSink** (widget showcase): a sidebar gallery of 23 categories covering every layout primitive, widget, and overlay/palette area; ↑/↓ select, Tab into a pane to drive it. Also `-- --dump`.
 
 ## The model
 
@@ -99,31 +95,28 @@ The difference from web UI: there is no browser. Mire _is_ the browser — it ow
 
 ## Architecture
 
-Eight projects (`Mire.slnx`): the framework, six demo exes, and the test project.
+Five projects (`Mire.slnx`): the framework, three demo exes, and the test project.
 
 | Project                   | Depends on | What it holds                                                                              |
 | ------------------------- | ---------- | ------------------------------------------------------------------------------------------ |
 | **Mire**                  | —          | The framework, one assembly layered by folder (below).                                     |
-| **Mire.Demo.List**        | Mire       | Scrollable-list example (`Exe`).                                                           |
-| **Mire.Demo.Agent**       | Mire       | Agent-shell testbed (`Exe`); agent-domain UI built at the app level, not in the framework. |
+| **Mire.Demo.Agent**       | Mire       | Agent-shell testbed (`Exe`); the comprehensive/canonical showcase demo, agent-domain UI built at the app level, not in the framework. |
 | **Mire.Demo.Feed**        | Mire       | Multi-feed RSS reader (`Exe`); first adopter of the `Focus` manager.                       |
 | **Mire.Demo.Spreadsheet** | Mire       | A1 grid + formula engine (`Exe`).                                                          |
-| **Mire.Demo.Minesweeper** | Mire       | Keyboard Minesweeper (`Exe`).                                                              |
-| **Mire.Demo.KitchenSink** | Mire       | Comprehensive widget showcase (`Exe`); the golden-frame source.                            |
-| **Mire.Tests**            | Mire       | [Expecto](https://github.com/haf/expecto) tests for the pure functions (148 tests).        |
+| **Mire.Tests**            | Mire       | [Expecto](https://github.com/haf/expecto) tests for the pure functions.        |
 
 The framework is a single assembly organized by folder; the folder order is the layering, enforced by the `<Compile>` order in `Mire/Mire.fsproj`. Each folder is also its namespace, so you still `open Mire.Layout`, `open Mire.Widgets`, etc.
 
-| Folder (namespace) | Depends on                       | What it holds                                                                                                                                                                                                                                                                                                  |
-| ------------------ | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Mire/Core**      | —                                | Pure value types: `Point`, `Size`, `Rect`, `Color`, `Style`, `Cell`, `Region`/`RegionId`, `Grapheme`, `TextBuffer`, and input events. All structs / immutable records.                                                                                                                                         |
-| **Mire/Protocol**  | Core                             | `ANSI` escape sequence strings; `TerminalMode` (raw mode setup via `stty` + libc `poll`/`read`); `InputParser` (raw bytes → `InputEvent`).                                                                                                                                                                     |
-| **Mire/Renderer**  | Core, Protocol                   | `Surface` (a `Width × Height` grid of `Cell`s with drawing primitives) and `Diff` (computes minimal `DiffRun`s between two surfaces and writes them out).                                                                                                                                                      |
-| **Mire/Layout**    | Core, Renderer                   | `LayoutNode<'msg>` tree (`Dock`, `Stack`, `Box`, `Text`, `Filled`, `Scroll`, `Overlay`, `Positioned`) + `measure`/`render`, and `Focus` (a pure keyboard focus ring + modal trap).                                                                                                                             |
+| Folder (namespace) | Depends on                       | What it holds                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ------------------ | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Mire/Core**      | —                                | Pure value types: `Point`, `Size`, `Rect`, `Color`, `Style`, `Cell`, `Region`/`RegionId`, `Grapheme`, `TextBuffer`, and input events. All structs / immutable records.                                                                                                                                                                                                                                                                                           |
+| **Mire/Protocol**  | Core                             | `ANSI` escape sequence strings; `TerminalMode` (raw mode setup via `stty` + libc `poll`/`read`); `InputParser` (raw bytes → `InputEvent`).                                                                                                                                                                                                                                                                                                                       |
+| **Mire/Renderer**  | Core, Protocol                   | `Surface` (a `Width × Height` grid of `Cell`s with drawing primitives) and `Diff` (computes minimal `DiffRun`s between two surfaces and writes them out).                                                                                                                                                                                                                                                                                                        |
+| **Mire/Layout**    | Core, Renderer                   | `LayoutNode<'msg>` tree (`Dock`, `Stack`, `Box`, `Text`, `Filled`, `Scroll`, `Overlay`, `Positioned`) + `measure`/`render`, and `Focus` (a pure keyboard focus ring + modal trap).                                                                                                                                                                                                                                                                               |
 | **Mire/Widgets**   | Core, Layout                     | Convenience widgets: `Text`, `Box`/`Panel`, `StatusBar`, `Stack`/`Dock`/`Spacer`/`Backdrop` helpers, virtualized `ListView` and `Table`, `Input` (single-line over `TextBuffer`), `TextArea` (multi-line), `Overlay`/`Modal`, `Toast`, `ScrollView`, `CommandPalette`, `Completion`, `SplitView`, `Tooltip`, `Spinner`, `ProgressBar`, `Tabs`, `Toggle`, `Separator`/`Badge`/`KeyHint`, `Markdown` (with `MarkdownStyle`), and `AppTheme` (swappable style set). |
-| **Mire/App**       | Core, Protocol, Renderer, Layout | The runtime: `Cmd<'msg>`, `Sub<'msg>`, `Program<'model,'msg>`, `Program` builders, and `Runtime.run`.                                                                                                                                                                                                          |
+| **Mire/App**       | Core, Protocol, Renderer, Layout | The runtime: `Cmd<'msg>`, `Sub<'msg>`, `Program<'model,'msg>`, `Program` builders, and `Runtime.run`.                                                                                                                                                                                                                                                                                                                                                            |
 
-The layering is deliberate: **Core** is pure types, **Protocol** is terminal I/O, **Renderer** turns a virtual screen into a terminal diff, **Layout** turns a node tree into positioned draw calls, and **App** ties it together with an Elmish loop. The widget layer sits on Layout; an (optional) agent-domain layer would sit on top in the design — the base framework should never need to know what an LLM is. It's one assembly today because the whole framework is ~1.5k lines; the folder seams (and `<Compile>` order) keep the layering honest without six `.fsproj` files of ceremony.
+The layering is deliberate: **Core** is pure types, **Protocol** is terminal I/O, **Renderer** turns a virtual screen into a terminal diff, **Layout** turns a node tree into positioned draw calls, and **App** ties it together with an Elmish loop. The widget layer sits on Layout; an (optional) agent-domain layer would sit on top in the design — the base framework should never need to know what an LLM is. It's one assembly today because the whole framework is ~3.5k lines; the folder seams (and `<Compile>` order) keep the layering honest without six `.fsproj` files of ceremony.
 
 ## What modern-terminal support means here
 
@@ -134,8 +127,10 @@ The layering is deliberate: **Core** is pure types, **Protocol** is terminal I/O
 - Kitty keyboard protocol (`>1u`)
 - Mouse tracking (`?1002` / `?1006`) and focus events (`?1004`)
 - Bracketed paste (`?2004`)
-- OSC 8 hyperlinks and OSC 52 clipboard
 - Underline styles beyond single (double, curly, dotted, dashed)
+- OSC 8 hyperlink and OSC 52 clipboard sequences are defined in `ANSI` but not
+  yet emitted by anything — link-carrying cells and a clipboard `Cmd` are
+  roadmap items (v0.5)
 
 ## Current status
 
@@ -148,15 +143,17 @@ This repo is a working foundation with a v0.3 core widget layer. What works toda
 - ✅ Elmish `Runtime.run` (commands, subscriptions, resize, `Cmd.quit`) + the `Program` builder API
 - ✅ Widgets: virtualized `ListView` + `Table` (sticky header, windowed rows, single/multi-select), `CommandPalette` (fuzzy), `Completion` (cursor-anchored), `Input` (over `TextBuffer`), `Modal` + `Overlay` positioning, `Toast`, `ScrollView` (with scrollbar), `StatusBar`, `Separator`/`Badge`/`KeyHint`, `Backdrop`, flex `Spacer`
 - ✅ A keyboard **`Focus` manager** — a tab-order ring + a modal focus-trap stack, dogfooded in `Mire.Demo.Feed`
-- ✅ Headless `--dump` mode and an Expecto suite (148 tests)
-- ✅ **`AppTheme`** record — a swappable theme type in `Mire.Widgets`; the KitchenSink and Agent demos use it with the brand palette
+- ✅ Headless `--dump` mode and the Expecto suite
+- ✅ **`AppTheme`** record — a swappable theme type in `Mire.Widgets`; the demos build branded instances from `brand/palette.fs` (the Agent demo keeps its own richer brand theme)
 
 Not yet (described in `SPEC.md` as the target):
 
 - ⏳ Remaining widget: `ImagePreview` (Kitty graphics protocol)
 - ⏳ The runtime-owned / mouse-driven half of focus (spatial hit-testing)
-- ⏳ Kitty graphics (images), OSC 8 hyperlink cells, theme notifications
-- ⏳ The agent-domain components (chat transcript, tool-call views, diff viewer, file tree, prompt box) — prototyped at the app level in `Mire.Demo.Agent`, not yet extracted into a reusable layer
+- ⏳ Kitty graphics (images), OSC 8 hyperlink cells, OSC 52 clipboard wiring, theme notifications
+- ⏳ Kitty key release/repeat event types (keys only emit `Press`) and buffering of large pastes split across reads
+- ⏳ Text selection in `TextBuffer` (so `Input`/`TextArea` are cursor-only)
+- ⏳ The agent-domain components (chat transcript, tool-call views, diff viewer, file tree, prompt box) — prototyped at the app level in `Mire.Demo.Agent`, not yet extracted into a reusable layer (roadmap v0.4, the next phase)
 
 ## Roadmap & design document
 
