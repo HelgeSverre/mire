@@ -180,7 +180,8 @@ let private modeStyle =
 
 let private transcriptWrapWidth (m: Model) =
     let bodyW = if m.SidebarOpen then m.Size.Width - 30 else m.Size.Width
-    max 10 (bodyW - 3)
+    // -3 box border/margin, -1 more for the ScrollView scrollbar column.
+    max 10 (bodyW - 4)
 
 let private viewportRows (m: Model) = max 1 (m.Size.Height - 9)
 
@@ -945,7 +946,11 @@ let private transcriptRegion (m: Model) : LayoutNode<Msg> =
         m.Transcript
         |> List.map (fun b -> Stack.sized Length.Content (Blocks.renderBlock w m.Spinner b))
 
-    Box.box border [ Scroll.vertical m.Offset (Stack.vstackOf rows) ]
+    // ScrollView adds the track/thumb scrollbar over the bare Scroll node; the
+    // viewport/content heights are the same ones maxScroll uses to clamp Offset.
+    Box.box
+        border
+        [ ScrollView.vertical (viewportRows m) (contentHeight m) m.Offset Theme.borderStyle Theme.muted (Stack.vstackOf rows) ]
 
 let private body (m: Model) : LayoutNode<Msg> =
     if m.SidebarOpen then
