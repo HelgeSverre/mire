@@ -73,9 +73,7 @@ module AppTheme =
           info = Style.info
           // Selection is inverse video (brand-approved): swap fg/bg.
           selection =
-            Style.Default
-                .WithForeground(rgb Palette.Semantic.Dark.bg)
-                .WithBackground(rgb Palette.Semantic.Dark.fg)
+            Style.Default.WithForeground(rgb Palette.Semantic.Dark.bg).WithBackground(rgb Palette.Semantic.Dark.fg)
           selectionAccent = Style.Default.WithForeground(accentFg).WithBackground(accent)
           key = Style.key
           markdown = Markdown.defaultStyle }

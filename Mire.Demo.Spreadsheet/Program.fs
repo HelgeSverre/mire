@@ -113,7 +113,9 @@ let init () =
           // Capture the real terminal size up front: the runtime only emits a
           // TerminalResize once the size *changes* from startup, so a hardcoded
           // init size would otherwise stick until the user resized the window.
-          Size = Mire.Protocol.TerminalMode.getTerminalSize () |> Option.defaultValue (Size.Create(100, 30)) },
+          Size =
+            Mire.Protocol.TerminalMode.getTerminalSize ()
+            |> Option.defaultValue (Size.Create(100, 30)) },
     Cmd.none
 
 let private clamp lo hi v = max lo (min hi v)

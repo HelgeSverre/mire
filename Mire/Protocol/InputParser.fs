@@ -208,7 +208,10 @@ module InputParser =
     /// The `cap` bounds a missing end-marker so the carry can't grow without limit.
     let stepPasteBuffer (cap: int) (carry: byte[]) (incoming: byte[]) : byte[] * byte[] =
         let combined =
-            if carry.Length = 0 then incoming else Array.append carry incoming
+            if carry.Length = 0 then
+                incoming
+            else
+                Array.append carry incoming
 
         if combined.Length > 0 && combined.Length < cap && isIncompletePaste combined then
             [||], combined

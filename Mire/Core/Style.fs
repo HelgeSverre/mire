@@ -9,18 +9,20 @@ type UnderlineStyle =
 
 [<Struct>]
 type Style =
-    { Foreground: Color option
-      Background: Color option
-      Bold: bool
-      Italic: bool
-      Underline: UnderlineStyle option
-      Dim: bool
-      Strikethrough: bool
-      /// OSC 8 hyperlink target. `None` = plain text. The Diff writer brackets a
-      /// run carrying `Some url` in OSC 8 open/close sequences; `ToAnsi` ignores
-      /// it (a link is not an SGR attribute). Because it's part of the record,
-      /// structural equality splits diff runs at link boundaries automatically.
-      Link: string option }
+    {
+        Foreground: Color option
+        Background: Color option
+        Bold: bool
+        Italic: bool
+        Underline: UnderlineStyle option
+        Dim: bool
+        Strikethrough: bool
+        /// OSC 8 hyperlink target. `None` = plain text. The Diff writer brackets a
+        /// run carrying `Some url` in OSC 8 open/close sequences; `ToAnsi` ignores
+        /// it (a link is not an SGR attribute). Because it's part of the record,
+        /// structural equality splits diff runs at link boundaries automatically.
+        Link: string option
+    }
 
     static member Default =
         { Foreground = None

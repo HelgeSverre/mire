@@ -110,8 +110,7 @@ module Program =
     /// Opt in to receiving Kitty key *release* events in `MapInput` (default off —
     /// releases are dropped so each keystroke is one message). `Repeat` always
     /// passes through regardless.
-    let withKeyReleases (enabled: bool) (program: Program<'model, 'msg>) =
-        { program with KeyReleases = enabled }
+    let withKeyReleases (enabled: bool) (program: Program<'model, 'msg>) = { program with KeyReleases = enabled }
 
 type RuntimeState<'model, 'msg> =
     { Model: 'model

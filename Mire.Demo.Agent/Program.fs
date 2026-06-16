@@ -324,81 +324,81 @@ let private applyResponse (rawText: string) (m: Model) : Model * Cmd<Msg> =
         | None -> addToast Theme.Warning "nothing to copy" "no assistant response yet" m, Cmd.none
     | _ ->
 
-    match Dummy.respond lower with
-    | AppendBlocks bs ->
-        followTail
-            { m with
-                Transcript = m.Transcript @ bs },
-        Cmd.none
-    | StreamMarkdown md ->
-        let words = md.Split(' ')
-        let idx = List.length m.Transcript
-
-        let m' =
-            { m with
-                Transcript = m.Transcript @ [ AssistantMd "" ]
-                Streaming =
-                    Some
-                        { Words = words
-                          Index = 0
-                          BlockIndex = idx } }
-
-        followTail m', Cmd.none
-    | RunningTool tr ->
-        let idx = List.length m.Transcript
-
-        let m' =
-            { m with
-                Transcript = m.Transcript @ [ ToolCall(tr.Name, tr.Cmd, Running, "", tr.RunningOut) ] }
-
-        let cmd =
-            Cmd.ofAsync (fun send ->
-                async {
-                    do! Async.Sleep tr.DelayMs
-                    send (ToolResolve(idx, tr.FinalStatus, tr.FinalMeta, tr.FinalOut))
-                })
-
-        followTail m', cmd
-    | SpawnToast(tone, title, body) -> addToast tone title body m, Cmd.none
-    | OpenModal spec ->
-        { m with
-            Overlay = ModalOverlay { Spec = spec; Focus = AcceptBtn } },
-        Cmd.none
-    | ClearTranscript -> { m with Transcript = []; Offset = 0 }, Cmd.none
-    | MetaCmd meta ->
-        match meta with
-        | ToggleSidebar ->
-            { m with
-                SidebarOpen = not m.SidebarOpen },
-            Cmd.none
-        | CycleMode -> { m with Mode = nextMode m.Mode }, Cmd.none
-        | OpenSkills ->
-            { m with
-                Overlay =
-                    SkillOverlay
-                        { Sel = 0
-                          ListScroll = 0
-                          PreviewScroll = 0
-                          Pane = ListPane } },
-            Cmd.none
-        | OpenPalette ->
-            { m with
-                Overlay = PaletteOverlay { Query = ""; Sel = 0 } },
-            Cmd.none
-        | OpenMcp ->
-            { m with
-                Overlay =
-                    McpOverlay
-                        { View = McpList
-                          ServerSel = 0
-                          ActionSel = 0
-                          ToolScroll = 0 } },
-            Cmd.none
-        | ShowWelcome ->
+        match Dummy.respond lower with
+        | AppendBlocks bs ->
             followTail
                 { m with
-                    Transcript = m.Transcript @ [ Dummy.welcomeBlock ] },
+                    Transcript = m.Transcript @ bs },
             Cmd.none
+        | StreamMarkdown md ->
+            let words = md.Split(' ')
+            let idx = List.length m.Transcript
+
+            let m' =
+                { m with
+                    Transcript = m.Transcript @ [ AssistantMd "" ]
+                    Streaming =
+                        Some
+                            { Words = words
+                              Index = 0
+                              BlockIndex = idx } }
+
+            followTail m', Cmd.none
+        | RunningTool tr ->
+            let idx = List.length m.Transcript
+
+            let m' =
+                { m with
+                    Transcript = m.Transcript @ [ ToolCall(tr.Name, tr.Cmd, Running, "", tr.RunningOut) ] }
+
+            let cmd =
+                Cmd.ofAsync (fun send ->
+                    async {
+                        do! Async.Sleep tr.DelayMs
+                        send (ToolResolve(idx, tr.FinalStatus, tr.FinalMeta, tr.FinalOut))
+                    })
+
+            followTail m', cmd
+        | SpawnToast(tone, title, body) -> addToast tone title body m, Cmd.none
+        | OpenModal spec ->
+            { m with
+                Overlay = ModalOverlay { Spec = spec; Focus = AcceptBtn } },
+            Cmd.none
+        | ClearTranscript -> { m with Transcript = []; Offset = 0 }, Cmd.none
+        | MetaCmd meta ->
+            match meta with
+            | ToggleSidebar ->
+                { m with
+                    SidebarOpen = not m.SidebarOpen },
+                Cmd.none
+            | CycleMode -> { m with Mode = nextMode m.Mode }, Cmd.none
+            | OpenSkills ->
+                { m with
+                    Overlay =
+                        SkillOverlay
+                            { Sel = 0
+                              ListScroll = 0
+                              PreviewScroll = 0
+                              Pane = ListPane } },
+                Cmd.none
+            | OpenPalette ->
+                { m with
+                    Overlay = PaletteOverlay { Query = ""; Sel = 0 } },
+                Cmd.none
+            | OpenMcp ->
+                { m with
+                    Overlay =
+                        McpOverlay
+                            { View = McpList
+                              ServerSel = 0
+                              ActionSel = 0
+                              ToolScroll = 0 } },
+                Cmd.none
+            | ShowWelcome ->
+                followTail
+                    { m with
+                        Transcript = m.Transcript @ [ Dummy.welcomeBlock ] },
+                Cmd.none
 
 let private startCommand (text: string) (m: Model) : Model * Cmd<Msg> =
     let m1 =
@@ -950,7 +950,13 @@ let private transcriptRegion (m: Model) : LayoutNode<Msg> =
     // viewport/content heights are the same ones maxScroll uses to clamp Offset.
     Box.box
         border
-        [ ScrollView.vertical (viewportRows m) (contentHeight m) m.Offset Theme.borderStyle Theme.muted (Stack.vstackOf rows) ]
+        [ ScrollView.vertical
+              (viewportRows m)
+              (contentHeight m)
+              m.Offset
+              Theme.borderStyle
+              Theme.muted
+              (Stack.vstackOf rows) ]
 
 let private body (m: Model) : LayoutNode<Msg> =
     if m.SidebarOpen then

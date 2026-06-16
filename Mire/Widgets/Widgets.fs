@@ -15,14 +15,20 @@ module Style =
         Color.Rgb(r, g, b)
 
     let border = Style.Default.WithForeground(rgb Palette.Semantic.Dark.borderStrong)
-    let title = Style.Default.WithForeground(rgb Palette.Semantic.Dark.fg).WithBold(true)
+
+    let title =
+        Style.Default.WithForeground(rgb Palette.Semantic.Dark.fg).WithBold(true)
+
     let text = Style.Default.WithForeground(rgb Palette.Semantic.Dark.fg)
     let dim = Style.Default.WithForeground(rgb Palette.Semantic.Dark.fgMuted)
 
     // The accent moment (emerald). `counter`/`highlight` are kept for back-compat;
     // both are the accent now (was an ad-hoc green / orange).
-    let counter = Style.Default.WithForeground(rgb Palette.Semantic.Dark.accent).WithBold(true)
-    let highlight = Style.Default.WithForeground(rgb Palette.Semantic.Dark.accent).WithBold(true)
+    let counter =
+        Style.Default.WithForeground(rgb Palette.Semantic.Dark.accent).WithBold(true)
+
+    let highlight =
+        Style.Default.WithForeground(rgb Palette.Semantic.Dark.accent).WithBold(true)
 
     let key = Style.Default.WithForeground(rgb Palette.Semantic.Dark.accent)
     let bg = Style.Default.WithBackground(rgb Palette.Semantic.Dark.bg)
