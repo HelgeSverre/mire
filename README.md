@@ -144,7 +144,7 @@ This repo is a working foundation with a v0.3 core widget layer. What works toda
 - ✅ Widgets: virtualized `ListView` + `Table` (sticky header, windowed rows, single/multi-select), `CommandPalette` (fuzzy), `Completion` (cursor-anchored), `Input` (over `TextBuffer`), `Modal` + `Overlay` positioning, `Toast`, `ScrollView` (with scrollbar), `StatusBar`, `Separator`/`Badge`/`KeyHint`, `Backdrop`, flex `Spacer`
 - ✅ A keyboard **`Focus` manager** — a tab-order ring + a modal focus-trap stack, dogfooded in `Mire.Demo.Feed`
 - ✅ Headless `--dump` mode and the Expecto suite
-- ✅ **`AppTheme`** record — a swappable theme type in `Mire.Widgets`; the demos build branded instances from `brand/palette.fs` (the Agent demo keeps its own richer brand theme)
+- ✅ **`AppTheme`** record — a swappable theme set; **`AppTheme.defaultTheme` is the Mire brand** (emerald accent, neutral hierarchy, inverse-video selection), built from `Mire.Brand.Palette`. The `Style.*` primitives and `Markdown.defaultStyle` are brand-sourced too, so the default look is on-brand with no per-app theme code
 
 Not yet (described in `SPEC.md` as the target):
 

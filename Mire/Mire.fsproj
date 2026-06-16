@@ -49,6 +49,11 @@
     (Widgets and App both depend only on Layout, not on each other.)
   -->
   <ItemGroup>
+    <!-- Brand asset (namespace Mire.Brand, no deps) — the canonical palette the
+         framework's default theme is built from. Compiled here so it's the single
+         source of truth; demos reference it instead of compiling their own copy. -->
+    <Compile Include="../brand/palette.fs" />
+
     <!-- Core — pure value types, no I/O -->
     <Compile Include="Core/Point.fs" />
     <Compile Include="Core/Size.fs" />

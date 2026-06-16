@@ -2,24 +2,32 @@ namespace Mire.Widgets
 
 open Mire.Core
 open Mire.Layout
+open Mire.Brand
 
+/// The framework's predefined semantic styles — the Mire brand, by default.
+/// Neutrals (from `Mire.Brand.Palette`) carry hierarchy; emerald is the single
+/// accent moment; the status colors (success/warning/danger/info) are a
+/// functional extension (legibility for results/diffs/toasts), not brand neutrals.
+/// Tuned for a dark terminal. Apps can swap the whole set via `AppTheme`.
 module Style =
-    let border = Style.Default.WithForeground(Color.Rgb(0x4Auy, 0x90uy, 0xD9uy))
+    let private rgb (c: Palette.Color) =
+        let (r, g, b) = c.Rgb
+        Color.Rgb(r, g, b)
 
-    let title =
-        Style.Default.WithForeground(Color.Rgb(0xF4uy, 0xD0uy, 0x3Fuy)).WithBold(true)
+    let border = Style.Default.WithForeground(rgb Palette.Semantic.Dark.borderStrong)
+    let title = Style.Default.WithForeground(rgb Palette.Semantic.Dark.fg).WithBold(true)
+    let text = Style.Default.WithForeground(rgb Palette.Semantic.Dark.fg)
+    let dim = Style.Default.WithForeground(rgb Palette.Semantic.Dark.fgMuted)
 
-    let text = Style.Default.WithForeground(Color.White)
-    let dim = Style.Default.WithForeground(Color.Rgb(0x88uy, 0x88uy, 0x88uy))
+    // The accent moment (emerald). `counter`/`highlight` are kept for back-compat;
+    // both are the accent now (was an ad-hoc green / orange).
+    let counter = Style.Default.WithForeground(rgb Palette.Semantic.Dark.accent).WithBold(true)
+    let highlight = Style.Default.WithForeground(rgb Palette.Semantic.Dark.accent).WithBold(true)
 
-    let counter =
-        Style.Default.WithForeground(Color.Rgb(0x4Cuy, 0xAFuy, 0x50uy)).WithBold(true)
+    let key = Style.Default.WithForeground(rgb Palette.Semantic.Dark.accent)
+    let bg = Style.Default.WithBackground(rgb Palette.Semantic.Dark.bg)
 
-    let highlight =
-        Style.Default.WithForeground(Color.Rgb(0xFFuy, 0x57uy, 0x22uy)).WithBold(true)
-
-    let key = Style.Default.WithForeground(Color.Rgb(0x9Cuy, 0x27uy, 0xB0uy))
-    let bg = Style.Default.WithBackground(Color.Rgb(0x1Auy, 0x1Auy, 0x2Euy))
+    // Functional status palette (not brand neutrals — these must read as states).
     let success = Style.Default.WithForeground(Color.Rgb(0x4Cuy, 0xAFuy, 0x50uy))
     let warning = Style.Default.WithForeground(Color.Rgb(0xFFuy, 0xA0uy, 0x00uy))
     let danger = Style.Default.WithForeground(Color.Rgb(0xFFuy, 0x57uy, 0x22uy))

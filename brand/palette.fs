@@ -41,11 +41,12 @@ module Palette =
 
     module Accent =
         // Emerald. a500 is the brand color; a700 is the filled-CTA shade.
-        let a100 = c "#9DFEE2" 157uy 254uy 226uy 158uy
-        let a300 = c "#6BCDB2" 107uy 205uy 178uy 79uy
-        let a500 = c "#1A8870" 26uy 136uy 112uy 29uy
-        let a700 = c "#006750" 0uy 103uy 80uy 23uy
-        let a900 = c "#003724" 0uy 55uy 36uy 236uy
+        // (Matches the refreshed web palette in palette.css / palette.json.)
+        let a100 = c "#D0F5E8" 208uy 245uy 232uy 158uy
+        let a300 = c "#7DD4B8" 125uy 212uy 184uy 79uy
+        let a500 = c "#1A9A7E" 26uy 154uy 126uy 29uy
+        let a700 = c "#006F56" 0uy 111uy 86uy 23uy
+        let a900 = c "#003D2E" 0uy 61uy 46uy 236uy
 
     module Semantic =
         module Light =

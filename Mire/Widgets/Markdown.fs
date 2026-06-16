@@ -3,6 +3,7 @@ namespace Mire.Widgets
 open System.Text
 open Mire.Core
 open Mire.Layout
+open Mire.Brand
 
 /// The styles a `Markdown.render` uses. Inline bold/italic/strike are derived from
 /// the base text style (`.WithBold`/…), so only the span/block colors that differ
@@ -30,19 +31,27 @@ type MarkdownStyle =
 /// highlighting), and inline `code`/`**bold**`/`*italic*`/`~~strike~~`/`[links]`.
 module Markdown =
 
-    /// A neutral default style set built on the framework's predefined `Style`s.
+    /// The brand default style set, built on the framework's predefined `Style`s
+    /// and the brand palette: light-emerald headings, a hairline rule, and a
+    /// code block on the elevated surface. `Mention` is off by default (apps that
+    /// want `@token` styling — e.g. an agent transcript — set it).
     let defaultStyle: MarkdownStyle =
-        let codeBg = Color.Rgb(0x2Auy, 0x2Auy, 0x2Auy)
+        let rgb (c: Palette.Color) =
+            let (r, g, b) = c.Rgb
+            Color.Rgb(r, g, b)
+
+        let codeBg = rgb Palette.Semantic.Dark.bgElevated
+        let heading = Style.Default.WithForeground(rgb Palette.Accent.a300).WithBold(true)
 
         { Text = Style.text
-          Heading1 = Style.title
-          Heading2 = Style.title
-          Heading3 = Style.text.WithBold(true)
+          Heading1 = heading
+          Heading2 = heading
+          Heading3 = Style.dim.WithBold(true)
           Quote = Style.dim
           Link = Style.info.WithUnderline(UnderlineStyle.Single)
           Mention = None
           Rule = Style.border
-          Code = Style.Default.WithForeground(Color.White).WithBackground(codeBg)
+          Code = Style.text.WithBackground(codeBg)
           CodeKeyword = Style.info.WithBackground(codeBg)
           CodeString = Style.success.WithBackground(codeBg)
           CodeComment = Style.dim.WithBackground(codeBg)
