@@ -53,11 +53,16 @@ Each is small, independent, and stress-tests a widget — ROADMAP "What's next" 
 - [x] **OSC 52 clipboard (dogfood)** — the `copy` command puts the last assistant message on the system clipboard via `Cmd.setClipboard`. _Done._
 - [x] **OSC 8 links (dogfood)** — transcript markdown links carry real URLs through `Widgets.Markdown` → `Style.Link` → `Diff` OSC 8 (no demo code needed; it falls out of the framework wiring). _Done._
 - 🟡 **Mouse** — wheel scrolls the transcript (`mapInput` decodes SGR-1006 `ScrollUp`/`ScrollDown` → `ScrollWheel`). _Click-on-button / list-row hit-testing still pending (needs the demo to track widget rects; full retained hit-testing is ROADMAP v0.5)._
-- [ ] **Focus manager** — the demo still routes keys manually off its own `Overlay` field; migrate to `Mire.Layout.Focus` (`pushTrap`/`popTrap`), the way `Mire.Demo.Feed` does
-- [ ] **`Widgets.Modal` / `Overlay.centered`** — the demo centers overlays with its own `centered`/`opaque` Dock-spacer helpers; the framework versions replace them
-- [x] **`ScrollView`** — the transcript pane now uses `ScrollView.vertical` (track/thumb scrollbar). _Skill-explorer + MCP-tools panes still on bare `Scroll`._
-- [ ] **`Widgets.CommandPalette`** — swap the substring filter for the ranked fuzzy `filter` + the framework palette view
-- [ ] **`Widgets.Table`** — the `TableBlock` card in `Blocks.fs` hand-rolls column widths; `Widgets.Table.view` (sticky header, windowed rows) replaces it
+- [x] **`Widgets.CommandPalette.filter`** — the palette ranks with the framework's best-first fuzzy `filter` (subsequence) instead of a substring match. _Done._
+- [x] **`ScrollView`** — the transcript pane uses `ScrollView.vertical` (track/thumb scrollbar). _Skill-explorer + MCP-tools panes still on bare `Scroll`._
+- [x] **`Overlay.centered`** — overlays center via the framework's `Overlay.centered` (`Positioned`/`Center`); the local Dock-spacer helper is gone. _Done (the `opaque` backdrop helper stays — it's one line)._
+
+Deliberately **deferred** — these are dogfood/dedup with no user-visible change, and carry layout/ambiguity risk on the showcase demo, so they're low priority:
+
+- [ ] **Focus manager** — Agent's overlays are a single-at-a-time *modal stack*, not a focus *ring*; routing by the `Overlay` match is already the natural model. `Mire.Demo.Feed` dogfoods `Mire.Layout.Focus` properly (two-pane ring). Migrating Agent would be ceremony without behavior change.
+- [ ] **`Widgets.Modal` (full)** — the overlays already compose `opaque` + a title row; `Modal.modal` adds a title slot they'd have to suppress. No visible gain.
+- [ ] **`Widgets.Table`** — the `TableBlock` is a static transcript card; `Table.view`'s windowing/sticky-header/selection buy nothing for a non-scrolled card.
+- [ ] **Click-on-button mouse hit-testing** — needs the demo to track widget rects (or the framework's retained hit-testing, ROADMAP v0.5).
 
 ## Blocked by the framework ⬜
 
