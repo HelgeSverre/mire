@@ -48,12 +48,16 @@ still needs to **adopt**. Each gap links to the [`ROADMAP.md`](ROADMAP.md) item.
 The original blockers here all shipped (v0.2/v0.3); what remains is demo-side adoption.
 Each is small, independent, and stress-tests a widget — ROADMAP "What's next" item 2:
 
+- [x] **`Cmd.quit`** — the `quit`/`exit` command exits cleanly via `Cmd.quit` (Ctrl+C still works via the default quit policy). _Done._
+- [x] **`Widgets.Spinner`** — `Blocks.spinner` delegates to `Spinner.frameOf Spinner.braille` instead of a hand-rolled frame table. _Done._
+- [x] **OSC 52 clipboard (dogfood)** — the `copy` command puts the last assistant message on the system clipboard via `Cmd.setClipboard`. _Done._
+- [x] **OSC 8 links (dogfood)** — transcript markdown links carry real URLs through `Widgets.Markdown` → `Style.Link` → `Diff` OSC 8 (no demo code needed; it falls out of the framework wiring). _Done._
 - [ ] **Mouse** — `InputParser` decodes SGR 1006, but the demo's `mapInput` has no `Mouse` case; modal buttons / list rows / MCP actions are still keyboard-only. (Full hit-testing is ROADMAP v0.5; basic click-on-button is doable now)
 - [ ] **Focus manager** — the demo still routes keys manually off its own `Overlay` field; migrate to `Mire.Layout.Focus` (`pushTrap`/`popTrap`), the way `Mire.Demo.Feed` does
 - [ ] **`Widgets.Modal` / `Overlay.centered`** — the demo centers overlays with its own `centered`/`opaque` Dock-spacer helpers; the framework versions replace them
 - [ ] **`ScrollView`** — transcript and skill-explorer panes use bare `Scroll` (`▲▼` hints); `ScrollView.vertical` adds the track/thumb scrollbar and the follow-tail helpers
 - [ ] **`Widgets.CommandPalette`** — swap the substring filter for the ranked fuzzy `filter` + the framework palette view
-- [ ] **`Cmd.quit`** — the demo exits only via the runtime's Ctrl+C intercept; wire `Program.withQuitOn` / a quit command
+- [ ] **`Widgets.Table`** — the `TableBlock` card in `Blocks.fs` hand-rolls column widths; `Widgets.Table.view` (sticky header, windowed rows) replaces it
 
 ## Blocked by the framework ⬜
 

@@ -32,10 +32,9 @@ type Block =
 
 module Blocks =
 
-    let spinnerFrames = [| "⠋"; "⠙"; "⠹"; "⠸"; "⠼"; "⠴"; "⠦"; "⠧"; "⠇"; "⠏" |]
-
-    let spinner (frame: int) =
-        spinnerFrames.[((frame % spinnerFrames.Length) + spinnerFrames.Length) % spinnerFrames.Length]
+    // The running-tool spinner glyph for the current tick — delegates to the
+    // framework widget (`Mire.Widgets.Spinner`) instead of a hand-rolled table.
+    let spinner (frame: int) = Spinner.frameOf Spinner.braille frame
 
     let statusGlyph (frame: int) (s: ToolStatus) =
         match s with

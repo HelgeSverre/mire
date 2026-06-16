@@ -84,7 +84,9 @@ module Dummy =
           "mode", "cycle mode"
           "skills", "open skill explorer"
           "palette", "open command palette"
-          "mcp", "MCP servers (connect/auth/tools)" ]
+          "mcp", "MCP servers (connect/auth/tools)"
+          "copy", "copy last response to clipboard (OSC 52)"
+          "quit", "exit the demo (Cmd.quit)" ]
 
     // ── canned content ──────────────────────────────────────────────────────────
     let markdownKitchenSink =

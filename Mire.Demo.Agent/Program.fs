@@ -304,6 +304,25 @@ let private truncate (s: string) =
 let private applyResponse (rawText: string) (m: Model) : Model * Cmd<Msg> =
     let lower = rawText.ToLowerInvariant().Trim()
 
+    match lower with
+    // Built-in commands that drive the *framework* (not canned Dummy responses):
+    // `quit` exits cleanly via Cmd.quit; `copy` puts the last assistant message
+    // on the system clipboard via OSC 52 (Cmd.setClipboard).
+    | "quit"
+    | "exit" -> m, Cmd.quit
+    | "copy" ->
+        let lastAssistant =
+            m.Transcript
+            |> List.rev
+            |> List.tryPick (function
+                | AssistantMd s -> Some s
+                | _ -> None)
+
+        match lastAssistant with
+        | Some s -> addToast Theme.Success "copied" "last response → clipboard" m, Cmd.setClipboard s
+        | None -> addToast Theme.Warning "nothing to copy" "no assistant response yet" m, Cmd.none
+    | _ ->
+
     match Dummy.respond lower with
     | AppendBlocks bs ->
         followTail
