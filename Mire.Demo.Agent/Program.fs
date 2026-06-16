@@ -199,11 +199,14 @@ let private maxScroll (m: Model) =
 
 let private followTail (m: Model) = { m with Offset = maxScroll m }
 
+// Rank commands with the framework's fuzzy `CommandPalette.filter` (best-first
+// subsequence match on the trigger, e.g. "tl" → "tool"), re-pairing each ranked
+// trigger with its description. Triggers are unique, so the Map round-trips.
 let private filterCommands (q: string) =
-    let ql = q.ToLowerInvariant()
+    let descOf = Map.ofList Dummy.commands
 
-    Dummy.commands
-    |> List.filter (fun (t, d) -> t.Contains(ql) || d.ToLowerInvariant().Contains(ql))
+    CommandPalette.filter q (Dummy.commands |> List.map fst)
+    |> List.map (fun t -> t, descOf.[t])
 
 let private addToast (tone: Theme.Tone) (title: string) (body: string) (m: Model) =
     { m with
