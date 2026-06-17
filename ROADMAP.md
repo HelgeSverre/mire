@@ -14,22 +14,58 @@ state of the code.
 
 ---
 
-## What's next (recommended order)
+## Release plan
 
-1. **v0.4 — extract `Mire.Agent`** (the main missing pillar). The Agent demo
-   already proves every component at the app level; the work is extraction, not
-   invention. Start with `ChatTranscript` + `PromptBox`.
-2. **Agent-demo adoption chores** — migrate `Mire.Demo.Agent` onto the framework
-   features that shipped after it was written (Focus manager, ScrollView,
-   fuzzy CommandPalette, `Cmd.quit`, mouse). Small, independent, and each one
-   stress-tests a widget. The list lives in [`DEMO-TODOS.md`](DEMO-TODOS.md).
-3. **Wide-char correctness** (Known gaps) — the trailing-cell artifact and
-   BMP-only width are the sharpest correctness edges in the renderer.
-4. **v0.5 niceties** — Kitty graphics (`ImagePreview`), theme notifications, and
-   the runtime/mouse half of focus. (OSC 8 links, OSC 52 clipboard, Kitty
-   release/repeat, and paste reassembly all shipped — see v0.5 below.)
-5. **Performance tiers** — only when they hurt; frame coalescing for streaming
-   is the first one an agent UI will actually feel.
+Pre-1.0, shipped **incrementally** — the public API still moves between minors,
+so consumers pin an exact version. A release goes out by publishing a `v*`
+GitHub Release; `publish.yml` then packs + pushes to nuget.org via OIDC. Only
+the throwaway `0.0.1`/`0.0.2` are on nuget.org today and **no `v*` tag exists
+yet** — so nothing has been deliberately released. The next deliberate release
+is **0.4.0**.
+
+> Release numbers ≠ the SPEC "phase" numbers below. The 0.4.0 release bundles the
+> completed core (SPEC v0.1–v0.3) **plus** the cross-cutting protocol work that
+> landed since; the agent layer (SPEC phase v0.4) ships as the **0.5.0** release.
+
+### 0.4.0 — Core framework · _next, ship soon_
+
+The runtime, layout engine, and full base-widget layer (everything in the tables
+below), plus the protocol work done since v0.3: OSC 8 links, OSC 52 clipboard,
+Kitty event types, bracketed-paste reassembly, and the brand-default theme.
+Honestly labeled "a usable core widget layer"; the agent layer is "coming in
+0.5". **Gate to tag:**
+
+- [ ] Fix the wide-glyph trailing-cell artifact (Cross-cutting — Correctness) — don't ship a known glyph-corruption bug
+- [ ] Bump `Mire/Mire.fsproj` `<Version>` 0.3.0 → 0.4.0
+- [ ] Verify the README "minimal app" compiles **and runs** as written (it's the front-door example)
+- [ ] Cut the CHANGELOG `[Unreleased]` block into a dated `[0.4.0]` section
+- [ ] Publish a `v0.4.0` GitHub Release → `publish.yml` → nuget.org; then smoke-install the package into a scratch project and run a counter app
+
+### 0.5.0 — Agent layer · _the promoted release (delivers SPEC phase v0.4)_
+
+Extract `Mire.Agent` so the SPEC's headline `agentShell { … }` MVP works out of
+the box — the version actually worth announcing. Work = the **v0.4 phase below**
+(the 8-step extraction) + the cheap remaining v0.5 niceties (theme
+notifications). **Gate to tag:**
+
+- [ ] `Mire.Agent` project shipping `ChatTranscript`/`PromptBox`/`ToolCallView`/`ThinkingBlock`/`ApprovalModal`/`DiffView`/`FileTree`/`TaskTimeline` (the v0.4 phase list)
+- [ ] `Mire.Demo.Agent` migrated onto `Mire.Agent` (dogfood; retires most of `DEMO-TODOS.md`)
+- [ ] A runnable `agentShell` MVP sample matching SPEC's example
+- [ ] CHANGELOG `[0.5.0]` + version bump + `v0.5.0` tag
+
+### 0.6.0 — Polish & reach
+
+- [ ] Widget gallery app (revives the deleted KitchenSink's coverage — every widget × its states)
+- [ ] `ImagePreview` (Kitty graphics) + light/dark theme notifications (rest of SPEC phase v0.5)
+- [ ] True grapheme clusters — astral-plane / emoji-ZWJ (the second Correctness item)
+- [ ] Performance tiers _as they hurt_ — frame coalescing for streaming first (the one an agent UI feels)
+- [ ] Runtime-owned / mouse-hit-testing half of focus — retires the demo's hand-mirrored modal hit-test
+
+### 1.0.0 — later (not a near-term goal)
+
+Stay 0.x until 0.4/0.5 bake under real use. 1.0 means an API review/freeze, full
+XML-doc coverage, and a deprecation policy — revisit once the agent layer has
+shipped and the public API stops moving.
 
 ---
 
@@ -182,9 +218,10 @@ single-project framework + three demos + `Mire.Tests` (Expecto) in
 `Mire.slnx`; `justfile` + Fantomas; golden-frame snapshots; CI build+test on
 every push/PR; NuGet packaging with OIDC trusted publishing on `v*` releases.
 
-- [ ] Reconcile package versioning — nuget.org has `Mire 0.0.1`/`0.0.2` while
-      `Mire.fsproj` declares `0.3.0`; decide the next published version and tag
-      a release through `publish.yml`
+- [ ] Reconcile package versioning + cut the first deliberate release — nuget.org
+      has only `0.0.1`/`0.0.2` and no `v*` tag exists; bump `Mire.fsproj` to
+      `0.4.0` and tag `v0.4.0` through `publish.yml` (see the **0.4.0** gate in
+      the Release plan above)
 
 ---
 
