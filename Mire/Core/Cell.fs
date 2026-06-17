@@ -35,6 +35,11 @@ type Cell =
     member this.IsEmpty =
         this.Grapheme = " " && this.Width = 1 && this.Style = Style.Default
 
+    /// The trailing half of a wide glyph (see `Continuation`): no grapheme of its
+    /// own, zero width. Used to step back to the base glyph when attaching a
+    /// combining mark, and skipped when emitting.
+    member this.IsContinuation = this.Grapheme = "" && this.Width = 0
+
     member this.WithStyle(style: Style) =
         { Grapheme = this.Grapheme
           Width = this.Width

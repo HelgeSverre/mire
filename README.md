@@ -6,7 +6,7 @@ A small, composable F# runtime for building **modern terminal UIs** — coding a
 
 Mire is **opinionated about its target**. It assumes a modern, Kitty-compatible terminal (Ghostty first) and uses truecolor, the alternate screen, the Kitty keyboard protocol, bracketed paste, mouse tracking, OSC 8 hyperlinks, and synchronized output. There is intentionally no support for legacy consoles, 16-color fallbacks, or "works over every SSH/tmux setup ever."
 
-> **Status: v0.3 — a usable core widget layer.** The runtime, rendering pipeline, layout engine, a real widget library (virtualized lists & tables, a fuzzy command palette, cursor-anchored completion, single- and multi-line text editing, split views, tooltips, progress bars, spinners, tabs, toggles, markdown, overlay positioning + modals, toasts, a scrollview, a keyboard focus manager, plus separators/badges/key-hints), full keyboard/mouse/paste/focus input decoding, and **three** demo apps exist and run. The agent-domain component library in [`SPEC.md`](https://github.com/HelgeSverre/mire/blob/main/SPEC.md) is still design — prototyped only at the app level in `Mire.Demo.Agent`. See [Current status](#current-status).
+> **Status: 0.4.0 — the core framework, first published release.** The runtime, rendering pipeline, layout engine, a real widget library (virtualized lists & tables, a fuzzy command palette, cursor-anchored completion, single- and multi-line text editing, split views, tooltips, progress bars, spinners, tabs, toggles, markdown, overlay positioning + modals, toasts, a scrollview, a keyboard focus manager, plus separators/badges/key-hints), full keyboard/mouse/paste/focus input decoding, and **three** demo apps exist and run. The agent-domain component library in [`SPEC.md`](https://github.com/HelgeSverre/mire/blob/main/SPEC.md) is still design — prototyped only at the app level in `Mire.Demo.Agent`. See [Current status](#current-status).
 
 ## Installation
 
@@ -19,11 +19,11 @@ dotnet add package Mire
 Or as a `<PackageReference>` in your `.fsproj`:
 
 ```xml
-<PackageReference Include="Mire" Version="0.0.2" />
+<PackageReference Include="Mire" Version="0.4.0" />
 ```
 
-> `0.0.2` is the latest version published to nuget.org; the repo is ahead of the
-> package (the next release publishes as `0.3.0` via the tagged-release workflow).
+> `0.4.0` is the current release on nuget.org, published via the tagged-release
+> workflow. (Pin an exact version — the API still moves between minors, pre-1.0.)
 
 A minimal app — wire an Elmish `Program` and hand it to `Runtime.run` (see `Mire.Demo.Agent` for a complete one):
 
@@ -133,7 +133,7 @@ The layering is deliberate: **Core** is pure types, **Protocol** is terminal I/O
 
 ## Current status
 
-This repo is a working foundation with a v0.3 core widget layer. What works today:
+This repo is a working foundation — the 0.4.0 core widget layer. What works today:
 
 - ✅ Core value types, color/style → ANSI, cell model, grapheme-cluster-aware widths
 - ✅ Raw-mode terminal setup; byte-level input decoding — keys (incl. Kitty `CSI u` chords + press/repeat/release event types + legacy fallbacks), **mouse (SGR 1006), bracketed paste (reassembled across reads), and focus events**

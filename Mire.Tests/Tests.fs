@@ -397,6 +397,12 @@ let diffTests =
               let runs = Diff.compute None s
               Expect.equal (List.length runs) 1 "the wide glyph + its continuation form a single run"
               Expect.equal (List.head runs).Text "世" "the run carries just the glyph (continuation appends nothing)"
+          }
+          test "Surface.Write: a combining mark after a wide glyph attaches to the glyph, not its continuation" {
+              let s = Surface(Size.Create(4, 1))
+              s.Write(0, 0, "世́", Style.Default) // 世 + combining acute
+              Expect.equal s.[0, 0].Grapheme "世́" "the combining mark attaches to the wide glyph"
+              Expect.equal s.[1, 0].Grapheme "" "the continuation column stays an empty continuation"
           } ]
 
 // Layout -------------------------------------------------------------------

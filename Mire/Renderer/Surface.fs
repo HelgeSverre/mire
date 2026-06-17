@@ -40,12 +40,22 @@ type Surface(size: Size) =
             let w = Grapheme.charWidth c
 
             if w = 0 then
-                // Combining mark - append to previous cell if possible
-                if cx > x && cx > 0 && cx <= safeSize.Width && y >= 0 && y < safeSize.Height then
-                    let idx = y * safeSize.Width + cx - 1
+                // Combining mark — attach to the base glyph on the left, stepping
+                // back over a wide glyph's continuation column (which carries no
+                // grapheme of its own) so the mark lands on the glyph, not the gap.
+                let mutable bx = cx - 1
+
+                while bx > x
+                      && bx >= 0
+                      && bx < safeSize.Width
+                      && cells.[y * safeSize.Width + bx].IsContinuation do
+                    bx <- bx - 1
+
+                if bx >= x && bx >= 0 && bx < safeSize.Width && y >= 0 && y < safeSize.Height then
+                    let idx = y * safeSize.Width + bx
                     let cell = cells.[idx]
 
-                    if not cell.IsEmpty then
+                    if not cell.IsEmpty && not cell.IsContinuation then
                         cells.[idx] <-
                             { cell with
                                 Grapheme = cell.Grapheme + string c }
@@ -73,19 +83,29 @@ type Surface(size: Size) =
                 let w = Grapheme.charWidth c
 
                 if w = 0 then
+                    // Combining mark — attach to the base glyph, stepping over a
+                    // wide glyph's continuation column (see `Write`).
+                    let mutable bx = cx - 1
+
+                    while bx > rect.Left
+                          && bx >= 0
+                          && bx < safeSize.Width
+                          && cells.[cy * safeSize.Width + bx].IsContinuation do
+                        bx <- bx - 1
+
                     if
-                        cx > rect.Left
-                        && cx > 0
-                        && cx <= rect.Right
+                        bx >= rect.Left
+                        && bx >= 0
+                        && bx <= rect.Right
                         && cy >= rect.Top
                         && cy <= rect.Bottom
-                        && cx <= safeSize.Width
+                        && bx < safeSize.Width
                         && cy < safeSize.Height
                     then
-                        let idx = cy * safeSize.Width + cx - 1
+                        let idx = cy * safeSize.Width + bx
                         let cell = cells.[idx]
 
-                        if not cell.IsEmpty then
+                        if not cell.IsEmpty && not cell.IsContinuation then
                             cells.[idx] <-
                                 { cell with
                                     Grapheme = cell.Grapheme + string c }
