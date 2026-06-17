@@ -25,7 +25,7 @@ still needs to **adopt**. Each gap links to the [`ROADMAP.md`](ROADMAP.md) item.
 - ✅ Async tool resolution — `tool:run` fires `Cmd.ofAsync`, resolves after a delay
 - ✅ Braille spinner for running tools / sidebar tasks — `Widgets.Spinner` glyphs driven by a `Sub.Every` tick
 - ✅ Toast stack (top-right) via `Widgets.Toast.stack`, TTL auto-dismiss app-side
-- ✅ Command palette (`Ctrl+P`) with live substring filter over `Dummy.commands`
+- ✅ Command palette (`Ctrl+P`) with ranked fuzzy filter (`Widgets.CommandPalette.filter`) over `Dummy.commands`
 - ✅ Skill explorer (`Ctrl+O`) — two independent `Scroll` panes (list + markdown preview), `Tab` switches pane focus
 - ✅ **MCP manager overlay** (`/mcp`) — fake server list with statuses, transports, connect/auth/tools/uninstall actions, and a per-server tool browser (list → actions → tools navigation)
 - ✅ Permission / approval / confirm modal with **keyboard-focusable** Accept/Deny buttons (`←/→`/`Tab` move, `Enter` confirm, `Esc` deny)
@@ -38,10 +38,8 @@ still needs to **adopt**. Each gap links to the [`ROADMAP.md`](ROADMAP.md) item.
 ## Approximate 🟡
 
 - 🟡 **Diff** — unified only, colored `+`/`-` (`Blocks.fs`); no split view, no accept/reject. → ROADMAP v0.4 `DiffView`
-- 🟡 **Table block** — the demo's own fixed-width table card in `Blocks.fs`, not `Widgets.Table` (no virtualization, sticky header, or sort)
 - 🟡 **Transcript scroll** — renders through `ScrollView.vertical` (scrollbar) now; follow-tail on append is still app-side via `maxScroll` (fine — the app owns the offset)
 - 🟡 **Stream cancel** — `Esc` clears a flag; not a real async cancellation token
-- 🟡 **Command palette filter** — plain substring match; the framework's `CommandPalette.filter` (ranked fuzzy) is unused (see adoption list)
 
 ## Framework caught up — demo not migrated 🔄
 
@@ -52,17 +50,13 @@ Each is small, independent, and stress-tests a widget — ROADMAP "What's next" 
 - [x] **`Widgets.Spinner`** — `Blocks.spinner` delegates to `Spinner.frameOf Spinner.braille` instead of a hand-rolled frame table. _Done._
 - [x] **OSC 52 clipboard (dogfood)** — the `copy` command puts the last assistant message on the system clipboard via `Cmd.setClipboard`. _Done._
 - [x] **OSC 8 links (dogfood)** — transcript markdown links carry real URLs through `Widgets.Markdown` → `Style.Link` → `Diff` OSC 8 (no demo code needed; it falls out of the framework wiring). _Done._
-- 🟡 **Mouse** — wheel scrolls the transcript (`mapInput` decodes SGR-1006 `ScrollUp`/`ScrollDown` → `ScrollWheel`). _Click-on-button / list-row hit-testing still pending (needs the demo to track widget rects; full retained hit-testing is ROADMAP v0.5)._
 - [x] **`Widgets.CommandPalette.filter`** — the palette ranks with the framework's best-first fuzzy `filter` (subsequence) instead of a substring match. _Done._
 - [x] **`ScrollView`** — the transcript pane uses `ScrollView.vertical` (track/thumb scrollbar). _Skill-explorer + MCP-tools panes still on bare `Scroll`._
-- [x] **`Overlay.centered`** — overlays center via the framework's `Overlay.centered` (`Positioned`/`Center`); the local Dock-spacer helper is gone. _Done (the `opaque` backdrop helper stays — it's one line)._
-
-Deliberately **deferred** — these are dogfood/dedup with no user-visible change, and carry layout/ambiguity risk on the showcase demo, so they're low priority:
-
-- [ ] **Focus manager** — Agent's overlays are a single-at-a-time *modal stack*, not a focus *ring*; routing by the `Overlay` match is already the natural model. `Mire.Demo.Feed` dogfoods `Mire.Layout.Focus` properly (two-pane ring). Migrating Agent would be ceremony without behavior change.
-- [ ] **`Widgets.Modal` (full)** — the overlays already compose `opaque` + a title row; `Modal.modal` adds a title slot they'd have to suppress. No visible gain.
-- [ ] **`Widgets.Table`** — the `TableBlock` is a static transcript card; `Table.view`'s windowing/sticky-header/selection buy nothing for a non-scrolled card.
-- [ ] **Click-on-button mouse hit-testing** — needs the demo to track widget rects (or the framework's retained hit-testing, ROADMAP v0.5).
+- [x] **`Overlay.centered`** — overlays center via the framework's `Overlay.centered` (`Positioned`/`Center`); the local Dock-spacer helper is gone. _Done (the `opaque` backdrop helper stays — it's used by the anchored completion popup + toasts)._
+- [x] **`Widgets.Modal`** — the permission modal, skill explorer, and `/mcp` views render through `Modal.modal` (backdrop + centered titled box); their leading title row moved into Modal's title slot. _Done (the palette keeps its title-less finder chrome)._
+- [x] **`Widgets.Table`** — the `TableBlock` card renders through `Table.view` (one `Column` per header, value-toned cells, static). _Done._
+- [x] **Mouse** — wheel scrolls the transcript (SGR-1006 `ScrollUp`/`ScrollDown` → `ScrollWheel`), and a left-click activates the permission modal's Accept/Deny buttons (`MouseClick` → `modalButtonHit` → `resolveModal`). _Done. List-row click-through elsewhere still uses keyboard; full retained hit-testing is ROADMAP v0.5._
+- [x] **`Mire.Layout.Focus`** — the base prompt ⟷ transcript Tab ring uses the framework focus ring (`Focus.ofOrder`/`next`/`isFocused`), replacing the bespoke `FocusRegion` DU. _Done. Overlay routing intentionally stays a `Model.Overlay` modal match — overlays are a single-at-a-time stack carrying their own state, so trapping would be redundant (unlike `Mire.Demo.Feed`'s genuine two-pane base ring)._
 
 ## Blocked by the framework ⬜
 
