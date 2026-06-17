@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-06-17
+
+First deliberate release: the core framework — runtime, layout engine, and the
+full base-widget layer — targeting modern Kitty-compatible terminals. The
+agent-domain layer (`Mire.Agent`) is still prototyped only in `Mire.Demo.Agent`
+and lands in 0.5.0.
+
 ### Added
 
 - **OSC 8 hyperlinks (`Style.WithLink`).** `Style` gains a `Link: string option` field; `Style.WithLink url` attaches an OSC 8 target to a run. The `Diff` writer brackets a linked run in OSC 8 open/close (tracking link state across cursor moves and closing any open link at frame end), and `ToAnsi` ignores the link (it's not an SGR attribute). Because `Link` is part of the struct, structural equality splits diff runs at link boundaries automatically. `Widgets.Markdown` now carries each `[text](url)` link's real URL onto the styled link text. Verified end-to-end through a pty: the Agent demo's `markdown` sample emits exactly one `OSC 8 open`/`close` pair around the link.
