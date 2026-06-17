@@ -26,9 +26,13 @@ type ButtonFocus =
     | AcceptBtn
     | DenyBtn
 
-type FocusRegion =
-    | PromptFocus
-    | TranscriptFocus
+/// Focusable base-ring region ids — the prompt ⟷ transcript Tab ring, driven by
+/// the framework's `Mire.Layout.Focus` (like `Mire.Demo.Feed`). Overlays are a
+/// single-at-a-time modal stack carried by `Model.Overlay`, so they route by that
+/// match, not the focus ring.
+module Ids =
+    let prompt = RegionId "prompt"
+    let transcript = RegionId "transcript"
 
 type ModalState = { Spec: ModalSpec; Focus: ButtonFocus }
 type PaletteState = { Query: string; Sel: int }
@@ -94,7 +98,7 @@ type Model =
       Tasks: (string * ToolStatus) list
       Files: string list
       Spinner: int
-      Focus: FocusRegion
+      Focus: Focus
       Completion: (CompletionKind * int) option // active @mention / /slash popup + selected index
       Pastes: (int * string) list // pasted chunks collapsed to chips in the current prompt
       Mcp: McpServer list
@@ -551,14 +555,7 @@ let private updateBase (k: Key2) (m: Model) : Model * Cmd<Msg> =
     | KTab ->
         match m.Completion with
         | Some _ -> acceptCompletion m
-        | None ->
-            { m with
-                Focus =
-                    (if m.Focus = PromptFocus then
-                         TranscriptFocus
-                     else
-                         PromptFocus) },
-            Cmd.none
+        | None -> { m with Focus = Focus.next m.Focus }, Cmd.none
     | KUp ->
         match m.Completion with
         | Some(kind, s) ->
@@ -954,7 +951,7 @@ let private promptBox (m: Model) : LayoutNode<Msg> =
               Theme.selection
               Theme.subtle
               (placeholder m)
-              (m.Focus = PromptFocus)
+              (Focus.isFocused Ids.prompt m.Focus)
               m.Prompt ]
 
 let private hints: LayoutNode<Msg> =
@@ -981,7 +978,7 @@ let private transcriptRegion (m: Model) : LayoutNode<Msg> =
     let w = transcriptWrapWidth m
 
     let border =
-        if m.Focus = TranscriptFocus then
+        if Focus.isFocused Ids.transcript m.Focus then
             Theme.borderFocus
         else
             Theme.borderStyle
@@ -1422,7 +1419,7 @@ let init () : Model * Cmd<Msg> =
       Tasks = [ "build", Running; "tests", Succeeded; "lint", Succeeded ]
       Files = [ "└ src/"; "  App.fs"; "  Theme.fs"; "└ tests/" ]
       Spinner = 0
-      Focus = PromptFocus
+      Focus = Focus.ofOrder [ Ids.prompt; Ids.transcript ]
       Completion = None
       Pastes = []
       Mcp = mcpInitial
