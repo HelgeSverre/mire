@@ -150,16 +150,21 @@ module Blocks =
 
                     (max hw rw) + 2)
 
-            let cellNode (c: int) (v: string) (style: Style) =
-                Stack.sized (Length.Cells widths.[c]) (Text.text (padRight widths.[c] v) style)
+            let cellOf (r: string list) (c: int) = if c < r.Length then r.[c] else ""
 
-            let headerNode =
-                Stack.hstackOf (headers |> List.mapi (fun c h -> cellNode c h Theme.subtle))
+            // One framework `Table` column per header: fixed width, header padded,
+            // each cell toned by its value. The card is static (all rows, no
+            // selection), so topRow = 0 / height = rows.Length / isSelected = false.
+            let columns: Column<string list, 'msg> list =
+                headers
+                |> List.mapi (fun c h ->
+                    { Header = padRight widths.[c] h
+                      Width = Length.Cells widths.[c]
+                      Render = fun r -> Text.text (padRight widths.[c] (cellOf r c)) (cellTone (cellOf r c)) })
 
-            let rowNode (r: string list) =
-                Stack.hstackOf (r |> List.mapi (fun c v -> cellNode c v (cellTone v)))
-
-            card Theme.borderStyle (headerNode :: (rows |> List.map rowNode))
+            card
+                Theme.borderStyle
+                [ Table.view (List.length rows) Theme.subtle Theme.text 0 (fun _ -> false) columns rows ]
         | ErrorBlock s ->
             card
                 Theme.errStyle
