@@ -1037,12 +1037,9 @@ let private skillPanel (ss: SkillState) (m: Model) : LayoutNode<Msg> =
             prevBorder
             [ Scroll.vertical ss.PreviewScroll (Markdown.render Theme.markdown previewW selected.Markdown) ]
 
-    let content =
+    let body =
         Stack.vstackOf
             [ Stack.sized
-                  (Length.Cells 1)
-                  (Text.text (sprintf " Skill explorer · %d skills" (List.length Skills.all)) Theme.subtle)
-              Stack.sized
                   Length.Fill
                   (Stack.hstackOf
                       [ Stack.sized (Length.Cells listW) listNode
@@ -1051,7 +1048,14 @@ let private skillPanel (ss: SkillState) (m: Model) : LayoutNode<Msg> =
                   (Length.Cells 1)
                   (Text.text " Tab switch pane · ↑↓ navigate · Enter insert · Esc close" Theme.subtle) ]
 
-    centered panelW panelH m.Size (opaque Theme.borderStyle content)
+    Mire.Widgets.Modal.modal
+        Style.Default
+        Theme.borderStyle
+        Theme.subtle
+        panelW
+        panelH
+        (sprintf "Skill explorer · %d skills" (List.length Skills.all))
+        body
 
 let private modalPanel (ms: ModalState) (m: Model) : LayoutNode<Msg> =
     let spec = ms.Spec
@@ -1081,17 +1085,23 @@ let private modalPanel (ms: ModalState) (m: Model) : LayoutNode<Msg> =
         | Some r -> [ Text.text (sprintf " risk: %s" r) Theme.warnStyle ]
         | None -> []
 
-    let rows =
-        [ Text.text (" " + spec.Title) Theme.warnStyle
-          Text.text "" Theme.text
-          Text.text (" " + spec.Intro) Theme.muted ]
+    let bodyRows =
+        [ Text.text "" Theme.text; Text.text (" " + spec.Intro) Theme.muted ]
         @ cmdLines
         @ riskLines
         @ [ Text.text "" Theme.text
             buttons
             Text.text " ←/→ or Tab move · Enter confirm · Esc deny" Theme.subtle ]
 
-    centered 52 (List.length rows + 2) m.Size (opaque Theme.borderStyle (Stack.vstack rows))
+    // height = title (1) + body rows + box border (2)
+    Mire.Widgets.Modal.modal
+        Style.Default
+        Theme.borderStyle
+        Theme.warnStyle
+        52
+        (List.length bodyRows + 3)
+        spec.Title
+        (Stack.vstack bodyRows)
 
 let private renderToast (t: Toast) : LayoutNode<Msg> =
     opaque
@@ -1202,15 +1212,21 @@ let private mcpPanel (ms: McpState) (m: Model) : LayoutNode<Msg> =
                      else
                          rowContent))
 
-        let content =
+        let body =
             Stack.vstackOf (
-                [ Stack.sized (Length.Cells 1) (Text.text " MCP servers" Theme.title)
-                  Stack.sized (Length.Cells 1) header ]
+                [ Stack.sized (Length.Cells 1) header ]
                 @ rows
                 @ [ Stack.sized (Length.Cells 1) (Text.text " ↑↓ select · Enter manage · Esc close" Theme.subtle) ]
             )
 
-        centered 60 (List.length m.Mcp + 5) m.Size (opaque Theme.borderStyle content)
+        Mire.Widgets.Modal.modal
+            Style.Default
+            Theme.borderStyle
+            Theme.title
+            60
+            (List.length m.Mcp + 5)
+            "MCP servers"
+            body
     | McpActions ->
         let server = List.tryItem ms.ServerSel m.Mcp
 
@@ -1228,17 +1244,16 @@ let private mcpPanel (ms: McpState) (m: Model) : LayoutNode<Msg> =
             mcpActions
             |> List.mapi (fun i a -> ListView.row Theme.selection Theme.text (i = ms.ActionSel) (sprintf "  %s" a))
 
-        let content =
+        let body =
             Stack.vstack (
-                [ Text.text (sprintf " %s" name) Theme.title
-                  Text.text (sprintf " status: %s" status) (statusStyle status)
+                [ Text.text (sprintf " status: %s" status) (statusStyle status)
                   Text.text "" Theme.text ]
                 @ actionRows
                 @ [ Text.text "" Theme.text
                     Text.text " ↑↓ select · Enter · Esc back" Theme.subtle ]
             )
 
-        centered 44 (List.length mcpActions + 7) m.Size (opaque Theme.borderStyle content)
+        Mire.Widgets.Modal.modal Style.Default Theme.borderStyle Theme.title 44 (List.length mcpActions + 7) name body
     | McpTools ->
         let server = List.tryItem ms.ServerSel m.Mcp
 
@@ -1255,13 +1270,19 @@ let private mcpPanel (ms: McpState) (m: Model) : LayoutNode<Msg> =
         let toolNodes =
             tools |> List.map (fun t -> Text.text (sprintf " • %s" t) Theme.text)
 
-        let content =
+        let body =
             Stack.vstackOf
-                [ Stack.sized (Length.Cells 1) (Text.text (sprintf " %s · tools" name) Theme.title)
-                  Stack.sized Length.Fill (Scroll.vertical ms.ToolScroll (Stack.vstack toolNodes))
+                [ Stack.sized Length.Fill (Scroll.vertical ms.ToolScroll (Stack.vstack toolNodes))
                   Stack.sized (Length.Cells 1) (Text.text " ↑↓ scroll · Esc back" Theme.subtle) ]
 
-        centered 44 (min 14 (List.length tools + 4)) m.Size (opaque Theme.borderStyle content)
+        Mire.Widgets.Modal.modal
+            Style.Default
+            Theme.borderStyle
+            Theme.title
+            44
+            (min 14 (List.length tools + 4))
+            (sprintf "%s · tools" name)
+            body
 
 let view (m: Model) : LayoutNode<Msg> =
     let baseTree =
