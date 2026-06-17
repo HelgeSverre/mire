@@ -50,7 +50,15 @@ type Surface(size: Size) =
                             { cell with
                                 Grapheme = cell.Grapheme + string c }
             elif cx >= 0 && cx < safeSize.Width && y >= 0 && y < safeSize.Height then
-                cells.[y * safeSize.Width + cx] <- Cell.FromChar(c, style)
+                cells.[y * safeSize.Width + cx] <-
+                    { Cell.FromChar(c, style) with
+                        Width = w }
+                // A wide glyph owns its trailing column too — write a continuation
+                // placeholder so the diff repaints it when narrower content later
+                // replaces the glyph (otherwise its right half ghosts).
+                if w = 2 && cx + 1 < safeSize.Width then
+                    cells.[y * safeSize.Width + cx + 1] <- Cell.Continuation style
+
                 cx <- cx + w
 
     member _.WriteClipped(rect: Rect, text: string, style: Style) =
@@ -89,7 +97,13 @@ type Surface(size: Size) =
                     && cx < safeSize.Width
                     && cy < safeSize.Height
                 then
-                    cells.[cy * safeSize.Width + cx] <- Cell.FromChar(c, style)
+                    cells.[cy * safeSize.Width + cx] <-
+                        { Cell.FromChar(c, style) with
+                            Width = w }
+
+                    if w = 2 && cx + 1 <= rect.Right && cx + 1 < safeSize.Width then
+                        cells.[cy * safeSize.Width + cx + 1] <- Cell.Continuation style
+
                     cx <- cx + w
 
     member _.DrawBox(rect: Rect, style: Style) =

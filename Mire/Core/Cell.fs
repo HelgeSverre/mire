@@ -21,6 +21,17 @@ type Cell =
           Width = s.Length
           Style = style }
 
+    /// The trailing half of a wide (width-2) glyph: an empty-grapheme placeholder
+    /// the renderer skips (the wide glyph already covers this column). It is
+    /// deliberately distinct from `Empty` so the diff repaints this column when a
+    /// later frame replaces the wide glyph with narrower content (clearing the
+    /// glyph's stale right half). Carries the glyph's style so it groups into the
+    /// same diff run.
+    static member Continuation(style: Style) =
+        { Grapheme = ""
+          Width = 0
+          Style = style }
+
     member this.IsEmpty =
         this.Grapheme = " " && this.Width = 1 && this.Style = Style.Default
 

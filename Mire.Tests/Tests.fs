@@ -362,6 +362,41 @@ let diffTests =
               Expect.isTrue
                   (Diff.compute None next |> List.exists (fun r -> r.Y = 1 && r.Text = "B"))
                   "full repaint emits a run for the newly-exposed row"
+          }
+          // Wide-glyph trailing cell. A wide glyph occupies two columns; the
+          // second is a *continuation* cell (empty grapheme, width 0) distinct
+          // from a blank — so when a later frame replaces the wide glyph with
+          // narrow content, the diff sees the continuation→blank change and
+          // repaints the second column, clearing the wide glyph's right half.
+          test "Surface.Write: a wide glyph sets width 2 and a continuation follows" {
+              let s = Surface(Size.Create(4, 1))
+              s.Write(0, 0, "世", Style.Default)
+              Expect.equal s.[0, 0].Width 2 "the wide glyph cell records display width 2"
+              Expect.equal s.[0, 0].Grapheme "世" "the glyph lands at its column"
+              Expect.equal s.[1, 0].Grapheme "" "the trailing column is a continuation (empty grapheme)"
+              Expect.isFalse s.[1, 0].IsEmpty "the continuation is distinct from a blank cell"
+          }
+          test "narrow content over a previous wide glyph clears the trailing ghost" {
+              let prev = Surface(Size.Create(4, 1))
+              prev.Write(0, 0, "世", Style.Default) // frame 1: wide glyph spans cols 0-1
+              let next = Surface(Size.Create(4, 1)) // frame 2: a fresh surface (the runtime rebuilds each frame)
+              next.Write(0, 0, "a", Style.Default) // narrow glyph at col 0 only
+
+              let text =
+                  Diff.compute (Some prev) next
+                  |> List.filter (fun r -> r.Y = 0)
+                  |> List.sortBy (fun r -> r.X)
+                  |> List.map (fun r -> r.Text)
+                  |> String.concat ""
+
+              Expect.stringContains text "a " "col 0 repaints 'a' and col 1 repaints a blank, clearing the ghost"
+          }
+          test "full render of a wide glyph emits one run (continuation absorbed, no stray)" {
+              let s = Surface(Size.Create(4, 1))
+              s.Write(0, 0, "世", Style.Default)
+              let runs = Diff.compute None s
+              Expect.equal (List.length runs) 1 "the wide glyph + its continuation form a single run"
+              Expect.equal (List.head runs).Text "世" "the run carries just the glyph (continuation appends nothing)"
           } ]
 
 // Layout -------------------------------------------------------------------
