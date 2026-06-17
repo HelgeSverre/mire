@@ -131,6 +131,7 @@ type Msg =
     | SpinnerTick
     | Resized of Size
     | ScrollWheel of int // mouse-wheel scroll of the transcript (+down / -up)
+    | MouseClick of int * int // left-click screen coords (for modal buttons)
     | Ignore
 
 // fake MCP servers for the /mcp manager
@@ -477,6 +478,36 @@ let private resolveModal (which: ButtonFocus) (ms: ModalState) (m: Model) : Mode
             addToast Theme.Success "✓ accepted" body m0, Cmd.none
     | DenyBtn -> addToast Theme.Info "denied" "no action taken" m0, Cmd.none
 
+/// Hit-test a click against the permission modal's Accept/Deny buttons. Mirrors
+/// `modalPanel`'s geometry (width 52, top border + title row, then the body
+/// `[blank; intro] @ cmd @ risk @ [blank; buttons; hint]`), so a click on a
+/// button's exact span activates it. `None` for clicks elsewhere. (No retained
+/// hit-testing in the framework yet — that's ROADMAP v0.5; this mirrors by hand.)
+let private modalButtonHit (spec: ModalSpec) (m: Model) (x: int) (y: int) : ButtonFocus option =
+    let cmdLen = if spec.Command = "" then 0 else 1
+
+    let riskLen =
+        match spec.Risk with
+        | Some _ -> 1
+        | None -> 0
+
+    let h = (5 + cmdLen + riskLen) + 3 // body rows + title + 2 border
+    let left = max 0 ((m.Size.Width - 52) / 2)
+    let top = max 0 ((m.Size.Height - h) / 2)
+    let rowY = top + 2 + (3 + cmdLen + riskLen) // +top border +title, then buttons' body index
+
+    if y <> rowY then
+        None
+    else
+        let aw = Grapheme.stringWidth (sprintf " [ %s ] " spec.AcceptLabel)
+        let dw = Grapheme.stringWidth (sprintf " ‹ %s › " spec.DenyLabel)
+        let ax0 = left + 1 // body starts one col in (box border)
+        let dx0 = ax0 + aw + 3 // 3-cell gap between the buttons
+
+        if x >= ax0 && x < ax0 + aw then Some AcceptBtn
+        elif x >= dx0 && x < dx0 + dw then Some DenyBtn
+        else None
+
 let private scrollBy (d: int) (m: Model) : Model * Cmd<Msg> =
     { m with
         Offset = clamp 0 (maxScroll m) (m.Offset + d) },
@@ -811,6 +842,14 @@ let update (msg: Msg) (m: Model) : Model * Cmd<Msg> =
     | ScrollWheel d ->
         match m.Overlay with
         | NoOverlay -> scrollBy d m
+        | _ -> m, Cmd.none
+    // Click the permission modal's Accept/Deny buttons (keyboard still works).
+    | MouseClick(x, y) ->
+        match m.Overlay with
+        | ModalOverlay ms ->
+            match modalButtonHit ms.Spec m x y with
+            | Some btn -> resolveModal btn ms m
+            | None -> m, Cmd.none
         | _ -> m, Cmd.none
     | RunCommand c -> runCommand c m
     | StreamChunk ->
@@ -1344,10 +1383,13 @@ let mapInput (e: InputEvent) : Msg option =
     | Paste _ -> Some(KeyMsg(KEdit e))
     | Resize sz -> Some(Resized sz)
     | Mouse me ->
-        match me.Button with
-        | ScrollUp -> Some(ScrollWheel -3)
-        | ScrollDown -> Some(ScrollWheel 3)
-        | _ -> None
+        if me.Pressed && me.Button = MouseButton.Left then
+            Some(MouseClick(me.X, me.Y))
+        else
+            match me.Button with
+            | ScrollUp -> Some(ScrollWheel -3)
+            | ScrollDown -> Some(ScrollWheel 3)
+            | _ -> None
     | _ -> None
 
 let subscriptions (m: Model) : Sub<Msg> list =
