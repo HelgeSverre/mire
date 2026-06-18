@@ -225,6 +225,22 @@ let inputTests =
                   (Some FocusLost)
                   "ESC[O → FocusLost"
           }
+          test "theme report: dark / light (DEC mode 2031)" {
+              Expect.equal
+                  (InputParser.parseBytes (System.Text.Encoding.ASCII.GetBytes "\x1b[?997;1n"))
+                  (Some(ThemeChanged Dark))
+                  "ESC[?997;1n → ThemeChanged Dark"
+
+              Expect.equal
+                  (InputParser.parseBytes (System.Text.Encoding.ASCII.GetBytes "\x1b[?997;2n"))
+                  (Some(ThemeChanged Light))
+                  "ESC[?997;2n → ThemeChanged Light"
+
+              // an unrelated DSR `?` report must not be mistaken for a theme report
+              Expect.isNone
+                  (InputParser.parseBytes (System.Text.Encoding.ASCII.GetBytes "\x1b[?1;0n"))
+                  "ESC[?1;0n is not a theme report"
+          }
           // Kitty event types (CSI u `mod:event` subparam) — enabled by `CSI > 3 u`.
           test "Kitty CSI u: release event (ESC[97;5:3u)" {
               let k =

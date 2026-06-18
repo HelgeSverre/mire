@@ -310,6 +310,25 @@ module InputParser =
         else
             None
 
+    /// Color-scheme report (DEC mode 2031 / DSR 996): `ESC [ ? 997 ; 1 n` = dark,
+    /// `ESC [ ? 997 ; 2 n` = light.
+    let private parseThemeReport (bytes: byte[]) : InputEvent option =
+        if
+            bytes.Length >= 5
+            && bytes.[1] = 0x5Buy
+            && bytes.[2] = 0x3Fuy
+            && bytes.[bytes.Length - 1] = 0x6Euy
+        then
+            // body is between the '?' and the trailing 'n'
+            let body = Encoding.ASCII.GetString(bytes, 3, bytes.Length - 4)
+
+            match body.Split(';') with
+            | [| "997"; "1" |] -> Some(ThemeChanged Dark)
+            | [| "997"; "2" |] -> Some(ThemeChanged Light)
+            | _ -> None
+        else
+            None
+
     /// Decode the non-Key CSI sequences; `None` falls through to the Key decoder.
     let private parseSpecial (bytes: byte[]) : InputEvent option =
         if bytes.Length >= 3 && bytes.[1] = 0x5Buy then
@@ -318,7 +337,10 @@ module InputParser =
             | None ->
                 match parseMouseSgr bytes with
                 | Some ev -> Some ev
-                | None -> parseFocus bytes
+                | None ->
+                    match parseFocus bytes with
+                    | Some ev -> Some ev
+                    | None -> parseThemeReport bytes
         else
             None
 

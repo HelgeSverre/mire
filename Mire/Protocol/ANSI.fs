@@ -37,6 +37,14 @@ module ANSI =
     let enableFocusEvents = CSI + "?1004h"
     let disableFocusEvents = CSI + "?1004l"
 
+    // Light/dark theme change notifications (DEC private mode 2031 — Contour/Kitty/
+    // Ghostty). While enabled, the terminal reports color-scheme changes in-band as
+    // `CSI ? 997 ; 1 n` (dark) / `CSI ? 997 ; 2 n` (light). `queryColorScheme` (DSR
+    // 996) asks for the current scheme once, answered with the same report form.
+    let enableThemeNotifications = CSI + "?2031h"
+    let disableThemeNotifications = CSI + "?2031l"
+    let queryColorScheme = CSI + "?996n"
+
     // Synchronized output (iTerm2/Ghostty/Kitty)
     let beginSync = ESC + "[?2026h"
     let endSync = ESC + "[?2026l"

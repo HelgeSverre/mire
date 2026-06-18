@@ -73,6 +73,11 @@ type Program<'model, 'msg> =
         /// common case (one message per keystroke) unchanged. Opt in for apps that
         /// track key-down/up (games, chords). `Repeat` events always pass through.
         KeyReleases: bool
+        /// Ask the terminal to report light/dark color-scheme changes (DEC mode
+        /// 2031). Default `false`. When on, the runtime enables the mode and queries
+        /// the current scheme at startup, and `ThemeChanged` events flow through
+        /// `MapInput` like any other input — let an app retheme on the fly.
+        ThemeNotifications: bool
     }
 
 module Program =
@@ -92,7 +97,8 @@ module Program =
                 match e with
                 | Key ke -> ke.Key = Key.Char "c" && ke.Modifiers.Ctrl
                 | _ -> false
-          KeyReleases = false }
+          KeyReleases = false
+          ThemeNotifications = false }
 
     let withMapInput (f: InputEvent -> 'msg option) (program: Program<'model, 'msg>) = { program with MapInput = f }
 
@@ -111,6 +117,13 @@ module Program =
     /// releases are dropped so each keystroke is one message). `Repeat` always
     /// passes through regardless.
     let withKeyReleases (enabled: bool) (program: Program<'model, 'msg>) = { program with KeyReleases = enabled }
+
+    /// Opt in to light/dark theme-change notifications (DEC mode 2031). When on, the
+    /// runtime enables the mode and queries the current scheme at startup; the app
+    /// receives `ThemeChanged Dark`/`ThemeChanged Light` through `MapInput`.
+    let withThemeNotifications (enabled: bool) (program: Program<'model, 'msg>) =
+        { program with
+            ThemeNotifications = enabled }
 
 type RuntimeState<'model, 'msg> =
     { Model: 'model
@@ -136,6 +149,11 @@ module Runtime =
         Console.Out.Write(ANSI.enableFocusEvents)
         Console.Out.Write(ANSI.enableBracketedPaste)
         Console.Out.Write(ANSI.enableKittyKeyboard)
+
+        if program.ThemeNotifications then
+            Console.Out.Write(ANSI.enableThemeNotifications)
+            Console.Out.Write(ANSI.queryColorScheme)
+
         Console.Out.Flush()
 
         let initialModel, initialCmd = program.Init()
@@ -342,6 +360,9 @@ module Runtime =
 
         finally
             // Cleanup
+            if program.ThemeNotifications then
+                Console.Out.Write(ANSI.disableThemeNotifications)
+
             Console.Out.Write(ANSI.disableKittyKeyboard)
             Console.Out.Write(ANSI.disableBracketedPaste)
             Console.Out.Write(ANSI.disableFocusEvents)

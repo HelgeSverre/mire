@@ -61,6 +61,11 @@ type MouseEvent =
       Modifiers: KeyModifiers
       Pressed: bool }
 
+/// The terminal's reported light/dark color scheme (DEC mode 2031 / DSR 996).
+type ColorScheme =
+    | Dark
+    | Light
+
 type InputEvent =
     | Key of KeyEvent
     | Mouse of MouseEvent
@@ -68,4 +73,7 @@ type InputEvent =
     | Resize of Size
     | FocusGained
     | FocusLost
+    /// The terminal's color scheme changed (or was first reported). Requires
+    /// theme notifications to be enabled — `Program.withThemeNotifications`.
+    | ThemeChanged of ColorScheme
     | Tick of System.TimeSpan

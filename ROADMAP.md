@@ -56,7 +56,7 @@ notifications). **Gate to tag:**
 ### 0.6.0 — Polish & reach
 
 - [ ] Widget gallery app (revives the deleted KitchenSink's coverage — every widget × its states)
-- [ ] `ImagePreview` (Kitty graphics) + light/dark theme notifications (rest of SPEC phase v0.5)
+- [ ] `ImagePreview` (Kitty graphics) — the last unbuilt widget (light/dark theme notifications now done)
 - [ ] True grapheme clusters — astral-plane / emoji-ZWJ (the second Correctness item)
 - [ ] Performance tiers _as they hurt_ — frame coalescing for streaming first (the one an agent UI feels)
 - [ ] Runtime-owned / mouse-hit-testing half of focus — retires the demo's hand-mirrored modal hit-test
@@ -180,7 +180,7 @@ Recommended order — each step names its extraction source in the demo:
 - [x] OSC 8 hyperlinks — `Style.Link` (`WithLink url`); the `Diff` writer brackets a linked run in OSC 8 open/close and `Markdown` link spans carry their URL
 - [x] OSC 52 clipboard — `Cmd.setClipboard text`, written to the terminal by the runtime (same hook shape as `Cmd.quit`)
 - [ ] Kitty graphics protocol → `ImagePreview` with text fallback
-- [ ] Light/dark theme notifications
+- [x] Light/dark theme notifications — DEC mode 2031: `Program.withThemeNotifications` enables the mode + queries the scheme at startup; `InputParser` decodes `CSI ? 997 ; 1|2 n` into `ThemeChanged Dark`/`Light`, delivered through `MapInput`
 - [ ] Richer mouse (hit-testing → focus/selection) — the runtime-owned half of focus: `Focusable` node + retained region table (the `Region`/`RenderMode` scaffolding in `Core/Region.fs` is the forward declaration)
 
 ### Cross-cutting — Performance & rendering ⬜
