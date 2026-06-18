@@ -136,7 +136,7 @@ type Msg =
     | SpinnerTick
     | Resized of Size
     | ScrollWheel of int // mouse-wheel scroll of the transcript (+down / -up)
-    | MouseClick of int * int // left-click screen coords (for modal buttons)
+    | ModalButton of bool // a click on the approval modal's Accept(true)/Deny(false) region
     | Ignore
 
 // fake MCP servers for the /mcp manager
@@ -456,11 +456,6 @@ let private resolveModal (which: ButtonFocus) (ms: ModalState) (m: Model) : Mode
             addToast Theme.Success "✓ accepted" body m0, Cmd.none
     | DenyBtn -> addToast Theme.Info "denied" "no action taken" m0, Cmd.none
 
-/// Hit-test a click against the permission modal's Accept/Deny buttons. Mirrors
-/// `modalPanel`'s geometry (width 52, top border + title row, then the body
-/// `[blank; intro] @ cmd @ risk @ [blank; buttons; hint]`), so a click on a
-/// button's exact span activates it. `None` for clicks elsewhere. (No retained
-/// hit-testing in the framework yet — that's ROADMAP v0.5; this mirrors by hand.)
 let private scrollBy (d: int) (m: Model) : Model * Cmd<Msg> =
     { m with
         Offset = clamp 0 (maxScroll m) (m.Offset + d) },
@@ -788,16 +783,12 @@ let update (msg: Msg) (m: Model) : Model * Cmd<Msg> =
         match m.Overlay with
         | NoOverlay -> scrollBy d m
         | _ -> m, Cmd.none
-    // Click the permission modal's Accept/Deny buttons (keyboard still works).
-    | MouseClick(x, y) ->
+    // Click the permission modal's Accept/Deny buttons (keyboard still works). The
+    // runtime hit-tests the buttons' Focusable regions and sends ModalButton — no
+    // hand-mirrored geometry (see withMouseRegion below).
+    | ModalButton accept ->
         match m.Overlay with
-        | ModalOverlay ms ->
-            let s = ms.Spec
-
-            match ApprovalModal.buttonHit s.Command s.Risk s.AcceptLabel s.DenyLabel m.Size.Width m.Size.Height x y with
-            | Some true -> resolveModal AcceptBtn ms m
-            | Some false -> resolveModal DenyBtn ms m
-            | None -> m, Cmd.none
+        | ModalOverlay ms -> resolveModal (if accept then AcceptBtn else DenyBtn) ms m
         | _ -> m, Cmd.none
     | RunCommand c -> runCommand c m
     | StreamChunk ->
@@ -1290,14 +1281,26 @@ let mapInput (e: InputEvent) : Msg option =
     | Paste _ -> Some(KeyMsg(KEdit e))
     | Resize sz -> Some(Resized sz)
     | Mouse me ->
-        if me.Pressed && me.Button = MouseButton.Left then
-            Some(MouseClick(me.X, me.Y))
-        else
-            match me.Button with
-            | ScrollUp -> Some(ScrollWheel -3)
-            | ScrollDown -> Some(ScrollWheel 3)
-            | _ -> None
+        // Left-clicks on modal buttons are routed by `onMouseRegion` (the retained
+        // region table); here we only need the wheel.
+        match me.Button with
+        | ScrollUp -> Some(ScrollWheel -3)
+        | ScrollDown -> Some(ScrollWheel 3)
+        | _ -> None
     | _ -> None
+
+/// Route a click hitting the approval modal's button regions to `ModalButton` —
+/// the runtime hit-tests the painted rects, so no geometry is mirrored here.
+let onMouseRegion (region: RegionId option) (me: MouseEvent) : Msg option =
+    if me.Pressed && me.Button = MouseButton.Left then
+        if region = Some ApprovalModal.acceptRegion then
+            Some(ModalButton true)
+        elif region = Some ApprovalModal.denyRegion then
+            Some(ModalButton false)
+        else
+            None
+    else
+        None
 
 let subscriptions (m: Model) : Sub<Msg> list =
     [ yield Sub.TerminalResize Resized
@@ -1515,6 +1518,7 @@ let main argv =
     else
         Program.mkProgram init update view
         |> Program.withMapInput mapInput
+        |> Program.withMouseRegion onMouseRegion
         |> Program.withSubscriptions subscriptions
         |> Runtime.run
 

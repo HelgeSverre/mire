@@ -10,8 +10,15 @@ open Mire.Widgets
 /// accept/deny actually do.
 module ApprovalModal =
 
+    /// Region ids tagging the Accept / Deny buttons, so an app can route clicks via
+    /// the runtime's retained region table (`Program.withMouseRegion` + `Layout.regionAt`)
+    /// instead of mirroring the geometry with `buttonHit`.
+    let acceptRegion = RegionId "approval.accept"
+    let denyRegion = RegionId "approval.deny"
+
     /// Render the approval modal (52 cells wide, auto-height). `acceptFocused`
-    /// highlights the Accept button (else Deny). Pair with `buttonHit` for clicks.
+    /// highlights the Accept button (else Deny). Clicks: tag-route via
+    /// `acceptRegion`/`denyRegion` (preferred) or hand-test with `buttonHit`.
     let view
         (theme: AppTheme)
         (title: string)
@@ -27,9 +34,13 @@ module ApprovalModal =
 
         let buttons =
             Stack.hstackOf
-                [ Stack.sized Length.Content (Text.text (sprintf " [ %s ] " acceptLabel) acceptStyle)
+                [ Stack.sized
+                      Length.Content
+                      (Focusable.region acceptRegion (Text.text (sprintf " [ %s ] " acceptLabel) acceptStyle))
                   Stack.sized (Length.Cells 3) (Text.text "   " theme.fg)
-                  Stack.sized Length.Content (Text.text (sprintf " ‹ %s › " denyLabel) denyStyle) ]
+                  Stack.sized
+                      Length.Content
+                      (Focusable.region denyRegion (Text.text (sprintf " ‹ %s › " denyLabel) denyStyle)) ]
 
         let cmdLines =
             if command = "" then
