@@ -73,22 +73,6 @@ module Theme =
 
     let selAccent = Style.Default.WithForeground(accentFg).WithBackground(accent)
 
-    /// Functional tone for toasts / notices / table cells.
-    type Tone =
-        | Success
-        | Warning
-        | Danger
-        | Info
-        | Neutral
-
-    let toneStyle (t: Tone) : Style =
-        match t with
-        | Success -> okStyle
-        | Warning -> warnStyle
-        | Danger -> errStyle
-        | Info -> infoStyle
-        | Neutral -> muted
-
     /// On-brand style set for the framework's `Markdown` widget (the agent flavor —
     /// `@mentions` enabled).
     let markdown: MarkdownStyle =
@@ -105,3 +89,40 @@ module Theme =
           CodeString = codeStr
           CodeComment = codeCom
           CodeNumber = codeNum }
+
+    /// The demo's styles assembled as a framework `AppTheme`, so the extracted
+    /// `Mire.Agent` widgets (and any other framework widget) render with the demo's
+    /// exact look. Fields the transcript doesn't read still get sensible values.
+    let app: AppTheme =
+        { fg = text
+          fgMuted = muted
+          fgSubtle = subtle
+          title = title
+          bg = Style.Default.WithBackground(ofPalette Palette.Semantic.Dark.bg)
+          bgElevated = Style.Default.WithBackground(bgElevated)
+          border = borderStyle
+          borderFocus = borderFocus
+          divider = borderStyle
+          accent = accentStyle
+          accentFg = Style.Default.WithForeground(accentFg)
+          accentStrong = selAccent
+          success = okStyle
+          warning = warnStyle
+          danger = errStyle
+          info = infoStyle
+          selection = selection
+          selectionAccent = selAccent
+          key = accentStyle
+          markdown = markdown }
+
+    /// Functional tone for toasts / notices / table cells — the framework's
+    /// `AppTheme.Tone`, re-exported so existing `Theme.Success`/`Theme.toneStyle`
+    /// call sites keep working *and* interop with `Mire.Agent` blocks (which take
+    /// `AppTheme.Tone`).
+    type Tone = AppTheme.Tone
+    let Success = AppTheme.Success
+    let Warning = AppTheme.Warning
+    let Danger = AppTheme.Danger
+    let Info = AppTheme.Info
+    let Neutral = AppTheme.Neutral
+    let toneStyle (t: Tone) : Style = AppTheme.toneStyle app t

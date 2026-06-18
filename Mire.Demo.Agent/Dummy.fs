@@ -1,5 +1,7 @@
 namespace Mire.Demo.Agent
 
+open Mire.Agent
+
 /// The "Dummy": maps a submitted prompt string to a canned response. No LLM. This is
 /// the single source of truth for the demo's command vocabulary — `commands` is reused
 /// by the `help` block and the command palette.
@@ -37,7 +39,7 @@ module Dummy =
           FinalOut: string }
 
     type Response =
-        | AppendBlocks of Block list
+        | AppendBlocks of TranscriptBlock list
         | StreamMarkdown of string
         | RunningTool of ToolRun
         | SpawnToast of Theme.Tone * string * string

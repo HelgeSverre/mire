@@ -9,6 +9,7 @@ open Mire.Renderer
 open Mire.Layout
 open Mire.App
 open Mire.Widgets
+open Mire.Agent
 open Mire.Demo.Agent
 open Mire.Demo.Agent.Dummy
 
@@ -87,7 +88,7 @@ type Streaming =
 
 type Model =
     { Size: Size
-      Transcript: Block list
+      Transcript: TranscriptBlock list
       Prompt: PromptInput
       Offset: int
       Mode: Mode
@@ -197,7 +198,8 @@ let private contentHeight (m: Model) =
     let w = transcriptWrapWidth m
 
     m.Transcript
-    |> List.sumBy (fun b -> Layout.contentExtent Direction.Vertical (Blocks.renderBlock w m.Spinner b))
+    |> List.sumBy (fun b ->
+        Layout.contentExtent Direction.Vertical (ChatTranscript.renderBlock Theme.app w m.Spinner b))
 
 let private maxScroll (m: Model) =
     max 0 (contentHeight m - viewportRows m)
@@ -961,7 +963,9 @@ let private sidebar (m: Model) : LayoutNode<Msg> =
     let taskRows =
         m.Tasks
         |> List.map (fun (n, s) ->
-            Text.text (sprintf " %s %s" (Blocks.statusGlyph m.Spinner s) n) (Blocks.statusStyle s))
+            Text.text
+                (sprintf " %s %s" (ChatTranscript.statusGlyph m.Spinner s) n)
+                (ChatTranscript.statusStyle Theme.app s))
 
     let fileRows = m.Files |> List.map (fun f -> Text.text (" " + f) Theme.subtle)
 
@@ -985,7 +989,7 @@ let private transcriptRegion (m: Model) : LayoutNode<Msg> =
 
     let rows =
         m.Transcript
-        |> List.map (fun b -> Stack.sized Length.Content (Blocks.renderBlock w m.Spinner b))
+        |> List.map (fun b -> Stack.sized Length.Content (ChatTranscript.renderBlock Theme.app w m.Spinner b))
 
     // ScrollView adds the track/thumb scrollbar over the bare Scroll node; the
     // viewport/content heights are the same ones maxScroll uses to clamp Offset.
@@ -1474,13 +1478,22 @@ let runDump () =
         "C. Tool calls (ok / error)"
         (Size.Create(56, 12))
         (Stack.vstack
-            [ Blocks.renderBlock 52 0 (ToolCall("shell", "dotnet build", Succeeded, "1.2s", "Build succeeded."))
-              Blocks.renderBlock 52 0 (ToolCall("shell", "npm test", Failed, "exit 1", "2 failed, 5 passed")) ])
+            [ ChatTranscript.renderBlock
+                  Theme.app
+                  52
+                  0
+                  (ToolCall("shell", "dotnet build", Succeeded, "1.2s", "Build succeeded."))
+              ChatTranscript.renderBlock
+                  Theme.app
+                  52
+                  0
+                  (ToolCall("shell", "npm test", Failed, "exit 1", "2 failed, 5 passed")) ])
 
     dumpNode
         "D. Diff card"
         (Size.Create(64, 7))
-        (Blocks.renderBlock
+        (ChatTranscript.renderBlock
+            Theme.app
             60
             0
             (DiffBlock(
@@ -1493,7 +1506,8 @@ let runDump () =
     dumpNode
         "E. Table card"
         (Size.Create(50, 8))
-        (Blocks.renderBlock
+        (ChatTranscript.renderBlock
+            Theme.app
             46
             0
             (TableBlock(
