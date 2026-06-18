@@ -5,5 +5,6 @@
   <Project Path="Mire.Demo.Feed/Mire.Demo.Feed.fsproj" />
   <Project Path="Mire.Demo.Spreadsheet/Mire.Demo.Spreadsheet.fsproj" />
   <Project Path="samples/AgentShell/AgentShell.fsproj" />
+  <Project Path="samples/Gallery/Gallery.fsproj" />
   <Project Path="Mire.Tests/Mire.Tests.fsproj" />
 </Solution>

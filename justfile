@@ -28,6 +28,10 @@ sheet *ARGS:
 shell *ARGS:
     dotnet run --project samples/AgentShell -- {{ARGS}}
 
+# Run the widget gallery — every base widget in its states (Tab/←→ to switch pages).
+gallery *ARGS:
+    dotnet run --project samples/Gallery -- {{ARGS}}
+
 # Headless layout dump (no raw mode) — eyeball layout changes.
 dump:
     dotnet run --project Mire.Demo.Agent -- --dump

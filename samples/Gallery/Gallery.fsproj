@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The widget gallery — a pure-framework showcase exercising every Mire widget in
+    its key states, on the default brand theme. References only Mire (no agent
+    layer). Tab / ←→ switch pages; the dump flag renders every page headlessly.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../Mire/Mire.fsproj" />
+  </ItemGroup>
+
+</Project>

@@ -60,10 +60,12 @@ dotnet run --project Mire.Demo.Agent        # an agent-shell testbed (not wired 
 dotnet run --project Mire.Demo.Feed         # a multi-feed RSS reader
 dotnet run --project Mire.Demo.Spreadsheet  # an A1 grid + formula engine
 dotnet run --project samples/AgentShell     # the Mire.Agent MVP — a minimal agent shell
+dotnet run --project samples/Gallery        # the widget gallery — every widget in its states
 
 # Verify layout headlessly — prints sample layouts as text, no raw mode
 dotnet run --project Mire.Demo.Agent -- --dump
 dotnet run --project Mire.Demo.Feed -- --dump
+dotnet run --project samples/Gallery -- --dump
 
 # Run the test suite (Expecto)
 dotnet run --project Mire.Tests

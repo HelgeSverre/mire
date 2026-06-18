@@ -55,12 +55,12 @@ notifications). **Gate to tag:**
 
 ### 0.6.0 — Polish & reach
 
-- [ ] Widget gallery app (revives the deleted KitchenSink's coverage — every widget × its states)
+- [x] Widget gallery app (`samples/Gallery`) — a pure-framework showcase of every base widget across 7 tabbed pages (Text, Boxes, Inputs, Lists, Controls, Overlays, Media), on the default theme; `just gallery` / `--dump`
 - [x] `ImagePreview` (Kitty graphics + text fallback) and light/dark theme notifications — done; every widget in the reference table is now built
 - [x] True grapheme clusters — astral-plane / emoji-ZWJ (the second Correctness item)
 - [ ] Performance tiers _as they hurt_ — frame coalescing for streaming first (the one an agent UI feels)
 - [x] Runtime-owned / mouse-hit-testing half of focus — `Focusable` node + retained region table + `Program.withMouseRegion` (demo migration of its modal hit-test still pending)
-- [ ] Widget gallery app — every widget in all its states
+- [x] Widget gallery app (`samples/Gallery`) — every base widget in its states across 7 tabbed pages
 
 ### 1.0.0 — later (not a near-term goal)
 
@@ -171,8 +171,8 @@ Recommended order — each step names its extraction source in the demo:
 - [x] **6. `DiffView`** — `Mire.Agent.DiffView` renders a `DiffHunk` list in unified **or** split mode with per-hunk accept/reject markers + selection (app-owned, MVU); the `agentShell` sample drives it interactively. (Unified also ships as a `ChatTranscript` block.)
 - [x] **7. `FileTree`, `TaskTimeline`** — shipped as `TranscriptBlock.FileTree`/`TaskTimeline` rendered by `ChatTranscript`.
 - [x] **8. `agentShell` MVP sample** — `samples/AgentShell` composes `ChatTranscript` + `PromptBox` + `ApprovalModal` on `AppTheme.defaultTheme` (zero app theme code) — the proof the layer composes. `Mire.Demo.Agent`'s transcript/prompt/approval-modal also route through `Mire.Agent`; its remaining overlays (palette/skill/mcp) are generic UI that may stay app-level.
-- [ ] Widget gallery app — a dedicated demo exercising every widget in all its
-      states (build after the brand-default theme + Agent refactor land)
+- [x] Widget gallery app — `samples/Gallery`, a pure-framework demo exercising every
+      base widget in its states across 7 tabbed pages (`just gallery` / `--dump`)
 
 ### v0.5 — Kitty/Ghostty niceties 🟡
 
