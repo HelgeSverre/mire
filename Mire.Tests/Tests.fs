@@ -1973,6 +1973,85 @@ let diffViewTests =
               Expect.equal (DiffView.statusMark Pending) "·" "pending"
           } ]
 
+// Mire.Agent PromptBox (history + completion token) -------------------------
+
+let promptBoxTests =
+    testList
+        "PromptBox"
+        [ test "submit pushes to history and clears, skipping blanks and dups" {
+              let _, p1 = PromptBox.ofString "first" |> PromptBox.submit
+              Expect.equal (PromptBox.value p1) "" "buffer cleared after submit"
+              Expect.equal p1.History [ "first" ] "first entry recorded"
+              let _, p2 = { p1 with Buffer = TextBuffer.Of "  " } |> PromptBox.submit
+              Expect.equal p2.History [ "first" ] "a blank submit is not recorded"
+
+              let _, p3 =
+                  { p2 with
+                      Buffer = TextBuffer.Of "first" }
+                  |> PromptBox.submit
+
+              Expect.equal p3.History [ "first" ] "an immediate duplicate is not recorded"
+          }
+          test "historyPrev/Next walk the ring and restore the draft" {
+              let p =
+                  { PromptBox.empty with
+                      History = [ "one"; "two" ]
+                      Buffer = TextBuffer.Of "draft" }
+
+              let a = PromptBox.historyPrev p // newest first
+              Expect.equal (PromptBox.value a) "two" "Up shows the newest entry"
+              let b = PromptBox.historyPrev a
+              Expect.equal (PromptBox.value b) "one" "Up again shows the older entry"
+              Expect.equal (PromptBox.value (PromptBox.historyPrev b)) "one" "Up at the oldest is a no-op"
+              let c = PromptBox.historyNext b
+              Expect.equal (PromptBox.value c) "two" "Down moves back toward newest"
+              let d = PromptBox.historyNext c
+              Expect.equal (PromptBox.value d) "draft" "Down past the newest restores the stashed draft"
+              Expect.equal d.HistoryPos None "and stops browsing"
+          }
+          test "a live edit exits history browsing" {
+              let p =
+                  { PromptBox.empty with
+                      History = [ "old" ] }
+                  |> PromptBox.historyPrev
+
+              Expect.equal p.HistoryPos (Some 0) "browsing after Up"
+              let typed = PromptBox.append "x" p
+              Expect.equal typed.HistoryPos None "typing resets the history position"
+          }
+          test "completionToken finds the @mention under the cursor" {
+              let p = PromptBox.ofString "see @Mire/Lay"
+              let tok = PromptBox.completionToken [ '/'; '@' ] p
+
+              Expect.equal
+                  tok
+                  (Some
+                      { Trigger = '@'
+                        Query = "Mire/Lay"
+                        Start = 4 })
+                  "the trailing @token, query after the @"
+          }
+          test "completionToken finds a slash command at the start" {
+              let tok = PromptBox.completionToken [ '/'; '@' ] (PromptBox.ofString "/to")
+
+              Expect.equal
+                  (tok |> Option.map (fun t -> t.Trigger, t.Query, t.Start))
+                  (Some('/', "to", 0))
+                  "slash at index 0"
+          }
+          test "completionToken is None when the token has no trigger" {
+              Expect.isNone
+                  (PromptBox.completionToken [ '/'; '@' ] (PromptBox.ofString "hello world"))
+                  "plain word → none"
+          }
+          test "acceptCompletion splices the pick with a trailing space" {
+              let p = PromptBox.ofString "see @Mire/Lay"
+              let tok = (PromptBox.completionToken [ '@' ] p).Value
+              let p2 = PromptBox.acceptCompletion tok "Mire/Layout/Layout.fs" p
+              Expect.equal (PromptBox.value p2) "see @Mire/Layout/Layout.fs " "token replaced, trailing space added"
+              Expect.equal p2.Buffer.Cursor (PromptBox.value p2).Length "caret after the inserted mention"
+          } ]
+
 // Text selection (TextBuffer anchor + TextEdit) -----------------------------
 
 let selectionTests =
@@ -2103,5 +2182,6 @@ let all =
           goldenFrameTests
           feedTests
           diffViewTests
+          promptBoxTests
           selectionTests
           cmdQuitTests ]
