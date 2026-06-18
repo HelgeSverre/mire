@@ -101,6 +101,49 @@ let inputTests =
               Expect.equal (k |> Option.map (fun k -> k.Key)) (Some Tab) "ESC[9;2u → Tab"
               Expect.isTrue (k |> Option.exists (fun k -> k.Modifiers.Shift)) "carries Shift"
           }
+          test "Kitty functional: F13 (ESC[57376u) → Function 13" {
+              let k =
+                  asKey (InputParser.parseBytes (System.Text.Encoding.ASCII.GetBytes "\x1b[57376u"))
+
+              Expect.equal (k |> Option.map (fun k -> k.Key)) (Some(Function 13)) "PUA 57376 → F13"
+          }
+          test "Kitty functional: F35 (ESC[57398u) → Function 35" {
+              let k =
+                  asKey (InputParser.parseBytes (System.Text.Encoding.ASCII.GetBytes "\x1b[57398u"))
+
+              Expect.equal (k |> Option.map (fun k -> k.Key)) (Some(Function 35)) "PUA 57398 → F35"
+          }
+          test "Kitty functional: keypad 7 (ESC[57406u) → Char 7" {
+              let k =
+                  asKey (InputParser.parseBytes (System.Text.Encoding.ASCII.GetBytes "\x1b[57406u"))
+
+              Expect.equal (k |> Option.map (fun k -> k.Key)) (Some(Char "7")) "KP_7 → Char \"7\""
+          }
+          test "Kitty functional: keypad Enter (ESC[57414u) → Enter" {
+              let k =
+                  asKey (InputParser.parseBytes (System.Text.Encoding.ASCII.GetBytes "\x1b[57414u"))
+
+              Expect.equal (k |> Option.map (fun k -> k.Key)) (Some Enter) "KP_ENTER → Enter"
+          }
+          test "Kitty functional: keypad Left (ESC[57417u) → ArrowLeft, with mods" {
+              let k =
+                  asKey (InputParser.parseBytes (System.Text.Encoding.ASCII.GetBytes "\x1b[57417;5u"))
+
+              Expect.equal (k |> Option.map (fun k -> k.Key)) (Some ArrowLeft) "KP_LEFT → ArrowLeft"
+              Expect.isTrue (k |> Option.exists (fun k -> k.Modifiers.Ctrl)) "carries Ctrl"
+          }
+          test "Kitty functional: keypad '+' (ESC[57413u) → Char +" {
+              let k =
+                  asKey (InputParser.parseBytes (System.Text.Encoding.ASCII.GetBytes "\x1b[57413u"))
+
+              Expect.equal (k |> Option.map (fun k -> k.Key)) (Some(Char "+")) "KP_ADD → Char \"+\""
+          }
+          test "Kitty functional: a media key (ESC[57428u) is Unknown, not a PUA glyph" {
+              let k =
+                  asKey (InputParser.parseBytes (System.Text.Encoding.ASCII.GetBytes "\x1b[57428u"))
+              // MEDIA_PLAY has no Key case — must NOT become Char "".
+              Expect.equal (k |> Option.map (fun k -> k.Key)) (Some(Unknown "57428")) "media key → Unknown"
+          }
           test "modified arrow: Ctrl+Up (ESC[1;5A)" {
               let k =
                   asKey (InputParser.parseBytes (System.Text.Encoding.ASCII.GetBytes "\x1b[1;5A"))

@@ -23,8 +23,38 @@ module InputParser =
           Ctrl = bits &&& 4 <> 0
           Meta = bits &&& 8 <> 0 }
 
+    /// Kitty's private-use functional key codepoints (Unicode PUA, 57344–57454):
+    /// the numeric keypad, F13–F35, and the media/lock/lone-modifier keys. Map the
+    /// ones with a `Key` representation (keypad → its arrow/nav/digit/operator, F13+
+    /// → `Function`); the rest (locks, media, menu, lone modifiers, KP_BEGIN) become
+    /// `Unknown` so they never leak through as a meaningless PUA glyph insert.
+    let private keyOfFunctional (cp: int) : Key =
+        match cp with
+        | 57414 -> Enter // KP_ENTER
+        | 57417 -> ArrowLeft // KP_LEFT
+        | 57418 -> ArrowRight // KP_RIGHT
+        | 57419 -> ArrowUp // KP_UP
+        | 57420 -> ArrowDown // KP_DOWN
+        | 57421 -> PageUp // KP_PAGE_UP
+        | 57422 -> PageDown // KP_PAGE_DOWN
+        | 57423 -> Home // KP_HOME
+        | 57424 -> End // KP_END
+        | 57425 -> Insert // KP_INSERT
+        | 57426 -> Delete // KP_DELETE
+        | 57409 -> Char "." // KP_DECIMAL
+        | 57410 -> Char "/" // KP_DIVIDE
+        | 57411 -> Char "*" // KP_MULTIPLY
+        | 57412 -> Char "-" // KP_SUBTRACT
+        | 57413 -> Char "+" // KP_ADD
+        | 57415 -> Char "=" // KP_EQUAL
+        | 57416 -> Char "," // KP_SEPARATOR
+        | _ when cp >= 57399 && cp <= 57408 -> Char(string (cp - 57399)) // KP_0..KP_9
+        | _ when cp >= 57376 && cp <= 57398 -> Function(13 + (cp - 57376)) // F13..F35
+        | _ -> Unknown(string cp) // locks, media, menu, lone modifiers, KP_BEGIN
+
     /// Map a Kitty `CSI u` Unicode key code to a `Key`. Letters/printables come
-    /// through as their base codepoint (e.g. Ctrl+P → 112 → `Char "p"`).
+    /// through as their base codepoint (e.g. Ctrl+P → 112 → `Char "p"`); the
+    /// private-use functional block (57344–57454) routes through `keyOfFunctional`.
     let private keyOfCodepoint (cp: int) : Key =
         match cp with
         | 13 -> Enter
@@ -32,6 +62,7 @@ module InputParser =
         | 9 -> Tab
         | 127 -> Backspace
         | 32 -> Space
+        | _ when cp >= 57344 && cp <= 57454 -> keyOfFunctional cp
         | _ when cp >= 32 -> Char(Char.ConvertFromUtf32 cp)
         | _ -> Unknown(string cp)
 

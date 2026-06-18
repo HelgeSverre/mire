@@ -175,7 +175,7 @@ Recommended order — each step names its extraction source in the demo:
 
 ### v0.5 — Kitty/Ghostty niceties 🟡
 
-- [x] Full Kitty keyboard protocol decode — `CSI u` **modifier** decoding (see archive) **and event types**: the runtime pushes `CSI > 3 u` (disambiguate + report events) and `InputParser` decodes the `:event` sub-param into `Press`/`Repeat`/`Release`. The runtime drops `Release` unless `Program.withKeyReleases`. _Remaining:_ the private-use functional codepoints.
+- [x] Full Kitty keyboard protocol decode — `CSI u` **modifier** decoding (see archive), **event types** (the runtime pushes `CSI > 3 u`; `InputParser` decodes the `:event` sub-param into `Press`/`Repeat`/`Release`, and the runtime drops `Release` unless `Program.withKeyReleases`), **and the private-use functional codepoints** (PUA 57344–57454 → keypad/F13–F35/media keys; `keyOfFunctional`). Input decoding is now feature-complete for the targeted terminals.
 - [x] Buffer large bracketed pastes split across `read()`s — the runtime carries an unfinished paste (via `InputParser.stepPasteBuffer`, capped at 1 MiB) and reassembles it into one `Paste`
 - [x] OSC 8 hyperlinks — `Style.Link` (`WithLink url`); the `Diff` writer brackets a linked run in OSC 8 open/close and `Markdown` link spans carry their URL
 - [x] OSC 52 clipboard — `Cmd.setClipboard text`, written to the terminal by the runtime (same hook shape as `Cmd.quit`)
@@ -220,7 +220,7 @@ every push/PR; NuGet packaging with OIDC trusted publishing on `v*` releases.
 Things that work "well enough" today but have a sharp edge worth remembering:
 
 - **`Box` is single-child by design.** A `Box` renders one child filling its inner rect; passing multiple children overlaps them — flow is `Stack`'s job, so nest a `Stack` (the `panel`/`statusBar` helpers do this internally).
-- **Input decoding is feature-complete for the targeted terminals.** Keyboard (Kitty `CSI u` chords + press/repeat/release event types), mouse (SGR 1006), bracketed paste (reassembled across reads), and focus events all decode. The only remaining nicety is the Kitty private-use functional codepoints (v0.5).
+- **Input decoding is feature-complete for the targeted terminals.** Keyboard (Kitty `CSI u` chords + press/repeat/release event types + private-use functional codepoints — keypad/F13–F35/media), mouse (SGR 1006), bracketed paste (reassembled across reads), and focus events all decode.
 - **One input event per read.** `InputParser.parseBytes` decodes a single event from a buffer, and the runtime calls it once per read. Interactive typing is unaffected (each keystroke is its own read), but a burst of *distinct* keystrokes delivered in one `read()` (e.g. piped/scripted input) only yields the first — non-bracketed bursts aren't split into multiple events. Bracketed paste is handled separately (reassembled, not split). Low priority; surfaces mainly in headless input-feeding tests.
 - **Wide-char rendering is BMP-only and leaves a trailing cell.** Tracked as Cross-cutting — Correctness above.
 - **Dead scaffolding.** `RegionId` is load-bearing (the `Mire.Layout.Focus` key), but `Region`/`RenderMode` (and the `Focusable`/`ZIndex`/`Clip` fields) in `Core/Region.fs` are wired to nothing — forward declarations for the v0.5 runtime-owned focus / z-ordering. (The unused `tcgetattr`/`tcsetattr`/`ioctl` externs and the stale "For now, use Console APIs" comment in `TerminalMode` were removed.)
