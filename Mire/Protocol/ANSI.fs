@@ -87,6 +87,38 @@ module ANSI =
         let b64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(text))
         $"\x1b]52;c;{b64}\x1b\\"
 
+    // Kitty graphics protocol (APC `_G … ST`). `kittyImage` transmits a PNG —
+    // already base64-encoded — and displays it at the current cursor, sized to a
+    // `cols`×`rows` cell box (`f=100` PNG, `a=T` transmit-and-display). The payload
+    // is split into ≤4096-byte chunks with `m=1` on all but the last, per the spec.
+    // `deleteImages` clears all placed images (`a=d`).
+    let kittyImage (cols: int) (rows: int) (pngBase64: string) : string =
+        if pngBase64 = "" then
+            ""
+        else
+            let sb = StringBuilder()
+            let chunkSize = 4096
+            let n = pngBase64.Length
+            let mutable i = 0
+            let mutable first = true
+
+            while i < n do
+                let len = min chunkSize (n - i)
+                let chunk = pngBase64.Substring(i, len)
+                let m = if i + len >= n then 0 else 1
+
+                if first then
+                    sb.Append($"\x1b_Gf=100,a=T,c={cols},r={rows},m={m};{chunk}\x1b\\") |> ignore
+                    first <- false
+                else
+                    sb.Append($"\x1b_Gm={m};{chunk}\x1b\\") |> ignore
+
+                i <- i + len
+
+            sb.ToString()
+
+    let deleteImages = "\x1b_Ga=d\x1b\\"
+
 module TerminalMode =
     open System.Runtime.InteropServices
 

@@ -988,3 +988,49 @@ module Toggle =
             Text.text " ON " onStyle
         else
             Text.text " OFF " offStyle
+
+/// An image placeholder. Terminals split into two worlds: those that speak the
+/// Kitty graphics protocol (Ghostty/Kitty — real pixels) and those that don't.
+/// `render` draws the **portable text fallback** — a bordered, captioned box sized
+/// to a cell footprint — which is what lands in the cell grid on every terminal. On
+/// a graphics-capable terminal an app overlays the actual image with
+/// `Mire.App.Cmd.kittyImage` positioned at this box's on-screen coordinates; the
+/// fallback then sits underneath as the reserved region (and shows through whenever
+/// the image can't be drawn). The framework never decodes images — the app supplies
+/// either a caption (fallback only) or already-encoded PNG bytes (for the overlay).
+module ImagePreview =
+    /// A bordered box (`width`×`height` cells) with a centered picture glyph, the
+    /// `caption` (e.g. a filename), and the pixel dimensions when known.
+    let render
+        (width: int)
+        (height: int)
+        (borderStyle: Style)
+        (captionStyle: Style)
+        (caption: string)
+        (pixelSize: (int * int) option)
+        : LayoutNode<'msg> =
+        if width <= 0 || height <= 0 then
+            Spacer.spacer
+        else
+            // center a node horizontally across the inner width
+            let centered (node: LayoutNode<'msg>) =
+                Stack.hstackOf [ Stack.flex; Stack.sized Length.Content node; Stack.flex ]
+
+            let row (node: LayoutNode<'msg>) =
+                Stack.sized (Length.Cells 1) (centered node)
+
+            let dimsRows =
+                match pixelSize with
+                | Some(w, h) -> [ row (Text.text $"{w}×{h}" captionStyle) ]
+                | None -> []
+
+            let body =
+                Stack.vstackOf (
+                    [ Stack.flex
+                      row (Text.text "🖼" borderStyle)
+                      row (Text.text caption captionStyle) ]
+                    @ dimsRows
+                    @ [ Stack.flex ]
+                )
+
+            Box.box borderStyle [ body ]

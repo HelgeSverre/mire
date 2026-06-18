@@ -56,7 +56,7 @@ notifications). **Gate to tag:**
 ### 0.6.0 — Polish & reach
 
 - [ ] Widget gallery app (revives the deleted KitchenSink's coverage — every widget × its states)
-- [ ] `ImagePreview` (Kitty graphics) — the last unbuilt widget (light/dark theme notifications now done)
+- [x] `ImagePreview` (Kitty graphics + text fallback) and light/dark theme notifications — done; every widget in the reference table is now built
 - [ ] True grapheme clusters — astral-plane / emoji-ZWJ (the second Correctness item)
 - [ ] Performance tiers _as they hurt_ — frame coalescing for streaming first (the one an agent UI feels)
 - [ ] Runtime-owned / mouse-hit-testing half of focus — retires the demo's hand-mirrored modal hit-test
@@ -122,7 +122,7 @@ agent widgets are the (not-yet-created) `Mire.Agent` layer.
 | `SplitView`                       | ✅     | `SplitView.split`/`horizontal`/`vertical` — two panes + a 1-cell `Filled` divider gutter; app owns the split position (`Cells n` resizable / `Fraction f` proportional), second pane fills. Nest for >2 panes.                                                                                     |
 | `Tooltip`                         | ✅     | `Tooltip.view` — an anchored bordered doc popup on `Overlay.atPoint`: sits below the anchor, flips above when low on space, clamped on-screen. Caller wraps lines to `width - 2`.                                                                                                                  |
 | `Markdown`                        | ✅     | `Widgets.Markdown.render style width src` — line-oriented (NOT CommonMark): ATX headings, `>` quotes, `-`/`*`/ordered bullets, `---` rules, fenced code (light highlighting), inline emphasis/links; styled by a `MarkdownStyle` (optional `@mention`). Extracted from the AgentDemo.              |
-| `ImagePreview`                    | ⬜     | Kitty graphics protocol, with text fallback.                                                                                                                                                                                                                                                       |
+| `ImagePreview`                    | ✅     | `ImagePreview.render` draws the portable text fallback (bordered, captioned box with pixel dimensions) that lands in the cell grid on every terminal; on Kitty/Ghostty an app overlays the real pixels with `Cmd.kittyImage` (built on `Cmd.writeRaw` + `ANSI.kittyImage`, chunked per the protocol) positioned at the box. The framework never decodes images.                                                              |
 
 ### Agent widgets — `Mire.Agent` (project not yet created)
 
@@ -179,7 +179,7 @@ Recommended order — each step names its extraction source in the demo:
 - [x] Buffer large bracketed pastes split across `read()`s — the runtime carries an unfinished paste (via `InputParser.stepPasteBuffer`, capped at 1 MiB) and reassembles it into one `Paste`
 - [x] OSC 8 hyperlinks — `Style.Link` (`WithLink url`); the `Diff` writer brackets a linked run in OSC 8 open/close and `Markdown` link spans carry their URL
 - [x] OSC 52 clipboard — `Cmd.setClipboard text`, written to the terminal by the runtime (same hook shape as `Cmd.quit`)
-- [ ] Kitty graphics protocol → `ImagePreview` with text fallback
+- [x] Kitty graphics protocol → `ImagePreview` with text fallback — `ANSI.kittyImage` (chunked transmit-and-display) + `Cmd.kittyImage`/`Cmd.writeRaw`; `Widgets.ImagePreview` renders the cell fallback
 - [x] Light/dark theme notifications — DEC mode 2031: `Program.withThemeNotifications` enables the mode + queries the scheme at startup; `InputParser` decodes `CSI ? 997 ; 1|2 n` into `ThemeChanged Dark`/`Light`, delivered through `MapInput`
 - [ ] Richer mouse (hit-testing → focus/selection) — the runtime-owned half of focus: `Focusable` node + retained region table (the `Region`/`RenderMode` scaffolding in `Core/Region.fs` is the forward declaration)
 

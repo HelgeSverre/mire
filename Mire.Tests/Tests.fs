@@ -1596,6 +1596,29 @@ let toggleTests =
                   "switch off"
           } ]
 
+let imagePreviewTests =
+    testList
+        "ImagePreview"
+        [ test "renders a bordered box with the caption and dimensions" {
+              let node: LayoutNode<unit> =
+                  Mire.Widgets.ImagePreview.render 16 6 Style.Default Style.Default "logo.png" (Some(640, 480))
+
+              let s = Surface(Size.Create(16, 6))
+              Layout.measure (Rect.Create(0, 0, 16, 6)) node |> Layout.render s
+              let whole = String.concat "\n" [ for y in 0..5 -> rowText s y ]
+              Expect.stringContains whole "logo.png" "caption shows in the fallback"
+              Expect.stringContains whole "640×480" "pixel dimensions show when known"
+              Expect.stringContains (rowText s 0) "─" "draws a top border"
+          }
+          test "degenerate size renders nothing" {
+              let node: LayoutNode<unit> =
+                  Mire.Widgets.ImagePreview.render 0 0 Style.Default Style.Default "x" None
+
+              let s = Surface(Size.Create(4, 1))
+              Layout.measure (Rect.Create(0, 0, 4, 1)) node |> Layout.render s
+              Expect.equal (rowText s 0) "    " "a 0-sized image preview paints no cells"
+          } ]
+
 // Markdown -----------------------------------------------------------------
 
 let markdownTests =
@@ -1763,10 +1786,37 @@ let cmdQuitTests =
               Expect.isFalse quit "neither none nor ofMsg requests quit"
               Expect.sequenceEqual sent (seq { 7 }) "ofMsg still delivers its message"
           }
-          test "Cmd.setClipboard invokes the clipboard hook with its text" {
-              let copied = ResizeArray<string>()
-              Cmd.dispatch ignore copied.Add (fun (_: int) -> ()) (Cmd.setClipboard "hello")
-              Expect.sequenceEqual copied (seq { "hello" }) "setClipboard routes its text to the runtime hook"
+          test "Cmd.setClipboard writes the OSC 52 sequence to the raw-write hook" {
+              let written = ResizeArray<string>()
+              Cmd.dispatch ignore written.Add (fun (_: int) -> ()) (Cmd.setClipboard "hello")
+              Expect.equal written.Count 1 "one raw write"
+              Expect.equal written.[0] (ANSI.setClipboard "hello") "setClipboard routes the OSC 52 escape to writeRaw"
+          }
+          test "Cmd.writeRaw passes the string straight through" {
+              let written = ResizeArray<string>()
+              Cmd.dispatch ignore written.Add (fun (_: int) -> ()) (Cmd.writeRaw "\x1b[2J")
+              Expect.sequenceEqual written (seq { "\x1b[2J" }) "writeRaw is the verbatim escape hatch"
+          }
+          test "Cmd.kittyImage positions the cursor then emits the graphics APC" {
+              let written = ResizeArray<string>()
+              // a tiny base64 payload (under one chunk)
+              Cmd.dispatch ignore written.Add (fun (_: int) -> ()) (Cmd.kittyImage 3 5 10 4 "QUJD")
+              Expect.equal written.Count 1 "one raw write"
+              let s = written.[0]
+              Expect.stringContains s (ANSI.cursorTo (3, 5)) "moves the cursor to (col,row) first"
+
+              Expect.stringContains
+                  s
+                  "\x1b_Gf=100,a=T,c=10,r=4,m=0;QUJD\x1b\\"
+                  "transmit-and-display PNG, 10x4 cells, single chunk"
+          }
+          test "ANSI.kittyImage chunks payloads over 4096 base64 bytes" {
+              let payload = String.replicate 9000 "A" // 9000 > 2*4096
+              let s = ANSI.kittyImage 1 1 payload
+              let chunks = (s.Split([| "\x1b_G" |], System.StringSplitOptions.None)).Length - 1
+              Expect.equal chunks 3 "9000 bytes → 4096 + 4096 + 808 = three chunks"
+              Expect.stringContains s "m=1" "non-final chunks carry m=1"
+              Expect.stringContains s "m=0;" "the final chunk carries m=0"
           }
           test "Cmd.batch propagates a nested Cmd.quit and still sends siblings" {
               let mutable quitCount = 0
@@ -2048,6 +2098,7 @@ let all =
           progressBarTests
           tabsTests
           toggleTests
+          imagePreviewTests
           markdownTests
           goldenFrameTests
           feedTests

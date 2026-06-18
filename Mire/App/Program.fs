@@ -16,10 +16,11 @@ type Cmd<'msg> =
     /// recognizes this and breaks its loop so the normal teardown (alt-screen
     /// exit, raw-mode restore) runs — the same exit path as the Ctrl+C intercept.
     | Quit
-    /// Copy text to the system clipboard via OSC 52. The runtime writes the
-    /// sequence straight to the terminal (outside the cell diff — a clipboard
-    /// write paints nothing).
-    | SetClipboard of string
+    /// Write a raw escape string straight to the terminal, outside the cell diff.
+    /// The escape hatch for out-of-band terminal effects that paint no cells — OSC
+    /// clipboard, Kitty graphics, window-title sets, notifications. `Cmd.setClipboard`
+    /// and `Cmd.kittyImage` are built on it.
+    | WriteRaw of string
 
 module Cmd =
     let none = NoOp
@@ -30,26 +31,39 @@ module Cmd =
     /// Request a clean exit of the runtime loop from `update`.
     let quit: Cmd<'msg> = Quit
 
+    /// Write a raw escape sequence to the terminal, outside the diff (see `WriteRaw`).
+    let writeRaw (s: string) : Cmd<'msg> = WriteRaw s
+
     /// Copy `text` to the system clipboard (OSC 52). Works on terminals with
     /// clipboard write enabled (Ghostty/Kitty/iTerm2); silently ignored elsewhere.
-    let setClipboard (text: string) : Cmd<'msg> = SetClipboard text
+    let setClipboard (text: string) : Cmd<'msg> = WriteRaw(ANSI.setClipboard text)
 
-    /// Execute a command. `requestQuit` is the runtime's hook for `Cmd.quit` and
-    /// `setClipboard` its hook for `Cmd.setClipboard`; both let a command reach the
-    /// runtime without abrupt control flow.
+    /// Display a PNG (already base64-encoded) via the Kitty graphics protocol at
+    /// `(col, row)` (0-based cell coords), sized to a `cols`×`rows` cell box. On a
+    /// terminal without Kitty graphics this paints nothing (the `ImagePreview`
+    /// widget's text fallback is what shows there). The image is an overlay on top
+    /// of the cell grid — re-issue it after a frame that would repaint its region.
+    let kittyImage (col: int) (row: int) (cols: int) (rows: int) (pngBase64: string) : Cmd<'msg> =
+        WriteRaw(ANSI.cursorTo (col, row) + ANSI.kittyImage cols rows pngBase64)
+
+    /// Clear all Kitty-graphics images.
+    let clearImages: Cmd<'msg> = WriteRaw ANSI.deleteImages
+
+    /// Execute a command. `requestQuit` is the runtime's hook for `Cmd.quit`;
+    /// `writeRaw` writes an escape straight to the terminal (clipboard, graphics).
     let rec dispatch
         (requestQuit: unit -> unit)
-        (setClipboard: string -> unit)
+        (writeRaw: string -> unit)
         (send: 'msg -> unit)
         (cmd: Cmd<'msg>)
         : unit =
         match cmd with
         | NoOp -> ()
-        | Batch cmds -> cmds |> List.iter (dispatch requestQuit setClipboard send)
+        | Batch cmds -> cmds |> List.iter (dispatch requestQuit writeRaw send)
         | AsyncCmd f -> Async.Start(f send)
         | OfMsg msg -> send msg
         | Quit -> requestQuit ()
-        | SetClipboard text -> setClipboard text
+        | WriteRaw s -> writeRaw s
 
 type Sub<'msg> =
     | TerminalResize of (Size -> 'msg)
@@ -179,10 +193,10 @@ module Runtime =
         let mutable quitRequested = false
         let requestQuit () = quitRequested <- true
 
-        // `Cmd.setClipboard` hook: write the OSC 52 sequence straight to the
-        // terminal (it paints no cells, so it bypasses the diff).
-        let writeClipboard (text: string) =
-            Console.Out.Write(ANSI.setClipboard text)
+        // `Cmd.writeRaw` hook (clipboard, Kitty graphics, …): write the escape
+        // straight to the terminal — it paints no cells, so it bypasses the diff.
+        let writeRaw (s: string) =
+            Console.Out.Write(s)
             Console.Out.Flush()
 
         // Bracketed-paste reassembly: bytes carried from a read that ended mid-paste
@@ -192,7 +206,7 @@ module Runtime =
         let pasteCap = 1 <<< 20 // 1 MiB
 
         // Dispatch initial command
-        Cmd.dispatch requestQuit writeClipboard sendMsg initialCmd
+        Cmd.dispatch requestQuit writeRaw sendMsg initialCmd
 
         let sw = Diagnostics.Stopwatch.StartNew()
         let mutable lastTick = TimeSpan.Zero
@@ -275,7 +289,7 @@ module Runtime =
                                     Model = newModel
                                     NeedsRender = true }
 
-                            Cmd.dispatch requestQuit writeClipboard sendMsg cmd
+                            Cmd.dispatch requestQuit writeRaw sendMsg cmd
                         | None -> hasMsgs <- false
 
                     // A command (or the initial cmd) requested shutdown. Fold it in
