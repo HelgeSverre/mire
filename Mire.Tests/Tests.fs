@@ -30,7 +30,34 @@ let graphemeTests =
           test "CJK is two cells" { Expect.equal (Grapheme.charWidth '世') 2 "CJK ideograph is width 2" }
           test "combining mark is zero cells" { Expect.equal (Grapheme.charWidth '́') 0 "combining acute is width 0" }
           test "stringWidth sums mixed widths" { Expect.equal (Grapheme.stringWidth "a世b") 4 "1 + 2 + 1 = 4" }
-          test "empty string is width 0" { Expect.equal (Grapheme.stringWidth "") 0 "empty string is width 0" } ]
+          test "empty string is width 0" { Expect.equal (Grapheme.stringWidth "") 0 "empty string is width 0" }
+          test "astral CJK (Ext B, surrogate pair) is two cells" {
+              // U+20000 𠀀 — a single astral scalar encoded as a surrogate pair.
+              Expect.equal (Grapheme.stringWidth "\U00020000") 2 "astral CJK is width 2, decoded from the pair"
+          }
+          test "astral emoji is two cells, one cluster" {
+              let emoji = "\U0001F600" // 😀
+              Expect.equal (Grapheme.clusters emoji |> List.length) 1 "one grapheme cluster"
+              Expect.equal (Grapheme.stringWidth emoji) 2 "emoji is width 2"
+          }
+          test "emoji ZWJ sequence is one wide cluster" {
+              let family = "\U0001F468‍\U0001F469‍\U0001F467" // 👨‍👩‍👧
+              Expect.equal (Grapheme.clusters family |> List.length) 1 "the whole ZWJ run is one cluster"
+              Expect.equal (Grapheme.stringWidth family) 2 "a ZWJ emoji cluster occupies a single wide cell"
+          }
+          test "regional-indicator flag is one wide cluster" {
+              let flag = "\U0001F1F3\U0001F1F4" // 🇳🇴 (NO)
+              Expect.equal (Grapheme.clusters flag |> List.length) 1 "the RI pair is one cluster"
+              Expect.equal (Grapheme.stringWidth flag) 2 "a flag is a single wide cell"
+          }
+          test "variation selector forces presentation width" {
+              // base '#' + keycap: VS16 → emoji (wide); the text selector → narrow.
+              Expect.equal (Grapheme.clusterWidth "#️") 2 "VS16 → emoji presentation, width 2"
+              Expect.equal (Grapheme.clusterWidth "❤︎") 1 "VS15 → text presentation, width 1"
+          }
+          test "base + combining mark is one cell" {
+              Expect.equal (Grapheme.stringWidth "é") 1 "é (e + combining acute) is one cell"
+          } ]
 
 // Input parsing ------------------------------------------------------------
 
@@ -463,6 +490,13 @@ let diffTests =
               s.Write(0, 0, "世́", Style.Default) // 世 + combining acute
               Expect.equal s.[0, 0].Grapheme "世́" "the combining mark attaches to the wide glyph"
               Expect.equal s.[1, 0].Grapheme "" "the continuation column stays an empty continuation"
+          }
+          test "Surface.Write: an astral emoji lands in one cell, not split across surrogate halves" {
+              let s = Surface(Size.Create(4, 1))
+              s.Write(0, 0, "\U0001F600", Style.Default) // 😀 — a surrogate pair
+              Expect.equal s.[0, 0].Grapheme "\U0001F600" "the whole emoji occupies one cell (the full cluster)"
+              Expect.equal s.[0, 0].Width 2 "it records display width 2"
+              Expect.equal s.[1, 0].Grapheme "" "the trailing column is a continuation"
           } ]
 
 // Layout -------------------------------------------------------------------

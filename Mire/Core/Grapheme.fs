@@ -1,74 +1,128 @@
 namespace Mire.Core
 
+open System
+open System.Globalization
+
+/// Display-width measurement. The terminal cell grid is monospace, so what matters
+/// is how many *columns* a piece of text occupies. We work at two levels:
+///
+/// * **scalar** (a Unicode code point) — zero-width (combining marks, joiners,
+///   format controls), wide (East-Asian / emoji → 2 columns), or normal (1).
+/// * **grapheme cluster** (a user-perceived character, UAX #29) — emoji ZWJ
+///   sequences, regional-indicator flags, and base+combining-mark runs each occupy
+///   a single cell. `clusters` segments a string into these; `clusterWidth` gives a
+///   cluster's column count. This is what the renderer iterates so astral glyphs
+///   (surrogate pairs) and emoji clusters land in one cell instead of being split.
+///
+/// The East-Asian wide ranges are an approximation of `EastAsianWidth.txt` (the BCL
+/// has no width table); zero-width detection uses Unicode general categories, which
+/// is exact.
 module Grapheme =
 
-    let isWide (c: char) : bool =
-        let code = int c
-        // CJK Unified Ideographs Extension A
-        (code >= 0x3400 && code <= 0x4DBF)
-        ||
-        // CJK Unified Ideographs
-        (code >= 0x4E00 && code <= 0x9FFF)
-        ||
-        // Hangul Syllables
-        (code >= 0xAC00 && code <= 0xD7AF)
-        ||
-        // CJK Unified Ideographs Extension B
-        (code >= 0x20000 && code <= 0x2A6DF)
-        ||
-        // Fullwidth ASCII variants
-        (code >= 0xFF01 && code <= 0xFF5E)
-        ||
-        // Fullwidth brackets and punctuation
-        (code >= 0xFF5F && code <= 0xFF60)
-        ||
-        // Fullwidth symbol variants
-        (code >= 0xFFE0 && code <= 0xFFE6)
-        ||
-        // Japanese kana
-        (code >= 0x3040 && code <= 0x309F)
-        || (code >= 0x30A0 && code <= 0x30FF)
-        ||
-        // CJK Symbols and Punctuation
-        (code >= 0x3000 && code <= 0x303F)
-        ||
-        // Enclosed CJK Letters and Months
-        (code >= 0x3200 && code <= 0x32FF)
-        ||
-        // CJK Compatibility
-        (code >= 0x3300 && code <= 0x33FF)
+    /// True for code points that take **no** columns: combining marks (Mn/Me),
+    /// format controls (Cf — ZWJ/ZWNJ/ZWSP, bidi, soft hyphen, variation selectors).
+    let isZeroWidthScalar (cp: int) : bool =
+        if cp = 0x200B || cp = 0x200C || cp = 0x200D then
+            true
+        else
+            match CharUnicodeInfo.GetUnicodeCategory(cp) with
+            | UnicodeCategory.NonSpacingMark
+            | UnicodeCategory.EnclosingMark
+            | UnicodeCategory.Format -> true
+            | _ -> false
 
-    let isZeroWidth (c: char) : bool =
-        let code = int c
-        // Combining Diacritical Marks
-        (code >= 0x0300 && code <= 0x036F)
-        ||
-        // Combining Diacritical Marks Extended
-        (code >= 0x1AB0 && code <= 0x1AFF)
-        ||
-        // Combining Diacritical Marks Supplement
-        (code >= 0x1DC0 && code <= 0x1DFF)
-        ||
-        // Combining Marks for Symbols
-        (code >= 0x20D0 && code <= 0x20FF)
-        ||
-        // Variation Selectors
-        (code >= 0xFE00 && code <= 0xFE0F)
-        ||
-        // Zero Width Space / Joiner / Non-Joiner
-        code = 0x200B
-        || code = 0x200C
-        || code = 0x200D
+    /// True for code points that take **two** columns: East-Asian wide/fullwidth
+    /// blocks and the emoji/pictograph blocks (incl. the astral planes).
+    let isWideScalar (cp: int) : bool =
+        (cp >= 0x1100 && cp <= 0x115F) // Hangul Jamo
+        || cp = 0x2329
+        || cp = 0x232A // angle brackets
+        || (cp >= 0x2E80 && cp <= 0x303E) // CJK radicals … CJK symbols & punctuation (incl. U+3000)
+        || (cp >= 0x3041 && cp <= 0x33FF) // kana, enclosed CJK, CJK compatibility
+        || (cp >= 0x3400 && cp <= 0x4DBF) // CJK Ext A
+        || (cp >= 0x4E00 && cp <= 0x9FFF) // CJK Unified Ideographs
+        || (cp >= 0xA000 && cp <= 0xA4CF) // Yi
+        || (cp >= 0xAC00 && cp <= 0xD7A3) // Hangul syllables
+        || (cp >= 0xF900 && cp <= 0xFAFF) // CJK compatibility ideographs
+        || (cp >= 0xFE10 && cp <= 0xFE19) // vertical forms
+        || (cp >= 0xFE30 && cp <= 0xFE6F) // CJK compatibility / small form variants
+        || (cp >= 0xFF00 && cp <= 0xFF60) // fullwidth forms
+        || (cp >= 0xFFE0 && cp <= 0xFFE6) // fullwidth signs
+        || (cp >= 0x1F000 && cp <= 0x1F02F) // mahjong tiles
+        || (cp >= 0x1F0A0 && cp <= 0x1F0FF) // playing cards
+        || (cp >= 0x1F300 && cp <= 0x1F64F) // misc pictographs, emoticons
+        || (cp >= 0x1F680 && cp <= 0x1F6FF) // transport & map symbols
+        || (cp >= 0x1F900 && cp <= 0x1F9FF) // supplemental symbols & pictographs
+        || (cp >= 0x1FA70 && cp <= 0x1FAFF) // symbols & pictographs extended-A
+        || (cp >= 0x20000 && cp <= 0x3FFFD) // astral CJK (Ext B and beyond)
 
-    let charWidth (c: char) : int =
-        if isZeroWidth c then 0
-        elif isWide c then 2
+    /// Column count of a single scalar (0, 1, or 2).
+    let scalarWidth (cp: int) : int =
+        if isZeroWidthScalar cp then 0
+        elif isWideScalar cp then 2
         else 1
 
+    // --- per-char (BMP) helpers, kept for back-compat -----------------------
+    // These see one UTF-16 code unit; a surrogate half is neither wide nor
+    // zero-width here (width 1) — measure astral text through `clusterWidth`/
+    // `stringWidth`, which decode surrogate pairs.
+
+    let isZeroWidth (c: char) : bool = isZeroWidthScalar (int c)
+    let isWide (c: char) : bool = isWideScalar (int c)
+    let charWidth (c: char) : int = scalarWidth (int c)
+
+    /// The code points of a string, decoding surrogate pairs into astral scalars.
+    let private codepointsOf (s: string) : int list =
+        let mutable i = 0
+
+        [ while i < s.Length do
+              if Char.IsHighSurrogate s.[i] && i + 1 < s.Length && Char.IsLowSurrogate s.[i + 1] then
+                  yield Char.ConvertToUtf32(s.[i], s.[i + 1])
+                  i <- i + 2
+              else
+                  yield int s.[i]
+                  i <- i + 1 ]
+
+    /// Segment a string into extended grapheme clusters (UAX #29). Emoji ZWJ
+    /// sequences, regional-indicator flags, and base+combining-mark runs each come
+    /// out as one element — so the renderer can place each in a single cell.
+    let clusters (s: string) : string list =
+        if String.IsNullOrEmpty s then
+            []
+        else
+            let e = StringInfo.GetTextElementEnumerator s
+
+            [ while e.MoveNext() do
+                  yield e.GetTextElement() ]
+
+    /// Column count of one grapheme cluster. A cluster carrying a ZWJ, an emoji
+    /// variation selector (U+FE0F), a regional indicator, or any wide scalar is a
+    /// single wide cell (2); a text-presentation selector (U+FE0E) forces 1;
+    /// otherwise it's the width of the base scalar (combining marks add nothing).
+    let clusterWidth (cluster: string) : int =
+        if cluster = "" then
+            0
+        else
+            let cps = codepointsOf cluster
+            let first = List.head cps
+            let has cp = List.contains cp cps
+            let anyWide = cps |> List.exists isWideScalar
+            let regional = cps |> List.exists (fun cp -> cp >= 0x1F1E6 && cp <= 0x1F1FF)
+
+            if has 0xFE0E then 1
+            elif has 0x200D || has 0xFE0F || regional || anyWide then 2
+            else scalarWidth first
+
+    /// Total display width of a string, measured by grapheme cluster. Falls back to
+    /// the length for pure-ASCII text (the common case), which avoids segmentation.
     let stringWidth (s: string) : int =
-        let mutable w = 0
+        let mutable ascii = true
 
         for c in s do
-            w <- w + charWidth c
+            if int c >= 0x80 then
+                ascii <- false
 
-        w
+        if ascii then
+            s.Length
+        else
+            clusters s |> List.sumBy clusterWidth

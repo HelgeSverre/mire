@@ -194,12 +194,12 @@ From `SPEC.md`'s optimization tiers. Do these _when they hurt_, not before.
 - [ ] Append-only optimization for logs/transcripts (Tier 23)
 - [ ] Dirty-region / partial composition (Tier 3, 20) — only for large/remote surfaces
 
-### Cross-cutting — Correctness ⬜
+### Cross-cutting — Correctness ✅
 
 Promoted out of "Known gaps" because they are real renderer bugs, not nice-to-haves:
 
-- [ ] Wide-glyph trailing cell — `Cell.FromChar` always sets `Width = 1`, and `Surface.Write` advances by glyph width without blanking the wide glyph's trailing cell, so a wide glyph overwriting narrower content can leave an artifact
-- [ ] True grapheme clusters — `Grapheme.charWidth` works per UTF-16 `char`; astral-plane chars (the CJK-Ext-B branch is unreachable) and emoji-ZWJ clusters aren't handled
+- [x] Wide-glyph trailing cell — `Surface.Write` writes a `Cell.Continuation` placeholder in a wide glyph's trailing column (distinct from a blank), so the diff repaints it when narrower content later replaces the glyph (no ghost right-half); combining marks step back over the continuation onto the base glyph
+- [x] True grapheme clusters — `Grapheme` now segments via UAX #29 (`clusters`) and measures by code point (`scalarWidth`/`clusterWidth`): astral scalars (surrogate pairs), emoji-ZWJ sequences, regional-indicator flags, and VS15/VS16 presentation all resolve correctly, and `Surface.Write`/`WriteClipped` iterate clusters so an astral glyph lands in one cell instead of split surrogate halves. Zero-width detection uses Unicode categories (exact); wide ranges approximate `EastAsianWidth.txt`
 
 ### Project infrastructure ✅
 

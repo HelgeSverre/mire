@@ -36,13 +36,13 @@ type Surface(size: Size) =
     member _.Write(x, y, text: string, style: Style) =
         let mutable cx = x
 
-        for c in text do
-            let w = Grapheme.charWidth c
+        for cluster in Grapheme.clusters text do
+            let w = Grapheme.clusterWidth cluster
 
             if w = 0 then
-                // Combining mark — attach to the base glyph on the left, stepping
-                // back over a wide glyph's continuation column (which carries no
-                // grapheme of its own) so the mark lands on the glyph, not the gap.
+                // Combining-only cluster — attach to the base glyph on the left,
+                // stepping back over a wide glyph's continuation column (which
+                // carries no grapheme of its own) so it lands on the glyph, not the gap.
                 let mutable bx = cx - 1
 
                 while bx > x
@@ -58,10 +58,10 @@ type Surface(size: Size) =
                     if not cell.IsEmpty && not cell.IsContinuation then
                         cells.[idx] <-
                             { cell with
-                                Grapheme = cell.Grapheme + string c }
+                                Grapheme = cell.Grapheme + cluster }
             elif cx >= 0 && cx < safeSize.Width && y >= 0 && y < safeSize.Height then
                 cells.[y * safeSize.Width + cx] <-
-                    { Cell.FromChar(c, style) with
+                    { Cell.FromString(cluster, style) with
                         Width = w }
                 // A wide glyph owns its trailing column too — write a continuation
                 // placeholder so the diff repaints it when narrower content later
@@ -75,16 +75,16 @@ type Surface(size: Size) =
         let mutable cx = rect.Left
         let mutable cy = rect.Top
 
-        for c in text do
-            if c = '\n' then
+        for cluster in Grapheme.clusters text do
+            if cluster = "\n" || cluster = "\r" || cluster = "\r\n" then
                 cx <- rect.Left
                 cy <- cy + 1
             else
-                let w = Grapheme.charWidth c
+                let w = Grapheme.clusterWidth cluster
 
                 if w = 0 then
-                    // Combining mark — attach to the base glyph, stepping over a
-                    // wide glyph's continuation column (see `Write`).
+                    // Combining-only cluster — attach to the base glyph, stepping
+                    // over a wide glyph's continuation column (see `Write`).
                     let mutable bx = cx - 1
 
                     while bx > rect.Left
@@ -108,7 +108,7 @@ type Surface(size: Size) =
                         if not cell.IsEmpty && not cell.IsContinuation then
                             cells.[idx] <-
                                 { cell with
-                                    Grapheme = cell.Grapheme + string c }
+                                    Grapheme = cell.Grapheme + cluster }
                 elif
                     cx >= 0
                     && cx <= rect.Right
@@ -118,7 +118,7 @@ type Surface(size: Size) =
                     && cy < safeSize.Height
                 then
                     cells.[cy * safeSize.Width + cx] <-
-                        { Cell.FromChar(c, style) with
+                        { Cell.FromString(cluster, style) with
                             Width = w }
 
                     if w = 2 && cx + 1 <= rect.Right && cx + 1 < safeSize.Width then
