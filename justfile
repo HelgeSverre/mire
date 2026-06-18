@@ -24,6 +24,10 @@ feed *ARGS:
 sheet *ARGS:
     dotnet run --project Mire.Demo.Spreadsheet -- {{ARGS}}
 
+# Run the Mire.Agent MVP — a minimal agent shell (the composition sample).
+shell *ARGS:
+    dotnet run --project samples/AgentShell -- {{ARGS}}
+
 # Headless layout dump (no raw mode) — eyeball layout changes.
 dump:
     dotnet run --project Mire.Demo.Agent -- --dump

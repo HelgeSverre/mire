@@ -59,6 +59,7 @@ dotnet build Mire.slnx
 dotnet run --project Mire.Demo.Agent        # an agent-shell testbed (not wired to an LLM)
 dotnet run --project Mire.Demo.Feed         # a multi-feed RSS reader
 dotnet run --project Mire.Demo.Spreadsheet  # an A1 grid + formula engine
+dotnet run --project samples/AgentShell     # the Mire.Agent MVP — a minimal agent shell
 
 # Verify layout headlessly — prints sample layouts as text, no raw mode
 dotnet run --project Mire.Demo.Agent -- --dump
@@ -152,7 +153,7 @@ Not yet (described in `SPEC.md` as the target):
 - ⏳ The runtime-owned / mouse-driven half of focus (spatial hit-testing)
 - ⏳ Kitty graphics (images) and light/dark theme notifications
 - ⏳ Text selection in `TextBuffer` (so `Input`/`TextArea` are cursor-only)
-- ⏳ The agent-domain components (chat transcript, tool-call views, diff viewer, file tree, prompt box) — prototyped at the app level in `Mire.Demo.Agent`, not yet extracted into a reusable layer (roadmap v0.4, the next phase)
+- 🚧 The agent-domain layer (`Mire.Agent`) — **extraction underway for 0.5.0.** `ChatTranscript`, `PromptBox`, and `ApprovalModal` now ship in `Mire.Agent`, composed by the `samples/AgentShell` MVP (`just shell`). Remaining: split/accept-reject `DiffView`, folding completion/virtualization into the widgets.
 
 ## Roadmap & design document
 

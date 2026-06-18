@@ -169,7 +169,7 @@ Recommended order — each step names its extraction source in the demo:
 - [x] **5. `ApprovalModal`** — `ApprovalModal.view` + `buttonHit` (click) in `Mire.Agent`, styled by `AppTheme`; the demo's permission modal renders + click-activates through it (accept/deny behavior stays app-side).
 - [🟡] **6. `DiffView`** — unified shipped as `TranscriptBlock.DiffBlock` via `ChatTranscript`; split view + accept/reject hunks still pending.
 - [x] **7. `FileTree`, `TaskTimeline`** — shipped as `TranscriptBlock.FileTree`/`TaskTimeline` rendered by `ChatTranscript`.
-- [🟡] **8. Migrate `Mire.Demo.Agent` onto `Mire.Agent`** — transcript, prompt, and approval modal now go through `Mire.Agent`; the remaining overlays (palette/skill/mcp) and the `agentShell`-style sample are the rest of the migration.
+- [x] **8. `agentShell` MVP sample** — `samples/AgentShell` composes `ChatTranscript` + `PromptBox` + `ApprovalModal` on `AppTheme.defaultTheme` (zero app theme code) — the proof the layer composes. `Mire.Demo.Agent`'s transcript/prompt/approval-modal also route through `Mire.Agent`; its remaining overlays (palette/skill/mcp) are generic UI that may stay app-level.
 - [ ] Widget gallery app — a dedicated demo exercising every widget in all its
       states (build after the brand-default theme + Agent refactor land)
 
