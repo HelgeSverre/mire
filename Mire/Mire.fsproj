@@ -8,7 +8,7 @@
   <!-- NuGet package metadata. `dotnet pack -c Release` produces Mire.<Version>.nupkg. -->
   <PropertyGroup>
     <PackageId>Mire</PackageId>
-    <Version>0.4.0</Version>
+    <Version>0.5.0</Version>
     <Authors>Helge Sverre</Authors>
     <Copyright>Copyright (c) 2026 Helge Sverre</Copyright>
     <Description>A retained-mode F# TUI runtime with diff-based rendering and an Elmish/TEA loop, targeting .NET 10 and Kitty-compatible terminals.</Description>

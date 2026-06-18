@@ -35,11 +35,11 @@ Kitty event types, bracketed-paste reassembly, and the brand-default theme.
 Honestly labeled "a usable core widget layer"; the agent layer is "coming in
 0.5". **Gate to tag:**
 
-- [ ] Fix the wide-glyph trailing-cell artifact (Cross-cutting — Correctness) — don't ship a known glyph-corruption bug
-- [ ] Bump `Mire/Mire.fsproj` `<Version>` 0.3.0 → 0.4.0
-- [ ] Verify the README "minimal app" compiles **and runs** as written (it's the front-door example)
-- [ ] Cut the CHANGELOG `[Unreleased]` block into a dated `[0.4.0]` section
-- [ ] Publish a `v0.4.0` GitHub Release → `publish.yml` → nuget.org; then smoke-install the package into a scratch project and run a counter app
+- [x] Fix the wide-glyph trailing-cell artifact (Cross-cutting — Correctness) — don't ship a known glyph-corruption bug
+- [x] Bump `Mire/Mire.fsproj` `<Version>` 0.3.0 → 0.4.0
+- [x] Verify the README "minimal app" compiles **and runs** as written (it's the front-door example)
+- [x] Cut the CHANGELOG `[Unreleased]` block into a dated `[0.4.0]` section
+- [x] Publish a `v0.4.0` GitHub Release → `publish.yml` → nuget.org (published; **0.4.0** is live)
 
 ### 0.5.0 — Agent layer · _the promoted release (delivers SPEC phase v0.4)_
 
@@ -48,10 +48,10 @@ the box — the version actually worth announcing. Work = the **v0.4 phase below
 (the 8-step extraction) + the cheap remaining v0.5 niceties (theme
 notifications). **Gate to tag:**
 
-- [ ] `Mire.Agent` project shipping `ChatTranscript`/`PromptBox`/`ToolCallView`/`ThinkingBlock`/`ApprovalModal`/`DiffView`/`FileTree`/`TaskTimeline` (the v0.4 phase list)
-- [ ] `Mire.Demo.Agent` migrated onto `Mire.Agent` (dogfood; retires most of `DEMO-TODOS.md`)
-- [ ] A runnable `agentShell` MVP sample matching SPEC's example
-- [ ] CHANGELOG `[0.5.0]` + version bump + `v0.5.0` tag
+- [x] `Mire.Agent` project shipping `ChatTranscript`/`PromptBox`/`ApprovalModal`/`DiffView` (with `ToolCallView`/`ThinkingBlock`/`FileTree`/`TaskTimeline` as `TranscriptBlock` variants)
+- [x] `Mire.Demo.Agent` migrated onto `Mire.Agent` (dogfood: transcript, prompt completion/history, and modal click-routing all go through the layer)
+- [x] A runnable `agentShell` MVP sample matching SPEC's example (`samples/AgentShell`)
+- [ ] CHANGELOG `[0.5.0]` + version bump + `v0.5.0` tag — _CHANGELOG cut & version bumped; the tag/GitHub Release is the publish step_
 
 ### 0.6.0 — Polish & reach
 
@@ -190,7 +190,7 @@ From `SPEC.md`'s optimization tiers. Do these _when they hurt_, not before.
 
 - [x] Tier 1–2: surface diffing + run-based output (baseline, done)
 - [ ] Frame coalescing / render throttling for streaming (Tier 12) — important for agent UIs
-- [ ] Virtualized tables & transcript blocks (Tier 5–6)
+- [x] Virtualized tables & transcript blocks (Tier 5–6) — `Table.view` windows its rows; `ChatTranscript.view` builds only the visible blocks
 - [ ] Text-wrap + grapheme-width caching (Tier 7, 16)
 - [ ] Append-only optimization for logs/transcripts (Tier 23)
 - [ ] Dirty-region / partial composition (Tier 3, 20) — only for large/remote surfaces
@@ -209,10 +209,9 @@ single-project framework + three demos + `Mire.Tests` (Expecto) in
 `Mire.slnx`; `justfile` + Fantomas; golden-frame snapshots; CI build+test on
 every push/PR; NuGet packaging with OIDC trusted publishing on `v*` releases.
 
-- [ ] Reconcile package versioning + cut the first deliberate release — nuget.org
-      has only `0.0.1`/`0.0.2` and no `v*` tag exists; bump `Mire.fsproj` to
-      `0.4.0` and tag `v0.4.0` through `publish.yml` (see the **0.4.0** gate in
-      the Release plan above)
+- [x] Reconcile package versioning + cut the first deliberate release — `0.4.0` was
+      tagged and published to nuget.org through `publish.yml` (OIDC trusted
+      publishing); `0.5.0` follows the same path.
 
 ---
 

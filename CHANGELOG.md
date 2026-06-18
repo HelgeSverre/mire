@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-06-18
+
+The agent layer plus a round of framework completeness: text selection & soft-wrap,
+true grapheme clusters, Kitty graphics + `ImagePreview`, light/dark theme
+notifications, runtime mouse hit-testing → focus, and a `Mire.Agent` layer
+(`ChatTranscript`/`PromptBox`/`ApprovalModal`/`DiffView`) with a `samples/AgentShell`
+MVP and a `samples/Gallery` showcase. A full user guide lives in `docs/guide/`.
+
 ### Changed
 
 - **Agent demo dogfoods the new APIs.** `Mire.Demo.Agent` now routes its @mention / /slash completion through `PromptBox.completionToken`/`acceptCompletion` (dropping its hand-rolled token detection) and resolves the approval modal's Accept/Deny clicks through the runtime's region table via `Program.withMouseRegion` + `ApprovalModal.acceptRegion`/`denyRegion` (retiring the hand-mirrored `buttonHit` geometry; `buttonHit` remains as a utility). Verified end-to-end via `--dump` and pty.
