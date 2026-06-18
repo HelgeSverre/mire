@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **`Mire.Agent` — the agent-domain widget layer (0.5.0, in progress).** A new class library above `Mire.App` that references `Mire` only (one-directional chain; the base framework still knows nothing of agent concepts). First widget extracted: **`ChatTranscript`** + the **`TranscriptBlock`** model (user/assistant/thinking/tool-call/diff/table/error/notice/file-tree/task-timeline/plan blocks), lifted from `Mire.Demo.Agent`'s `Blocks.fs` and parameterized by `Mire.Widgets.AppTheme` (so it carries no app-specific theme; `Notice` uses `AppTheme.Tone`). `Mire.Demo.Agent` now renders its transcript through `Mire.Agent.ChatTranscript`, passing an `AppTheme` assembled from its own styles — verified byte-identical via `--dump`. Remaining 0.5.0 slices: `PromptBox`, `ToolCallView`/`ThinkingBlock`, `ApprovalModal`, `DiffView`, `FileTree`/`TaskTimeline`, then the full demo migration (see `ROADMAP.md`).
+
 ## [0.4.0] - 2026-06-17
 
 First deliberate release: the core framework — runtime, layout engine, and the

@@ -162,11 +162,8 @@ extracted widget as the proof. `DEMO-TODOS.md` tracks the demo-side gaps;
 
 Recommended order — each step names its extraction source in the demo:
 
-- [ ] **1. Create `Mire.Agent` project** — classlib referencing `Mire` only; add
-      to `Mire.slnx` + CI; keep the dependency chain one-directional
-- [ ] **2. `TranscriptBlock` model + `ChatTranscript`** — from `Blocks.fs` +
-      the transcript view in `Program.fs`; block virtualization + follow-tail
-      (build on `ScrollView.toBottom`/`atBottom`)
+- [x] **1. Create `Mire.Agent` project** — classlib referencing `Mire` only, in `Mire.slnx` (CI builds the solution); one-directional chain preserved
+- [x] **2. `TranscriptBlock` model + `ChatTranscript`** — extracted from `Blocks.fs` into `Mire.Agent`, parameterized by `AppTheme` (`Notice` uses `AppTheme.Tone`); `ChatTranscript.{renderBlock,render,statusGlyph,statusStyle}`. The demo renders its transcript through it. _Follow-up:_ fold block virtualization + follow-tail into the widget (the demo still owns the `ScrollView`/offset).
 - [ ] **3. `PromptBox`** — from `PromptInput.fs` (already a thin
       `TextBuffer`/`TextEdit` wrapper) + the demo's completion wiring; multiline,
       slash commands, @mentions, history
