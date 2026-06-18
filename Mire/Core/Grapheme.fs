@@ -109,8 +109,12 @@ module Grapheme =
             let anyWide = cps |> List.exists isWideScalar
             let regional = cps |> List.exists (fun cp -> cp >= 0x1F1E6 && cp <= 0x1F1FF)
 
-            if has 0xFE0E then 1
-            elif has 0x200D || has 0xFE0F || regional || anyWide then 2
+            // A wide scalar (CJK, astral emoji), a ZWJ sequence, an emoji variation
+            // selector, or a regional indicator forces a wide cell — checked before
+            // the VS15 downgrade so it can't narrow an inherently-wide glyph (e.g. a
+            // CJK ideograph with a text-presentation selector stays width 2).
+            if has 0x200D || has 0xFE0F || regional || anyWide then 2
+            elif has 0xFE0E then 1
             else scalarWidth first
 
     /// Total display width of a string, measured by grapheme cluster. Falls back to

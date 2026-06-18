@@ -54,6 +54,8 @@ let graphemeTests =
               // base '#' + keycap: VS16 → emoji (wide); the text selector → narrow.
               Expect.equal (Grapheme.clusterWidth "#️") 2 "VS16 → emoji presentation, width 2"
               Expect.equal (Grapheme.clusterWidth "❤︎") 1 "VS15 → text presentation, width 1"
+              // a text selector must NOT narrow an inherently-wide CJK ideograph
+              Expect.equal (Grapheme.clusterWidth "世︎") 2 "CJK + VS15 stays width 2 (wide base wins)"
           }
           test "base + combining mark is one cell" {
               Expect.equal (Grapheme.stringWidth "é") 1 "é (e + combining acute) is one cell"
