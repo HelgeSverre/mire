@@ -711,3 +711,88 @@ hr {
   font-weight: 500;
   display: block;
 }
+
+/* ---- Widget gallery (rich reference) ------------------------------------- */
+.wg-group {
+  margin-top: var(--space-10);
+}
+.wg-group > h2 {
+  font-size: var(--text-2xl);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border);
+}
+.wg-blurb {
+  color: var(--fg-muted);
+  margin-top: var(--space-2);
+  max-width: var(--measure);
+}
+.widget {
+  margin-top: var(--space-8);
+}
+.widget > h3 {
+  font-size: var(--text-xl);
+  margin-bottom: var(--space-2);
+}
+.widget__summary {
+  color: var(--fg-muted);
+  max-width: var(--measure);
+  margin-bottom: var(--space-4);
+}
+.widget__shot {
+  margin: 0 0 var(--space-4);
+  padding: 0;
+}
+.widget__shot svg {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+/* signature block — plain mono, not Shiki, kept readable and wrappable */
+pre.sig {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  color: var(--fg);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-2);
+  padding: var(--space-3) var(--space-4);
+  margin: 0 0 var(--space-3);
+  overflow-x: auto;
+  white-space: pre;
+}
+pre.sig code {
+  font-family: var(--font-mono);
+}
+table.param-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: var(--text-sm);
+  margin: 0 0 var(--space-4);
+}
+table.param-table th,
+table.param-table td {
+  border: 1px solid var(--border);
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+  vertical-align: top;
+}
+table.param-table th {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: var(--text-xs);
+  letter-spacing: 0.02em;
+  text-transform: lowercase;
+  color: var(--fg-muted);
+  background: var(--bg-elevated);
+}
+table.param-table td:first-child code {
+  white-space: nowrap;
+}
+table.param-table td code {
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: var(--accent-readable);
+  white-space: normal;
+}

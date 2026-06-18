@@ -64,7 +64,8 @@ PromptBox.applyInput e p          // feed an InputEvent through the editing keym
 PromptBox.value p
 
 let text, p' = PromptBox.submit p          // push to history, clear, return the text
-PromptBox.historyPrev p · PromptBox.historyNext p   // draft-preserving Up/Down recall
+PromptBox.historyPrev p                    // Up: draft-preserving recall
+PromptBox.historyNext p                    // Down
 
 match PromptBox.completionToken [ '/'; '@' ] p with
 | Some tok ->                              // tok.Trigger, tok.Query, tok.Start

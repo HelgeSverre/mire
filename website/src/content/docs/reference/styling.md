@@ -89,13 +89,32 @@ type TextBuffer = { Text: string; Cursor: int; Anchor: int option }
 TextBuffer.Empty
 TextBuffer.Of "initial"
 
-// edits (replace any selection):
-TextBuffer.insert "x" b · backspace b · delete b
-TextBuffer.deleteWordBack b · deleteWordForward b
-// movement (preserve the anchor):
-TextBuffer.left b · right b · home b · toEnd b · wordLeft b · wordRight b · up b · down b · lineStart b · lineEnd b
+// edits — each replaces the selection if there is one:
+TextBuffer.insert "x" b
+TextBuffer.backspace b
+TextBuffer.delete b
+TextBuffer.deleteWordBack b
+TextBuffer.deleteWordForward b
+
+// movement — preserves the selection anchor:
+TextBuffer.left b
+TextBuffer.right b
+TextBuffer.home b
+TextBuffer.toEnd b
+TextBuffer.wordLeft b
+TextBuffer.wordRight b
+TextBuffer.up b            // over '\n'-delimited lines
+TextBuffer.down b
+TextBuffer.lineStart b
+TextBuffer.lineEnd b
+
 // selection:
-TextBuffer.selectAll b · selectWord b · extend move b · selection b · hasSelection b · clearSelection b
+TextBuffer.selectAll b
+TextBuffer.selectWord b
+TextBuffer.extend move b   // shift+move: anchor, then apply the move
+TextBuffer.selection b     // (lo, hi) option
+TextBuffer.hasSelection b
+TextBuffer.clearSelection b
 ```
 
 ## TextEdit
