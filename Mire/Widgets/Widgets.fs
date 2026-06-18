@@ -611,6 +611,38 @@ module KeyHint =
 /// block cursor at the cursor's (row,col) when `focused`. Pure render — the app
 /// drives edits (e.g. via `Mire.Core.TextEdit`); this only renders.
 module TextArea =
+    /// Break one logical line into visual segments no wider than `width`,
+    /// word-wrapping at spaces when possible and hard-breaking words longer than
+    /// the width. Returns `(startIndex, text)` pairs that partition the line
+    /// exactly — `text` is `line.Substring(startIndex, text.Length)` and the
+    /// concatenation of the texts is the original line, so char offsets map
+    /// straight back to the buffer (a trailing break-space stays on its segment).
+    /// An empty line yields a single empty segment so it still occupies a row.
+    let wrapLine (width: int) (line: string) : (int * string) list =
+        let n = line.Length
+
+        if width <= 0 || n = 0 then
+            [ (0, line) ]
+        else
+            let rec go (pos: int) (acc: (int * string) list) =
+                if n - pos <= width then
+                    List.rev ((pos, line.Substring(pos)) :: acc)
+                else
+                    let segEnd = pos + width // exclusive upper bound of this segment
+
+                    // last space strictly inside the window — break *after* it so the
+                    // word stays whole; none → hard break at the width.
+                    let mutable brk = -1
+
+                    for i in pos .. segEnd - 1 do
+                        if line.[i] = ' ' then
+                            brk <- i
+
+                    let cut = if brk > pos then brk + 1 else segEnd
+                    go cut ((pos, line.Substring(pos, cut - pos)) :: acc)
+
+            go 0 []
+
     let render
         (width: int)
         (height: int)
@@ -701,6 +733,118 @@ module TextArea =
             Stack.vstackOf
                 [ for y in offY .. min (lines.Length - 1) (offY + height - 1) ->
                       Stack.sized (Length.Cells 1) (renderLine y lines.[y]) ]
+
+    /// Soft-wrapping variant of `render`: instead of horizontally scrolling each
+    /// logical line, every line is word-wrapped to `width` (see `wrapLine`) and the
+    /// resulting *visual* rows are what scroll vertically and carry the cursor and
+    /// selection. Same signature as `render`, so an app picks wrap vs. scroll per
+    /// call site. (Char-indexed, like the rest of the editing stack.)
+    let renderWrapped
+        (width: int)
+        (height: int)
+        (textStyle: Style)
+        (cursorStyle: Style)
+        (focused: bool)
+        (buf: TextBuffer)
+        : LayoutNode<'msg> =
+        if width <= 0 || height <= 0 then
+            Spacer.spacer
+        else
+            let lines = buf.Text.Split('\n')
+
+            // Global char offset of each logical line's start.
+            let mutable acc = 0
+
+            let lineStarts =
+                [| for ln in lines ->
+                       let s = acc
+                       acc <- acc + ln.Length + 1
+                       s |]
+
+            // Flatten to visual rows: (logical line idx, char offset of the segment
+            // within that line, segment text, global offset of the line start).
+            let visRows =
+                [| for idx in 0 .. lines.Length - 1 do
+                       let g = lineStarts.[idx]
+
+                       for (s, t) in wrapLine width lines.[idx] -> (idx, s, t, g) |]
+
+            let curG = buf.Cursor
+
+            // The visual row holding the cursor. A cursor sitting exactly on a
+            // soft-wrap boundary belongs to the *next* row (its start); a cursor at
+            // the end of a logical line's last segment stays put.
+            let curVis =
+                let mutable found = 0
+
+                for i in 0 .. visRows.Length - 1 do
+                    let (lineIdx, start, text, g) = visRows.[i]
+                    let lo = g + start
+                    let hi = lo + text.Length
+
+                    let endsHere =
+                        i = visRows.Length - 1
+                        || (let (nextLine, _, _, _) = visRows.[i + 1] in nextLine <> lineIdx)
+
+                    if curG >= lo && (curG < hi || (curG = hi && endsHere)) then
+                        found <- i
+
+                found
+
+            let sel = if focused then TextBuffer.selection buf else None
+
+            let rawOff = if curVis < height then 0 else curVis - height + 1
+            let offY = ScrollView.clampOffset height visRows.Length rawOff
+
+            let renderRow (i: int) : LayoutNode<'msg> =
+                let (_, _, text, g) = visRows.[i]
+                let rowLo = g + (let (_, s, _, _) = visRows.[i] in s)
+                let rowHi = rowLo + text.Length
+
+                let selRange =
+                    match sel with
+                    | Some(lo, hi) ->
+                        let a = max lo rowLo
+                        let b = min hi rowHi
+                        if b > a then Some(a - rowLo, b - rowLo) else None
+                    | None -> None
+
+                match selRange with
+                | Some(la, lb) ->
+                    Stack.hstackOf
+                        [ Stack.sized Length.Content (Text.text (text.Substring(0, la)) textStyle)
+                          Stack.sized Length.Content (Text.text (text.Substring(la, lb - la)) cursorStyle)
+                          Stack.sized Length.Content (Text.text (text.Substring(lb)) textStyle) ]
+                | None when focused && i = curVis && Option.isNone sel ->
+                    let cw = curG - rowLo
+
+                    let leftPart =
+                        if cw <= 0 then
+                            ""
+                        else
+                            text.Substring(0, min cw text.Length)
+
+                    let atCursor =
+                        if cw >= 0 && cw < text.Length then
+                            string text.[cw]
+                        else
+                            " "
+
+                    let rightPart =
+                        if cw + 1 <= text.Length then
+                            text.Substring(min (max 0 (cw + 1)) text.Length)
+                        else
+                            ""
+
+                    Stack.hstackOf
+                        [ Stack.sized Length.Content (Text.text leftPart textStyle)
+                          Stack.sized (Length.Cells 1) (Text.text atCursor cursorStyle)
+                          Stack.sized Length.Content (Text.text rightPart textStyle) ]
+                | None -> Text.text text textStyle
+
+            Stack.vstackOf
+                [ for i in offY .. min (visRows.Length - 1) (offY + height - 1) ->
+                      Stack.sized (Length.Cells 1) (renderRow i) ]
 
 /// A two-pane split with a divider between the panes — the convenience the demos
 /// hand-roll today as raw `Stack`/`Dock` fractions. The app owns the split

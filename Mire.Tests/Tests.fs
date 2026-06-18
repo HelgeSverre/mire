@@ -1275,6 +1275,76 @@ let textAreaTests =
               let surf = Surface(Size.Create(8, 2))
               Layout.measure (Rect.Create(0, 0, 8, 2)) node |> Layout.render surf
               Expect.equal surf.[0, 0].Style.Background (Some curBg) "cursor block at (0,0)"
+          }
+          test "wrapLine word-wraps at spaces and partitions the line exactly" {
+              let segs = Mire.Widgets.TextArea.wrapLine 10 "hello world foo"
+              // greedy: "hello " (6) then would add "world" → 11 > 10, so break after "hello "
+              Expect.equal segs [ (0, "hello "); (6, "world foo") ] "two visual rows, broken at the space"
+              // concatenation round-trips the original line
+              let joined = segs |> List.map snd |> String.concat ""
+              Expect.equal joined "hello world foo" "segments partition the line exactly"
+              // every offset is the substring's true position
+              for (i, t) in segs do
+                  Expect.equal ("hello world foo".Substring(i, t.Length)) t "offset maps back to the line"
+          }
+          test "wrapLine hard-breaks a word longer than the width" {
+              let segs = Mire.Widgets.TextArea.wrapLine 4 "abcdefghij"
+              Expect.equal segs [ (0, "abcd"); (4, "efgh"); (8, "ij") ] "hard breaks every 4 chars"
+          }
+          test "wrapLine yields one empty segment for an empty line" {
+              Expect.equal (Mire.Widgets.TextArea.wrapLine 10 "") [ (0, "") ] "empty line still occupies a row"
+          }
+          test "renderWrapped breaks a long line across visual rows" {
+              let cur = Style.Default.WithBackground(Color.Rgb(0x40uy, 0x40uy, 0x40uy))
+              // single logical line, no spaces → hard-wrapped at width 5 into 3 rows
+              let buf =
+                  { Text = "abcdefghijklm"
+                    Cursor = 0
+                    Anchor = None }
+
+              let node: LayoutNode<unit> =
+                  Mire.Widgets.TextArea.renderWrapped 5 3 Style.Default cur false buf
+
+              let surf = Surface(Size.Create(5, 3))
+              Layout.measure (Rect.Create(0, 0, 5, 3)) node |> Layout.render surf
+              Expect.stringContains (rowText surf 0) "abcde" "first visual row"
+              Expect.stringContains (rowText surf 1) "fghij" "second visual row"
+              Expect.stringContains (rowText surf 2) "klm" "third visual row"
+          }
+          test "renderWrapped puts the block cursor on the right visual row" {
+              let curBg = Color.Rgb(0x40uy, 0x40uy, 0x40uy)
+              let cur = Style.Default.WithBackground curBg
+              // "abcdefghij" wrapped at 5 → row0 "abcde", row1 "fghij"; cursor 7 → row1 col2
+              let buf =
+                  { Text = "abcdefghij"
+                    Cursor = 7
+                    Anchor = None }
+
+              let node: LayoutNode<unit> =
+                  Mire.Widgets.TextArea.renderWrapped 5 3 Style.Default cur true buf
+
+              let surf = Surface(Size.Create(5, 3))
+              Layout.measure (Rect.Create(0, 0, 5, 3)) node |> Layout.render surf
+              Expect.equal surf.[2, 1].Style.Background (Some curBg) "cursor on visual row 1, col 2"
+              Expect.isTrue surf.[0, 0].Style.Background.IsNone "no cursor on the first visual row"
+          }
+          test "renderWrapped highlights a selection that spans a soft-wrap break" {
+              let selBg = Color.Rgb(0x2Duy, 0x44uy, 0x3Cuy)
+              let selStyle = Style.Default.WithBackground selBg
+              // "abcdefghij" wrapped at 5; select chars 3..7 → row0 cols 3,4 and row1 cols 0,1
+              let buf =
+                  { Text = "abcdefghij"
+                    Cursor = 7
+                    Anchor = Some 3 }
+
+              let node: LayoutNode<unit> =
+                  Mire.Widgets.TextArea.renderWrapped 5 3 Style.Default selStyle true buf
+
+              let surf = Surface(Size.Create(5, 3))
+              Layout.measure (Rect.Create(0, 0, 5, 3)) node |> Layout.render surf
+              Expect.equal surf.[3, 0].Style.Background (Some selBg) "row0 col3 selected"
+              Expect.equal surf.[0, 1].Style.Background (Some selBg) "row1 col0 selected"
+              Expect.isTrue surf.[2, 0].Style.Background.IsNone "row0 col2 not selected"
           } ]
 
 // SplitView ----------------------------------------------------------------
