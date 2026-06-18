@@ -1,41 +1,40 @@
-namespace Mire.Demo.Agent
+namespace Mire.Agent
 
 open Mire.Core
 open Mire.Layout
 open Mire.Widgets
 
-/// The agent prompt's editable text. Backed by the framework's real editing stack
-/// now that it exists (ROADMAP v0.3): a `TextBuffer` for the text + cursor, the
-/// `TextEdit` keymap for turning input events into edits, and the `TextArea` widget
-/// for rendering. (Enter submits in this app, so the buffer stays single-line in
-/// practice — but cursor movement, word-delete, and paste all go through the real
-/// machinery.)
-type PromptInput = { Buffer: TextBuffer }
+/// An agent prompt's editable text, backed by the framework's editing stack: a
+/// `TextBuffer` for the text + cursor, the `TextEdit` keymap for turning input
+/// events into edits, and the `TextArea` widget for rendering. (An agent shell
+/// typically submits on Enter, so the buffer stays single-line in practice — but
+/// cursor movement, word-delete, and paste all go through the real machinery.)
+type PromptBox = { Buffer: TextBuffer }
 
-module PromptInput =
+module PromptBox =
 
     let empty = { Buffer = TextBuffer.Empty }
 
     let ofString (s: string) = { Buffer = TextBuffer.Of s }
 
     /// The current text (cursor-independent).
-    let value (p: PromptInput) = p.Buffer.Text
+    let value (p: PromptBox) = p.Buffer.Text
 
     /// Feed one decoded input event (key or paste) through the conventional editing
     /// keymap — typing, Backspace/Delete, word-delete chords, cursor moves, paste.
-    let applyInput (e: InputEvent) (p: PromptInput) =
+    let applyInput (e: InputEvent) (p: PromptBox) =
         { Buffer = TextEdit.applyInput e p.Buffer }
 
     /// Apply a named edit action directly (used where the app knows the action but
     /// not a raw event — e.g. the neutralized Left/Right arrows).
-    let applyAction (a: EditAction) (p: PromptInput) = { Buffer = TextEdit.apply a p.Buffer }
+    let applyAction (a: EditAction) (p: PromptBox) = { Buffer = TextEdit.apply a p.Buffer }
 
     /// Thin convenience shims (used where the app builds an edit directly rather
     /// than from an input event). Insert at the cursor / delete before it.
-    let append (s: string) (p: PromptInput) =
+    let append (s: string) (p: PromptBox) =
         { Buffer = TextEdit.apply (InsertText s) p.Buffer }
 
-    let backspace (p: PromptInput) =
+    let backspace (p: PromptBox) =
         { Buffer = TextEdit.apply DeleteBack p.Buffer }
 
     /// Render the prompt line: an accent glyph, then the editable text via the
@@ -50,7 +49,7 @@ module PromptInput =
         (placeholderStyle: Style)
         (placeholder: string)
         (focused: bool)
-        (p: PromptInput)
+        (p: PromptBox)
         : LayoutNode<'msg> =
         let glyphW = 2
 

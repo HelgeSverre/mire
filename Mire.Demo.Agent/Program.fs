@@ -89,7 +89,7 @@ type Streaming =
 type Model =
     { Size: Size
       Transcript: TranscriptBlock list
-      Prompt: PromptInput
+      Prompt: PromptBox
       Offset: int
       Mode: Mode
       Streaming: Streaming option
@@ -293,7 +293,7 @@ let private completionList (kind: CompletionKind) (q: string) : (string * string
 
 /// Open / refresh / close the completion popup based on the current prompt text.
 let private refreshCompletion (m: Model) : Model =
-    match activeCompletion (PromptInput.value m.Prompt) with
+    match activeCompletion (PromptBox.value m.Prompt) with
     | Some(kind, q) ->
         let n = List.length (completionList kind q)
 
@@ -420,7 +420,7 @@ let private startCommand (text: string) (m: Model) : Model * Cmd<Msg> =
     applyResponse text m1
 
 let private submit (m: Model) : Model * Cmd<Msg> =
-    let text = (PromptInput.value m.Prompt).Trim()
+    let text = (PromptBox.value m.Prompt).Trim()
 
     if text = "" then
         m, Cmd.none
@@ -433,7 +433,7 @@ let private submit (m: Model) : Model * Cmd<Msg> =
 
         let m1 =
             { m with
-                Prompt = PromptInput.empty
+                Prompt = PromptBox.empty
                 Pastes = []
                 Completion = None
                 Transcript = m.Transcript @ [ UserMsg text ] @ pasteBlocks
@@ -446,7 +446,7 @@ let private runCommand (text: string) (m: Model) : Model * Cmd<Msg> =
 
 /// Accept the highlighted completion. @mentions insert the path; /slash commands run.
 let private acceptCompletion (m: Model) : Model * Cmd<Msg> =
-    match m.Completion, activeCompletion (PromptInput.value m.Prompt) with
+    match m.Completion, activeCompletion (PromptBox.value m.Prompt) with
     | Some(kind, sel), Some(kind2, q) when kind = kind2 ->
         let items = completionList kind q
 
@@ -455,14 +455,14 @@ let private acceptCompletion (m: Model) : Model * Cmd<Msg> =
             match kind with
             | MentionC ->
                 { m with
-                    Prompt = PromptInput.ofString (acceptMention value (PromptInput.value m.Prompt))
+                    Prompt = PromptBox.ofString (acceptMention value (PromptBox.value m.Prompt))
                     Completion = None },
                 Cmd.none
             | SlashC ->
                 runCommand
                     value
                     { m with
-                        Prompt = PromptInput.empty
+                        Prompt = PromptBox.empty
                         Completion = None }
         | None -> { m with Completion = None }, Cmd.none
     | _ -> { m with Completion = None }, Cmd.none
@@ -529,7 +529,7 @@ let private updateBase (k: Key2) (m: Model) : Model * Cmd<Msg> =
         let chip = sprintf "[Pasted #%d · %d chars] " id s.Length
 
         { m with
-            Prompt = PromptInput.append chip m.Prompt
+            Prompt = PromptBox.append chip m.Prompt
             Pastes = m.Pastes @ [ id, s ]
             NextId = id + 1
             Completion = None },
@@ -539,15 +539,15 @@ let private updateBase (k: Key2) (m: Model) : Model * Cmd<Msg> =
         // framework's editing keymap. Refresh the @mention / /slash popup after.
         refreshCompletion
             { m with
-                Prompt = PromptInput.applyInput e m.Prompt },
+                Prompt = PromptBox.applyInput e m.Prompt },
         Cmd.none
     | KLeft ->
         { m with
-            Prompt = PromptInput.applyAction CursorLeft m.Prompt },
+            Prompt = PromptBox.applyAction CursorLeft m.Prompt },
         Cmd.none
     | KRight ->
         { m with
-            Prompt = PromptInput.applyAction CursorRight m.Prompt },
+            Prompt = PromptBox.applyAction CursorRight m.Prompt },
         Cmd.none
     | KEnter ->
         match m.Completion with
@@ -569,7 +569,7 @@ let private updateBase (k: Key2) (m: Model) : Model * Cmd<Msg> =
         match m.Completion with
         | Some(kind, s) ->
             let q =
-                defaultArg (activeCompletion (PromptInput.value m.Prompt) |> Option.map snd) ""
+                defaultArg (activeCompletion (PromptBox.value m.Prompt) |> Option.map snd) ""
 
             let n = List.length (completionList kind q)
 
@@ -703,7 +703,7 @@ let private updateSkills (k: Key2) (ss: SkillState) (m: Model) : Model * Cmd<Msg
 
         { m with
             Overlay = NoOverlay
-            Prompt = PromptInput.append name m.Prompt },
+            Prompt = PromptBox.append name m.Prompt },
         Cmd.none
     | _ -> m, Cmd.none
 
@@ -946,7 +946,7 @@ let private placeholder (m: Model) =
 let private promptBox (m: Model) : LayoutNode<Msg> =
     Box.box
         Theme.borderStyle
-        [ PromptInput.render
+        [ PromptBox.render
               (m.Size.Width - 2) // box border eats one cell each side
               Theme.accentStyle
               Theme.text
@@ -1158,7 +1158,7 @@ let private toastLayer (m: Model) : LayoutNode<Msg> =
 /// The completion popup (@mentions or /slash commands), floated above the prompt.
 let private completionPopup (kind: CompletionKind) (sel: int) (m: Model) : LayoutNode<Msg> =
     let q =
-        defaultArg (activeCompletion (PromptInput.value m.Prompt) |> Option.map snd) ""
+        defaultArg (activeCompletion (PromptBox.value m.Prompt) |> Option.map snd) ""
 
     let items = completionList kind q
 
@@ -1413,7 +1413,7 @@ let init () : Model * Cmd<Msg> =
 
     { Size = size
       Transcript = [ Dummy.welcomeBlock ]
-      Prompt = PromptInput.empty
+      Prompt = PromptBox.empty
       Offset = 0
       Mode = Normal
       Streaming = None
@@ -1551,7 +1551,7 @@ let runDump () =
         (Size.Create(72, 20))
         (view
             { sample (Size.Create(72, 20)) with
-                Prompt = PromptInput.ofString "see @Mire"
+                Prompt = PromptBox.ofString "see @Mire"
                 Completion = Some(MentionC, 0) })
 
     dumpNode
@@ -1559,7 +1559,7 @@ let runDump () =
         (Size.Create(72, 20))
         (view
             { sample (Size.Create(72, 20)) with
-                Prompt = PromptInput.ofString "/to"
+                Prompt = PromptBox.ofString "/to"
                 Completion = Some(SlashC, 0) })
 
     dumpNode
