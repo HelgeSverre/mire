@@ -22,6 +22,10 @@ type Model =
         Prompt: PromptBox
         /// An open approval prompt: the command awaiting accept/deny + which button is focused.
         Approval: (string * bool) option
+        /// Hunks for the diff reviewer (their `Status` is mutated by accept/reject).
+        Hunks: DiffHunk list
+        /// An open diff reviewer: the render mode + the selected hunk index.
+        Diff: (DiffMode * int) option
         Offset: int
         Size: Size
     }
@@ -35,12 +39,30 @@ type Msg =
 
 let private greeting =
     AssistantMd
-        "Welcome to the **Mire** agent shell. Type a message and press Enter — or type `run` to trigger a tool approval."
+        "Welcome to the **Mire** agent shell. Type a message and press Enter — `run` triggers a tool approval, `diff` opens the diff reviewer."
+
+/// A canned change set for the `diff` reviewer.
+let private sampleHunks =
+    [ { Header = "@@ src/App.fs"
+        Status = Pending
+        Lines =
+          [ { Sign = ' '; Text = "let view m =" }
+            { Sign = '-'; Text = "    text \"hi\"" }
+            { Sign = '+'
+              Text = "    title \"hi\"" }
+            { Sign = ' '; Text = "    |> render" } ] }
+      { Header = "@@ src/Theme.fs"
+        Status = Pending
+        Lines =
+          [ { Sign = '+'
+              Text = "let accent = emerald" } ] } ]
 
 let init () =
     { Transcript = [ greeting ]
       Prompt = PromptBox.empty
       Approval = None
+      Hunks = sampleHunks
+      Diff = None
       Offset = 0
       Size =
         Mire.Protocol.TerminalMode.getTerminalSize ()
@@ -73,6 +95,14 @@ let private submit (m: Model) =
             Prompt = PromptBox.empty
             Approval = Some("rm -rf build && cargo test", true) }
         |> followTail
+    elif text = "diff" then
+        // open the diff reviewer over a canned change set
+        { m with
+            Transcript = m.Transcript @ [ UserMsg "diff" ]
+            Prompt = PromptBox.empty
+            Hunks = sampleHunks
+            Diff = Some(Split, 0) }
+        |> followTail
     else
         { m with
             Transcript =
@@ -99,6 +129,10 @@ let private resolve (accepted: bool) (m: Model) =
         Approval = None }
     |> followTail
 
+/// Set the status of hunk `i`.
+let private setStatus (i: int) (st: HunkStatus) (hunks: DiffHunk list) =
+    hunks |> List.mapi (fun j h -> if j = i then { h with Status = st } else h)
+
 let update (msg: Msg) (m: Model) : Model * Cmd<Msg> =
     match msg with
     | Resized s ->
@@ -107,20 +141,54 @@ let update (msg: Msg) (m: Model) : Model * Cmd<Msg> =
             Offset = maxScroll { m with Size = s } },
         Cmd.none
     | Edit e ->
-        match m.Approval with
-        | Some _ -> m, Cmd.none // the modal swallows editing
-        | None ->
+        match m.Diff, m.Approval with
+        // Diff reviewer: j/k select a hunk, a/r accept/reject it, s toggle mode.
+        | Some(mode, sel), _ ->
+            let ch =
+                match e with
+                | Key ke ->
+                    match ke.Key with
+                    | Char c -> c
+                    | _ -> ""
+                | _ -> ""
+
+            match ch with
+            | "j" ->
+                { m with
+                    Diff = Some(mode, min (m.Hunks.Length - 1) (sel + 1)) },
+                Cmd.none
+            | "k" ->
+                { m with
+                    Diff = Some(mode, max 0 (sel - 1)) },
+                Cmd.none
+            | "s" ->
+                { m with
+                    Diff = Some((if mode = Unified then Split else Unified), sel) },
+                Cmd.none
+            | "a" ->
+                { m with
+                    Hunks = setStatus sel Accepted m.Hunks },
+                Cmd.none
+            | "r" ->
+                { m with
+                    Hunks = setStatus sel Rejected m.Hunks },
+                Cmd.none
+            | _ -> m, Cmd.none
+        | None, Some _ -> m, Cmd.none // the modal swallows editing
+        | None, None ->
             { m with
                 Prompt = PromptBox.applyInput e m.Prompt },
             Cmd.none
     | Submit ->
-        match m.Approval with
-        | Some(_, acceptFocused) -> resolve acceptFocused m, Cmd.none
-        | None -> submit m, Cmd.none
+        match m.Diff, m.Approval with
+        | Some _, _ -> { m with Diff = None }, Cmd.none // Enter closes the reviewer
+        | None, Some(_, acceptFocused) -> resolve acceptFocused m, Cmd.none
+        | None, None -> submit m, Cmd.none
     | EscKey ->
-        match m.Approval with
-        | Some _ -> resolve false m, Cmd.none
-        | None -> m, Cmd.none
+        match m.Diff, m.Approval with
+        | Some _, _ -> { m with Diff = None }, Cmd.none
+        | None, Some _ -> resolve false m, Cmd.none
+        | None, None -> m, Cmd.none
     | ToggleButton ->
         match m.Approval with
         | Some(c, f) -> { m with Approval = Some(c, not f) }, Cmd.none
@@ -161,9 +229,37 @@ let view (m: Model) : LayoutNode<Msg> =
               Dock.bottom 3 (promptView m)
               Dock.fill (transcriptView m) ]
 
-    match m.Approval with
-    | None -> baseTree
-    | Some(cmd, acceptFocused) ->
+    match m.Diff, m.Approval with
+    | Some(mode, sel), _ ->
+        // Layer the diff reviewer over the shell.
+        let w = min 72 (m.Size.Width - 4)
+
+        let rows =
+            m.Hunks
+            |> List.sumBy (fun h ->
+                1
+                + (match mode with
+                   | Unified -> h.Lines.Length
+                   | Split -> fst (DiffView.splitColumns h.Lines) |> List.length))
+
+        let body =
+            Stack.vstack
+                [ DiffView.render theme mode (w - 2) sel m.Hunks
+                  Text.text " j/k move · a accept · r reject · s split/unified · Esc close" theme.fgSubtle ]
+
+        let title =
+            sprintf
+                "review changes (%s)"
+                (match mode with
+                 | Split -> "split"
+                 | Unified -> "unified")
+
+        LayoutNode.Overlay(
+            Rect.Create(0, 0, 0, 0),
+            [ baseTree
+              Modal.modal Style.Default theme.border theme.title w (min (m.Size.Height - 4) (rows + 4)) title body ]
+        )
+    | None, Some(cmd, acceptFocused) ->
         // Layer the approval modal over the shell (its own backdrop dims the base).
         LayoutNode.Overlay(
             Rect.Create(0, 0, 0, 0),
@@ -178,6 +274,7 @@ let view (m: Model) : LayoutNode<Msg> =
                   "Deny"
                   acceptFocused ]
         )
+    | None, None -> baseTree
 
 let mapInput (e: InputEvent) : Msg option =
     match e with
@@ -243,6 +340,16 @@ let private dump () =
         (view
             { baseModel with
                 Approval = Some("rm -rf build && cargo test", true) })
+
+    dumpNode
+        "C. diff reviewer (split, hunk 0 accepted)"
+        size
+        (view
+            { baseModel with
+                Diff = Some(Split, 0)
+                Hunks =
+                    sampleHunks
+                    |> List.mapi (fun i h -> if i = 0 then { h with Status = Accepted } else h) })
 
 [<EntryPoint>]
 let main argv =
