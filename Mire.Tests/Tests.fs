@@ -1973,6 +1973,57 @@ let diffViewTests =
               Expect.equal (DiffView.statusMark Pending) "·" "pending"
           } ]
 
+// Mire.Agent ChatTranscript (scroll math + virtualized view) ----------------
+
+let chatTranscriptTests =
+    let theme = Mire.Widgets.AppTheme.defaultTheme
+    // 20 short user messages — each renders as a label row + one wrapped text row.
+    let blocks = [ for i in 0..19 -> UserMsg(sprintf "msg%02d" i) ]
+    let w = 30
+
+    testList
+        "ChatTranscript"
+        [ test "contentHeight sums the block heights" {
+              let hs = ChatTranscript.blockHeights theme w 0 blocks
+
+              Expect.equal
+                  (List.sum hs)
+                  (ChatTranscript.contentHeight theme w 0 blocks)
+                  "contentHeight = Σ block heights"
+
+              Expect.equal (List.length hs) 20 "one height per block"
+          }
+          test "toBottom / atBottom follow the tail" {
+              let vp = 6
+              let bottom = ChatTranscript.toBottom theme w 0 vp blocks
+              Expect.isTrue (bottom > 0) "a 20-message transcript scrolls past a 6-row viewport"
+              Expect.isTrue (ChatTranscript.atBottom theme w 0 vp bottom blocks) "the toBottom offset is at the bottom"
+              Expect.isFalse (ChatTranscript.atBottom theme w 0 vp 0 blocks) "offset 0 is not at the bottom"
+          }
+          test "view at offset 0 shows the first blocks, not the last" {
+              let node: LayoutNode<unit> =
+                  ChatTranscript.view theme w 0 6 0 Style.Default Style.Default blocks
+
+              let s = Surface(Size.Create(40, 6))
+              Layout.measure (Rect.Create(0, 0, 40, 6)) node |> Layout.render s
+              let whole = String.concat "\n" [ for y in 0..5 -> rowText s y ]
+              Expect.stringContains whole "msg00" "the first message is visible at the top"
+              Expect.isFalse (whole.Contains "msg19") "the last message is off-screen (virtualized out)"
+          }
+          test "view at the tail offset shows the last block" {
+              let vp = 6
+              let bottom = ChatTranscript.toBottom theme w 0 vp blocks
+
+              let node: LayoutNode<unit> =
+                  ChatTranscript.view theme w 0 vp bottom Style.Default Style.Default blocks
+
+              let s = Surface(Size.Create(40, vp))
+              Layout.measure (Rect.Create(0, 0, 40, vp)) node |> Layout.render s
+              let whole = String.concat "\n" [ for y in 0 .. vp - 1 -> rowText s y ]
+              Expect.stringContains whole "msg19" "following the tail shows the newest message"
+              Expect.isFalse (whole.Contains "msg00") "the first message has scrolled off the top"
+          } ]
+
 // Mire.Agent PromptBox (history + completion token) -------------------------
 
 let promptBoxTests =
@@ -2182,6 +2233,7 @@ let all =
           goldenFrameTests
           feedTests
           diffViewTests
+          chatTranscriptTests
           promptBoxTests
           selectionTests
           cmdQuitTests ]

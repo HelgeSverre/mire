@@ -195,11 +195,7 @@ let private viewportRows (m: Model) = max 1 (m.Size.Height - 9)
 /// Total rendered height of the transcript — uses the exact `contentExtent` the layout
 /// engine uses to size Content children, so scroll clamping matches what's drawn.
 let private contentHeight (m: Model) =
-    let w = transcriptWrapWidth m
-
-    m.Transcript
-    |> List.sumBy (fun b ->
-        Layout.contentExtent Direction.Vertical (ChatTranscript.renderBlock Theme.app w m.Spinner b))
+    ChatTranscript.contentHeight Theme.app (transcriptWrapWidth m) m.Spinner m.Transcript
 
 let private maxScroll (m: Model) =
     max 0 (contentHeight m - viewportRows m)
@@ -965,21 +961,12 @@ let private transcriptRegion (m: Model) : LayoutNode<Msg> =
         else
             Theme.borderStyle
 
-    let rows =
-        m.Transcript
-        |> List.map (fun b -> Stack.sized Length.Content (ChatTranscript.renderBlock Theme.app w m.Spinner b))
-
-    // ScrollView adds the track/thumb scrollbar over the bare Scroll node; the
-    // viewport/content heights are the same ones maxScroll uses to clamp Offset.
+    // ChatTranscript.view virtualizes (builds only the visible blocks) and draws the
+    // track/thumb scrollbar; it uses the same content/viewport heights maxScroll
+    // clamps Offset against.
     Box.box
         border
-        [ ScrollView.vertical
-              (viewportRows m)
-              (contentHeight m)
-              m.Offset
-              Theme.borderStyle
-              Theme.muted
-              (Stack.vstackOf rows) ]
+        [ ChatTranscript.view Theme.app w m.Spinner (viewportRows m) m.Offset Theme.borderStyle Theme.muted m.Transcript ]
 
 let private body (m: Model) : LayoutNode<Msg> =
     if m.SidebarOpen then

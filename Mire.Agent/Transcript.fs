@@ -197,7 +197,100 @@ module ChatTranscript =
 
     /// Render a whole transcript as a Content-sized vstack of block nodes (newest
     /// last). The app wraps this in a `ScrollView` and owns the offset/follow-tail.
+    /// (`view` does the wrapping + virtualization; prefer it for the live UI.)
     let render (theme: AppTheme) (wrapWidth: int) (frame: int) (blocks: TranscriptBlock list) : LayoutNode<'msg> =
         blocks
         |> List.map (fun b -> Stack.sized Length.Content (renderBlock theme wrapWidth frame b))
         |> Stack.vstackOf
+
+    // --- scroll math + follow-tail (the offset stays app-owned MVU state) ------
+
+    /// Each block's rendered row height — the exact `contentExtent` the layout uses,
+    /// so scroll clamping matches what's drawn. O(n): measures every block.
+    let blockHeights (theme: AppTheme) (wrapWidth: int) (frame: int) (blocks: TranscriptBlock list) : int list =
+        blocks
+        |> List.map (fun b -> Layout.contentExtent Direction.Vertical (renderBlock theme wrapWidth frame b))
+
+    /// Total transcript height in rows.
+    let contentHeight (theme: AppTheme) (wrapWidth: int) (frame: int) (blocks: TranscriptBlock list) : int =
+        blockHeights theme wrapWidth frame blocks |> List.sum
+
+    /// The follow-tail / jump-to-bottom offset (scrolled all the way down).
+    let toBottom (theme: AppTheme) (wrapWidth: int) (frame: int) (viewportH: int) (blocks: TranscriptBlock list) : int =
+        ScrollView.toBottom viewportH (contentHeight theme wrapWidth frame blocks)
+
+    /// Clamp an app-held offset to the transcript's scroll range.
+    let clampOffset
+        (theme: AppTheme)
+        (wrapWidth: int)
+        (frame: int)
+        (viewportH: int)
+        (offset: int)
+        (blocks: TranscriptBlock list)
+        : int =
+        ScrollView.clampOffset viewportH (contentHeight theme wrapWidth frame blocks) offset
+
+    /// True when `offset` is at the bottom — keep it true to follow the tail.
+    let atBottom
+        (theme: AppTheme)
+        (wrapWidth: int)
+        (frame: int)
+        (viewportH: int)
+        (offset: int)
+        (blocks: TranscriptBlock list)
+        : bool =
+        ScrollView.atBottom viewportH (contentHeight theme wrapWidth frame blocks) offset
+
+    /// The live transcript view: a `viewportH`-tall scroll region at `offset` with a
+    /// track/thumb scrollbar. **Virtualized** — only the blocks intersecting the
+    /// viewport are built into the scroll node (the `Scroll` primitive otherwise
+    /// renders the whole transcript onto an off-screen surface every frame), while
+    /// the scrollbar reflects the true content height/offset. The app owns `offset`
+    /// (clamp with `clampOffset`, follow the tail by holding it at `toBottom`).
+    let view
+        (theme: AppTheme)
+        (wrapWidth: int)
+        (frame: int)
+        (viewportH: int)
+        (offset: int)
+        (trackStyle: Style)
+        (thumbStyle: Style)
+        (blocks: TranscriptBlock list)
+        : LayoutNode<'msg> =
+        let nodes = blocks |> List.map (renderBlock theme wrapWidth frame) |> List.toArray
+
+        let heights = nodes |> Array.map (Layout.contentExtent Direction.Vertical)
+
+        let contentH = Array.sum heights
+        let clamped = ScrollView.clampOffset viewportH contentH offset
+
+        // cumulative top of each block
+        let tops = Array.zeroCreate heights.Length
+        let mutable acc = 0
+
+        for i in 0 .. heights.Length - 1 do
+            tops.[i] <- acc
+            acc <- acc + heights.[i]
+
+        // blocks intersecting [clamped, clamped + viewportH)
+        let visBot = clamped + viewportH
+
+        let visible =
+            [ for i in 0 .. nodes.Length - 1 do
+                  if tops.[i] + heights.[i] > clamped && tops.[i] < visBot then
+                      yield i ]
+
+        let bar = ScrollView.scrollbar viewportH contentH clamped trackStyle thumbStyle
+
+        let body =
+            match visible with
+            | [] -> Spacer.spacer
+            | first :: _ ->
+                let windowContent =
+                    visible
+                    |> List.map (fun i -> Stack.sized Length.Content nodes.[i])
+                    |> Stack.vstackOf
+                // local offset = how far the first visible block is scrolled off the top
+                Scroll.vertical (clamped - tops.[first]) windowContent
+
+        Stack.hstackOf [ Stack.sized Length.Fill body; Stack.sized (Length.Cells 1) bar ]

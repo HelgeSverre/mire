@@ -340,8 +340,10 @@ module ScrollView =
     /// True when `offset` is scrolled all the way down — keep this true to follow the tail.
     let atBottom (viewportH: int) (contentH: int) (offset: int) : bool = offset >= toBottom viewportH contentH
 
-    /// A 1-cell scrollbar column: a proportional thumb over a track.
-    let private scrollbar
+    /// A 1-cell scrollbar column: a proportional thumb over a track, sized/positioned
+    /// from the *true* content height and offset. Public so a virtualized view (which
+    /// scrolls only a window of its content) can still show an accurate scrollbar.
+    let scrollbar
         (viewportH: int)
         (contentH: int)
         (offset: int)
