@@ -153,7 +153,7 @@ Not yet (described in `SPEC.md` as the target):
 - ⏳ The runtime-owned / mouse-driven half of focus (spatial hit-testing)
 - ⏳ Kitty graphics (images) and light/dark theme notifications
 - ⏳ Text selection in `TextBuffer` (so `Input`/`TextArea` are cursor-only)
-- 🚧 The agent-domain layer (`Mire.Agent`) — **extraction underway for 0.5.0.** `ChatTranscript`, `PromptBox`, and `ApprovalModal` now ship in `Mire.Agent`, composed by the `samples/AgentShell` MVP (`just shell`). Remaining: split/accept-reject `DiffView`, folding completion/virtualization into the widgets.
+- 🚧 The agent-domain layer (`Mire.Agent`) — **underway for 0.5.0.** `ChatTranscript`, `PromptBox`, `ApprovalModal`, and `DiffView` (unified/split + accept-reject) now ship in `Mire.Agent`, composed by the `samples/AgentShell` MVP (`just shell`). Remaining: folding completion/history + virtualization into the widgets.
 
 ## Roadmap & design document
 

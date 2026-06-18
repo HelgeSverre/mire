@@ -12,7 +12,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - **`PromptBox`** — the demo's `PromptInput.fs` (a `TextBuffer`/`TextEdit` wrapper + block-cursor render) moved into `Mire.Agent` under the SPEC name; the demo's prompt renders through it.
   - **`ApprovalModal`** — `ApprovalModal.view` (title/intro/command/risk + Accept/Deny) + `buttonHit` (click hit-test), styled by `AppTheme`. The demo's permission modal renders and click-activates through it; the accept/deny behavior stays app-side. Verified via `--dump` + a pty click on Accept firing its toast.
   - **`samples/AgentShell`** — a minimal coding-agent shell (SPEC's headline example) composing `ChatTranscript` + `PromptBox` + `ApprovalModal` on `AppTheme.defaultTheme` with **zero app-specific theme code** — the proof the agent layer composes into a real app. Type to chat; `run` opens a tool-approval modal. Verified via `--dump` (both states) and an end-to-end pty run (type → submit → `run` → approve).
-  - Remaining 0.5.0 work: split/accept-reject `DiffView`, folding completion/virtualization into the widgets, and the optional widget-gallery app (see `ROADMAP.md`).
+  - **`DiffView`** — `DiffView.render` shows a `DiffHunk` list in `Unified` or `Split` (side-by-side before/after) mode with per-hunk accept/reject markers (`HunkStatus`) and a selection highlight; pure, with the app owning the hunks/selection/status (MVU). `splitColumns`/`statusMark` are unit-tested; the `agentShell` sample's `diff` command drives it interactively (j/k select, a/r accept/reject, s toggles mode). Verified via `--dump` + a pty run (pressing `a` accepts the selected hunk: 0 → 1 checkmark).
+  - Remaining 0.5.0 work: folding completion/history into `PromptBox` and virtualization/follow-tail into `ChatTranscript`, and the optional widget-gallery app (see `ROADMAP.md`).
 
 ## [0.4.0] - 2026-06-17
 

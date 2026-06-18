@@ -132,7 +132,7 @@ agent widgets are the (not-yet-created) `Mire.Agent` layer.
 | `PromptBox`      | ✅     | `PromptBox` over `TextBuffer`/`TextEdit` + `render` (block cursor, placeholder). _Slash/@mention completion + history still app-side._ |
 | `ToolCallView`   | ✅     | A `TranscriptBlock.ToolCall` (name + cmd + status glyph/spinner + output) rendered by `ChatTranscript`. _Collapsing is app-side._ |
 | `ThinkingBlock`  | ✅     | A `TranscriptBlock.Thinking` card rendered by `ChatTranscript`.       |
-| `DiffView`       | 🟡     | Unified `TranscriptBlock.DiffBlock` (colored `+`/`-`) via `ChatTranscript`. Split view + accept/reject hunks still pending. |
+| `DiffView`       | ✅     | `DiffView.render` — a reviewable diff (`DiffHunk` list) in `Unified` **or** `Split` mode with per-hunk accept/reject markers (`HunkStatus`) + selection. Pure (app owns hunks/selection/status); `splitColumns`/`statusMark` are tested. The `agentShell` sample drives it interactively (`diff` command). (Unified is also a `TranscriptBlock.DiffBlock` in `ChatTranscript`.) |
 | `FileTree`       | ✅     | A `TranscriptBlock.FileTree` card via `ChatTranscript` (static paths). |
 | `TaskTimeline`   | ✅     | A `TranscriptBlock.TaskTimeline` card via `ChatTranscript`.           |
 | `ApprovalModal`  | ✅     | `ApprovalModal.view` (title/intro/command/risk + Accept/Deny) + `buttonHit` (click), styled by `AppTheme`. App owns the accept/deny behavior. |
@@ -167,7 +167,7 @@ Recommended order — each step names its extraction source in the demo:
 - [x] **3. `PromptBox`** — `PromptInput.fs` moved into `Mire.Agent.PromptBox` (verbatim — it was already framework-only). _Follow-up:_ fold slash/@mention completion + history into the widget (still app-side).
 - [x] **4. `ToolCallView` + `ThinkingBlock`** — shipped as `TranscriptBlock.ToolCall`/`Thinking` rendered by `ChatTranscript` (they're transcript blocks here, not standalone widgets).
 - [x] **5. `ApprovalModal`** — `ApprovalModal.view` + `buttonHit` (click) in `Mire.Agent`, styled by `AppTheme`; the demo's permission modal renders + click-activates through it (accept/deny behavior stays app-side).
-- [🟡] **6. `DiffView`** — unified shipped as `TranscriptBlock.DiffBlock` via `ChatTranscript`; split view + accept/reject hunks still pending.
+- [x] **6. `DiffView`** — `Mire.Agent.DiffView` renders a `DiffHunk` list in unified **or** split mode with per-hunk accept/reject markers + selection (app-owned, MVU); the `agentShell` sample drives it interactively. (Unified also ships as a `ChatTranscript` block.)
 - [x] **7. `FileTree`, `TaskTimeline`** — shipped as `TranscriptBlock.FileTree`/`TaskTimeline` rendered by `ChatTranscript`.
 - [x] **8. `agentShell` MVP sample** — `samples/AgentShell` composes `ChatTranscript` + `PromptBox` + `ApprovalModal` on `AppTheme.defaultTheme` (zero app theme code) — the proof the layer composes. `Mire.Demo.Agent`'s transcript/prompt/approval-modal also route through `Mire.Agent`; its remaining overlays (palette/skill/mcp) are generic UI that may stay app-level.
 - [ ] Widget gallery app — a dedicated demo exercising every widget in all its
