@@ -59,7 +59,7 @@ notifications). **Gate to tag:**
 - [x] `ImagePreview` (Kitty graphics + text fallback) and light/dark theme notifications — done; every widget in the reference table is now built
 - [x] True grapheme clusters — astral-plane / emoji-ZWJ (the second Correctness item)
 - [ ] Performance tiers _as they hurt_ — frame coalescing for streaming first (the one an agent UI feels)
-- [x] Runtime-owned / mouse-hit-testing half of focus — `Focusable` node + retained region table + `Program.withMouseRegion` (demo migration of its modal hit-test still pending)
+- [x] Runtime-owned / mouse-hit-testing half of focus — `Focusable` node + retained region table + `Program.withMouseRegion`; the Agent demo's modal Accept/Deny clicks route through it (its hand-mirrored hit-test is retired)
 - [x] Widget gallery app (`samples/Gallery`) — every base widget in its states across 7 tabbed pages
 
 ### 1.0.0 — later (not a near-term goal)
@@ -165,7 +165,7 @@ Recommended order — each step names its extraction source in the demo:
 
 - [x] **1. Create `Mire.Agent` project** — classlib referencing `Mire` only, in `Mire.slnx` (CI builds the solution); one-directional chain preserved
 - [x] **2. `TranscriptBlock` model + `ChatTranscript`** — extracted from `Blocks.fs` into `Mire.Agent`, parameterized by `AppTheme` (`Notice` uses `AppTheme.Tone`); `ChatTranscript.{renderBlock,render,statusGlyph,statusStyle}`. **Virtualization + follow-tail folded in:** `ChatTranscript.view` builds only the blocks intersecting the viewport into the `Scroll` node (vs. the `Scroll` primitive rendering the whole transcript onto an off-screen surface each frame) with a true-content scrollbar, plus `contentHeight`/`toBottom`/`clampOffset`/`atBottom` scroll-math helpers (the offset stays app-owned MVU state). The demo now renders its transcript through `ChatTranscript.view`.
-- [x] **3. `PromptBox`** — `PromptInput.fs` moved into `Mire.Agent.PromptBox`, then **completion + history folded in**: a submit-`History` ring with `submit`/`historyPrev`/`historyNext` (draft-preserving up/down recall), and `completionToken`/`acceptCompletion` that locate the slash/@-mention token under the caret and splice a pick (the candidate *source* stays app-owned). _Demo can now drop its hand-rolled token detection._
+- [x] **3. `PromptBox`** — `PromptInput.fs` moved into `Mire.Agent.PromptBox`, then **completion + history folded in**: a submit-`History` ring with `submit`/`historyPrev`/`historyNext` (draft-preserving up/down recall), and `completionToken`/`acceptCompletion` that locate the slash/@-mention token under the caret and splice a pick (the candidate *source* stays app-owned). The Agent demo's @mention / /slash detection now routes through `completionToken`/`acceptCompletion`.
 - [x] **4. `ToolCallView` + `ThinkingBlock`** — shipped as `TranscriptBlock.ToolCall`/`Thinking` rendered by `ChatTranscript` (they're transcript blocks here, not standalone widgets).
 - [x] **5. `ApprovalModal`** — `ApprovalModal.view` + `buttonHit` (click) in `Mire.Agent`, styled by `AppTheme`; the demo's permission modal renders + click-activates through it (accept/deny behavior stays app-side).
 - [x] **6. `DiffView`** — `Mire.Agent.DiffView` renders a `DiffHunk` list in unified **or** split mode with per-hunk accept/reject markers + selection (app-owned, MVU); the `agentShell` sample drives it interactively. (Unified also ships as a `ChatTranscript` block.)
@@ -182,7 +182,7 @@ Recommended order — each step names its extraction source in the demo:
 - [x] OSC 52 clipboard — `Cmd.setClipboard text`, written to the terminal by the runtime (same hook shape as `Cmd.quit`)
 - [x] Kitty graphics protocol → `ImagePreview` with text fallback — `ANSI.kittyImage` (chunked transmit-and-display) + `Cmd.kittyImage`/`Cmd.writeRaw`; `Widgets.ImagePreview` renders the cell fallback
 - [x] Light/dark theme notifications — DEC mode 2031: `Program.withThemeNotifications` enables the mode + queries the scheme at startup; `InputParser` decodes `CSI ? 997 ; 1|2 n` into `ThemeChanged Dark`/`Light`, delivered through `MapInput`
-- [x] Richer mouse (hit-testing → focus/selection) — the runtime-owned half of focus: a `LayoutNode.Focusable` node (`Widgets.Focusable.region`) tags a subtree with a `RegionId`; the runtime retains `Layout.collectRegions` of the rendered frame and hit-tests mouse events through `Layout.regionAt`, delivering the hit `RegionId` to `Program.withMouseRegion`. _Follow-up:_ migrate the Agent demo's hand-computed modal hit-test onto it.
+- [x] Richer mouse (hit-testing → focus/selection) — the runtime-owned half of focus: a `LayoutNode.Focusable` node (`Widgets.Focusable.region`) tags a subtree with a `RegionId`; the runtime retains `Layout.collectRegions` of the rendered frame and hit-tests mouse events through `Layout.regionAt`, delivering the hit `RegionId` to `Program.withMouseRegion`. The Agent demo's modal Accept/Deny clicks route through it (`ApprovalModal.acceptRegion`/`denyRegion`), retiring the hand-computed hit-test.
 
 ### Cross-cutting — Performance & rendering ⬜
 

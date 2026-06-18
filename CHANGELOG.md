@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- **Agent demo dogfoods the new APIs.** `Mire.Demo.Agent` now routes its @mention / /slash completion through `PromptBox.completionToken`/`acceptCompletion` (dropping its hand-rolled token detection) and resolves the approval modal's Accept/Deny clicks through the runtime's region table via `Program.withMouseRegion` + `ApprovalModal.acceptRegion`/`denyRegion` (retiring the hand-mirrored `buttonHit` geometry; `buttonHit` remains as a utility). Verified end-to-end via `--dump` and pty.
+
 ### Added
 
 - **Widget gallery sample (`samples/Gallery`).** A pure-framework showcase (references only `Mire`) exercising every base widget in its key states across 7 tabbed pages — Text/type/badges/key-hints, Boxes/panels/separators/split/highlight, Inputs (incl. selection + soft-wrap), Lists/Tables, Controls (toggles/progress/spinner/status bar), Overlays (modal/completion), and Media (ImagePreview/Markdown) — on the default brand theme. `just gallery`; `--dump` renders every page headlessly.
