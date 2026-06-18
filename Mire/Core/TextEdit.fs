@@ -27,18 +27,16 @@ type EditAction =
     | LineEnd
     | DocStart
     | DocEnd
+    | SelectAll
+    /// Apply a *motion* action as a selection extension (a shift+motion): anchors
+    /// at the caret if needed, then moves. Wrap a cursor/word/line/doc move.
+    | Select of EditAction
 
 module TextEdit =
 
-    /// Run an action against a buffer (pure).
-    let apply (action: EditAction) (b: TextBuffer) : TextBuffer =
+    /// A pure cursor motion (preserves any selection anchor). Non-motions are no-ops.
+    let private motion (action: EditAction) (b: TextBuffer) : TextBuffer =
         match action with
-        | InsertText s -> TextBuffer.insert s b
-        | Newline -> TextBuffer.insert "\n" b
-        | DeleteBack -> TextBuffer.backspace b
-        | DeleteForward -> TextBuffer.delete b
-        | DeleteWordBack -> TextBuffer.deleteWordBack b
-        | DeleteWordForward -> TextBuffer.deleteWordForward b
         | CursorLeft -> TextBuffer.left b
         | CursorRight -> TextBuffer.right b
         | CursorUp -> TextBuffer.up b
@@ -49,6 +47,30 @@ module TextEdit =
         | LineEnd -> TextBuffer.lineEnd b
         | DocStart -> TextBuffer.home b
         | DocEnd -> TextBuffer.toEnd b
+        | _ -> b
+
+    /// Run an action against a buffer (pure). Edits replace any selection; plain
+    /// moves clear it; `Select`/`SelectAll` set it.
+    let apply (action: EditAction) (b: TextBuffer) : TextBuffer =
+        match action with
+        | InsertText s -> TextBuffer.insert s b
+        | Newline -> TextBuffer.insert "\n" b
+        | DeleteBack -> TextBuffer.backspace b
+        | DeleteForward -> TextBuffer.delete b
+        | DeleteWordBack -> TextBuffer.deleteWordBack b
+        | DeleteWordForward -> TextBuffer.deleteWordForward b
+        | SelectAll -> TextBuffer.selectAll b
+        | Select mv -> TextBuffer.extend (motion mv) b
+        | CursorLeft
+        | CursorRight
+        | CursorUp
+        | CursorDown
+        | WordLeft
+        | WordRight
+        | LineStart
+        | LineEnd
+        | DocStart
+        | DocEnd -> motion action b |> TextBuffer.clearSelection
 
     /// Conventional default bindings. Returns `None` for keys it doesn't own (e.g.
     /// `Ctrl+C`, `Tab`, `Enter`+modifiers) so the app/runtime can claim them.
@@ -57,19 +79,22 @@ module TextEdit =
         let m = ke.Modifiers
         let plain = not m.Ctrl && not m.Alt && not m.Meta
         let word = m.Ctrl || m.Alt || m.Meta // Ctrl/Cmd/Alt treated alike (cross-platform)
+        // Shift turns a motion into a selection extension.
+        let sel (mv: EditAction) = if m.Shift then Select mv else mv
 
         match ke.Key with
+        | Char c when (m.Ctrl || m.Meta) && c = "a" -> Some SelectAll // Ctrl/Cmd+A select all
         | Char c when plain -> Some(InsertText c)
         | Space when plain -> Some(InsertText " ")
         | Enter when plain -> Some Newline
         | Backspace -> Some(if word then DeleteWordBack else DeleteBack)
         | Delete -> Some(if word then DeleteWordForward else DeleteForward)
-        | ArrowLeft -> Some(if word then WordLeft else CursorLeft)
-        | ArrowRight -> Some(if word then WordRight else CursorRight)
-        | ArrowUp when plain -> Some CursorUp
-        | ArrowDown when plain -> Some CursorDown
-        | Home -> Some(if m.Ctrl || m.Meta then DocStart else LineStart)
-        | End -> Some(if m.Ctrl || m.Meta then DocEnd else LineEnd)
+        | ArrowLeft -> Some(sel (if word then WordLeft else CursorLeft))
+        | ArrowRight -> Some(sel (if word then WordRight else CursorRight))
+        | ArrowUp when plain -> Some(sel CursorUp)
+        | ArrowDown when plain -> Some(sel CursorDown)
+        | Home -> Some(sel (if m.Ctrl || m.Meta then DocStart else LineStart))
+        | End -> Some(sel (if m.Ctrl || m.Meta then DocEnd else LineEnd))
         | _ -> None
 
     /// Apply `keymap` to an `InputEvent`: keys via the keymap; `Paste s` inserts

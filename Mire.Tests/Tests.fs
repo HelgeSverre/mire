@@ -931,76 +931,182 @@ let textBufferTests =
               Expect.equal (b.Text, b.Cursor) ("abc", 3) "accumulated, cursor at end"
           }
           test "insert splices mid-string" {
-              let b = { Text = "ace"; Cursor = 1 } |> TextBuffer.insert "b"
+              let b =
+                  { Text = "ace"
+                    Cursor = 1
+                    Anchor = None }
+                  |> TextBuffer.insert "b"
+
               Expect.equal (b.Text, b.Cursor) ("abce", 2) "inserted at index 1"
           }
           test "backspace deletes before the cursor; no-op at start" {
-              Expect.equal (({ Text = "abc"; Cursor = 2 } |> TextBuffer.backspace).Text) "ac" "removed 'b'"
-              let atStart = { Text = "abc"; Cursor = 0 } |> TextBuffer.backspace
+              Expect.equal
+                  (({ Text = "abc"
+                      Cursor = 2
+                      Anchor = None }
+                    |> TextBuffer.backspace)
+                      .Text)
+                  "ac"
+                  "removed 'b'"
+
+              let atStart =
+                  { Text = "abc"
+                    Cursor = 0
+                    Anchor = None }
+                  |> TextBuffer.backspace
+
               Expect.equal (atStart.Text, atStart.Cursor) ("abc", 0) "unchanged at start"
           }
           test "delete removes the char at the cursor" {
-              let b = { Text = "abc"; Cursor = 1 } |> TextBuffer.delete
+              let b =
+                  { Text = "abc"
+                    Cursor = 1
+                    Anchor = None }
+                  |> TextBuffer.delete
+
               Expect.equal (b.Text, b.Cursor) ("ac", 1) "removed 'b', cursor stays"
           }
           test "cursor moves clamp to bounds" {
-              let b = { Text = "abc"; Cursor = 1 }
+              let b =
+                  { Text = "abc"
+                    Cursor = 1
+                    Anchor = None }
+
               Expect.equal (TextBuffer.left b).Cursor 0 "left"
               Expect.equal (TextBuffer.right b).Cursor 2 "right"
               Expect.equal (TextBuffer.toEnd b).Cursor 3 "end"
-              Expect.equal (TextBuffer.left { Text = ""; Cursor = 0 }).Cursor 0 "left clamps at 0"
+              Expect.equal (TextBuffer.left { Text = ""; Cursor = 0; Anchor = None }).Cursor 0 "left clamps at 0"
           }
           test "deleteWordBack removes the previous word" {
-              let b = { Text = "foo bar"; Cursor = 7 } |> TextBuffer.deleteWordBack
+              let b =
+                  { Text = "foo bar"
+                    Cursor = 7
+                    Anchor = None }
+                  |> TextBuffer.deleteWordBack
+
               Expect.equal (b.Text, b.Cursor) ("foo ", 4) "removed 'bar'"
 
-              let nl = { Text = "a\nbc"; Cursor = 4 } |> TextBuffer.deleteWordBack
+              let nl =
+                  { Text = "a\nbc"
+                    Cursor = 4
+                    Anchor = None }
+                  |> TextBuffer.deleteWordBack
+
               Expect.equal (nl.Text, nl.Cursor) ("a\n", 2) "stops at the newline boundary"
           }
           test "wordLeft / wordRight jump by word, clamping at the ends" {
               Expect.equal
-                  ({ Text = "foo bar"; Cursor = 7 } |> TextBuffer.wordLeft).Cursor
+                  ({ Text = "foo bar"
+                     Cursor = 7
+                     Anchor = None }
+                   |> TextBuffer.wordLeft)
+                      .Cursor
                   4
                   "wordLeft → start of 'bar'"
 
-              Expect.equal ({ Text = "foo bar"; Cursor = 0 } |> TextBuffer.wordLeft).Cursor 0 "wordLeft no-op at start"
+              Expect.equal
+                  ({ Text = "foo bar"
+                     Cursor = 0
+                     Anchor = None }
+                   |> TextBuffer.wordLeft)
+                      .Cursor
+                  0
+                  "wordLeft no-op at start"
 
               Expect.equal
-                  ({ Text = "foo bar"; Cursor = 0 } |> TextBuffer.wordRight).Cursor
+                  ({ Text = "foo bar"
+                     Cursor = 0
+                     Anchor = None }
+                   |> TextBuffer.wordRight)
+                      .Cursor
                   3
                   "wordRight → end of 'foo'"
 
-              Expect.equal ({ Text = "foo bar"; Cursor = 7 } |> TextBuffer.wordRight).Cursor 7 "wordRight no-op at end"
+              Expect.equal
+                  ({ Text = "foo bar"
+                     Cursor = 7
+                     Anchor = None }
+                   |> TextBuffer.wordRight)
+                      .Cursor
+                  7
+                  "wordRight no-op at end"
           }
           test "deleteWordForward removes the next word" {
-              let b = { Text = "foo bar"; Cursor = 0 } |> TextBuffer.deleteWordForward
+              let b =
+                  { Text = "foo bar"
+                    Cursor = 0
+                    Anchor = None }
+                  |> TextBuffer.deleteWordForward
+
               Expect.equal (b.Text, b.Cursor) (" bar", 0) "removed 'foo', cursor stays"
           }
           test "lineStart / lineEnd act within the current line" {
-              Expect.equal ({ Text = "ab\ncd"; Cursor = 4 } |> TextBuffer.lineStart).Cursor 3 "→ start of 2nd line"
-              Expect.equal ({ Text = "ab\ncd"; Cursor = 3 } |> TextBuffer.lineEnd).Cursor 5 "→ end of 2nd line"
+              Expect.equal
+                  ({ Text = "ab\ncd"
+                     Cursor = 4
+                     Anchor = None }
+                   |> TextBuffer.lineStart)
+                      .Cursor
+                  3
+                  "→ start of 2nd line"
 
               Expect.equal
-                  ({ Text = "ab\ncd"; Cursor = 1 } |> TextBuffer.lineEnd).Cursor
+                  ({ Text = "ab\ncd"
+                     Cursor = 3
+                     Anchor = None }
+                   |> TextBuffer.lineEnd)
+                      .Cursor
+                  5
+                  "→ end of 2nd line"
+
+              Expect.equal
+                  ({ Text = "ab\ncd"
+                     Cursor = 1
+                     Anchor = None }
+                   |> TextBuffer.lineEnd)
+                      .Cursor
                   2
                   "1st line ends before its \\n"
           }
           test "up / down move by row, clamping the column (no sticky col)" {
-              let b = { Text = "abc\nde"; Cursor = 2 } // row 0, col 2
+              let b =
+                  { Text = "abc\nde"
+                    Cursor = 2
+                    Anchor = None } // row 0, col 2
+
               let d = TextBuffer.down b
               Expect.equal d.Cursor 6 "down onto a shorter line clamps the column to its end"
               Expect.equal (TextBuffer.up d).Cursor 2 "up returns to col 2 on the longer line"
               Expect.equal (TextBuffer.up b) b "up is a no-op on the first line"
 
               Expect.equal
-                  (TextBuffer.down { Text = "x"; Cursor = 1 })
-                  { Text = "x"; Cursor = 1 }
+                  (TextBuffer.down
+                      { Text = "x"
+                        Cursor = 1
+                        Anchor = None })
+                  { Text = "x"
+                    Cursor = 1
+                    Anchor = None }
                   "down is a no-op on the last line"
           }
           test "cursorRowCol maps the flat cursor to (row, col)" {
               Expect.equal (TextBuffer.cursorRowCol TextBuffer.Empty) (0, 0) "empty → (0,0)"
-              Expect.equal (TextBuffer.cursorRowCol { Text = "a\nbb"; Cursor = 4 }) (1, 2) "end of 2nd line"
-              Expect.equal (TextBuffer.cursorRowCol { Text = "a\nbb"; Cursor = 1 }) (0, 1) "end of 1st line"
+
+              Expect.equal
+                  (TextBuffer.cursorRowCol
+                      { Text = "a\nbb"
+                        Cursor = 4
+                        Anchor = None })
+                  (1, 2)
+                  "end of 2nd line"
+
+              Expect.equal
+                  (TextBuffer.cursorRowCol
+                      { Text = "a\nbb"
+                        Cursor = 1
+                        Anchor = None })
+                  (0, 1)
+                  "end of 1st line"
           } ]
 
 // TextEdit (editing actions + configurable keymap) --------------------------
@@ -1020,7 +1126,16 @@ let textEditTests =
         [ test "apply runs the action against the buffer" {
               Expect.equal (TextEdit.apply (InsertText "hi") TextBuffer.Empty).Text "hi" "InsertText inserts"
               Expect.equal (TextEdit.apply Newline (TextBuffer.Of "a")).Text "a\n" "Newline inserts a line break"
-              Expect.equal (TextEdit.apply DeleteWordBack { Text = "foo bar"; Cursor = 7 }).Text "foo " "DeleteWordBack"
+
+              Expect.equal
+                  (TextEdit.apply
+                      DeleteWordBack
+                      { Text = "foo bar"
+                        Cursor = 7
+                        Anchor = None })
+                      .Text
+                  "foo "
+                  "DeleteWordBack"
           }
           test "defaultKeymap follows conventions" {
               Expect.equal
@@ -1073,7 +1188,14 @@ let inputViewTests =
               let cur = Style.Default.WithForeground(Color.Black).WithBackground(curBg)
 
               let node: LayoutNode<unit> =
-                  Mire.Widgets.Input.render 10 txt cur true { Text = "abc"; Cursor = 1 }
+                  Mire.Widgets.Input.render
+                      10
+                      txt
+                      cur
+                      true
+                      { Text = "abc"
+                        Cursor = 1
+                        Anchor = None }
 
               let surf = Surface(Size.Create(10, 1))
               Layout.measure (Rect.Create(0, 0, 10, 1)) node |> Layout.render surf
@@ -1085,7 +1207,14 @@ let inputViewTests =
               let cur = Style.Default.WithBackground(Color.White)
 
               let node: LayoutNode<unit> =
-                  Mire.Widgets.Input.render 4 Style.Default cur true { Text = "0123456789"; Cursor = 10 }
+                  Mire.Widgets.Input.render
+                      4
+                      Style.Default
+                      cur
+                      true
+                      { Text = "0123456789"
+                        Cursor = 10
+                        Anchor = None }
 
               let surf = Surface(Size.Create(4, 1))
               Layout.measure (Rect.Create(0, 0, 4, 1)) node |> Layout.render surf
@@ -1102,7 +1231,15 @@ let textAreaTests =
               let cur = Style.Default.WithBackground curBg
               // "ab\ncd", cursor 4 → (row 1, col 1)
               let node: LayoutNode<unit> =
-                  Mire.Widgets.TextArea.render 10 3 Style.Default cur true { Text = "ab\ncd"; Cursor = 4 }
+                  Mire.Widgets.TextArea.render
+                      10
+                      3
+                      Style.Default
+                      cur
+                      true
+                      { Text = "ab\ncd"
+                        Cursor = 4
+                        Anchor = None }
 
               let surf = Surface(Size.Create(10, 3))
               Layout.measure (Rect.Create(0, 0, 10, 3)) node |> Layout.render surf
@@ -1114,7 +1251,11 @@ let textAreaTests =
           test "vertical-scrolls to keep the cursor row visible" {
               let cur = Style.Default.WithBackground(Color.Rgb(0x40uy, 0x40uy, 0x40uy))
               let text = "l0\nl1\nl2\nl3\nl4"
-              let buf = { Text = text; Cursor = text.Length } // cursor on the last line
+
+              let buf =
+                  { Text = text
+                    Cursor = text.Length
+                    Anchor = None } // cursor on the last line
 
               let node: LayoutNode<unit> =
                   Mire.Widgets.TextArea.render 6 2 Style.Default cur true buf
@@ -1619,6 +1760,68 @@ let diffViewTests =
               Expect.equal (DiffView.statusMark Pending) "·" "pending"
           } ]
 
+// Text selection (TextBuffer anchor + TextEdit) -----------------------------
+
+let selectionTests =
+    testList
+        "Selection"
+        [ test "selectAll selects the whole buffer" {
+              let b = TextBuffer.Of "hello" |> TextBuffer.selectAll
+              Expect.equal (TextBuffer.selection b) (Some(0, 5)) "anchor 0 .. length"
+          }
+          test "typing replaces the selection" {
+              let b = TextBuffer.Of "hello" |> TextBuffer.selectAll |> TextBuffer.insert "x"
+              Expect.equal b.Text "x" "selection replaced by the inserted text"
+              Expect.isFalse (TextBuffer.hasSelection b) "selection cleared after insert"
+          }
+          test "backspace deletes the selection" {
+              let b =
+                  { Text = "hello"
+                    Cursor = 4
+                    Anchor = Some 1 }
+                  |> TextBuffer.backspace
+
+              Expect.equal b.Text "ho" "removed [1,4) → 'h' + 'o'"
+              Expect.equal b.Cursor 1 "caret at the selection start"
+              Expect.isFalse (TextBuffer.hasSelection b) "selection cleared"
+          }
+          test "extend sets the anchor and moves the caret" {
+              let b =
+                  TextBuffer.Of "hello" |> TextBuffer.home |> TextBuffer.extend TextBuffer.right
+
+              Expect.equal (TextBuffer.selection b) (Some(0, 1)) "selects the first char"
+          }
+          test "a plain move collapses the selection (TextEdit)" {
+              let b = TextBuffer.Of "hello" |> TextBuffer.selectAll |> TextEdit.apply CursorLeft
+
+              Expect.isFalse (TextBuffer.hasSelection b) "plain CursorLeft clears the selection"
+          }
+          test "TextEdit: Select extends, SelectAll selects" {
+              let b = TextBuffer.Of "hi" |> TextBuffer.home |> TextEdit.apply (Select CursorRight)
+
+              Expect.equal (TextBuffer.selection b) (Some(0, 1)) "Select CursorRight selects one char"
+              let b2 = TextBuffer.Of "hi" |> TextEdit.apply SelectAll
+              Expect.equal (TextBuffer.selection b2) (Some(0, 2)) "SelectAll"
+          }
+          test "defaultKeymap: Shift+Right → Select, Ctrl+A → SelectAll" {
+              let mk key mods : KeyEvent =
+                  { Key = key
+                    Text = None
+                    Modifiers = mods
+                    Repeat = false
+                    EventType = Press }
+
+              Expect.equal
+                  (TextEdit.defaultKeymap (mk ArrowRight { KeyModifiers.None with Shift = true }))
+                  (Some(Select CursorRight))
+                  "Shift+→ extends the selection"
+
+              Expect.equal
+                  (TextEdit.defaultKeymap (mk (Char "a") { KeyModifiers.None with Ctrl = true }))
+                  (Some SelectAll)
+                  "Ctrl+A selects all"
+          } ]
+
 [<Tests>]
 let all =
     testList
@@ -1644,4 +1847,5 @@ let all =
           goldenFrameTests
           feedTests
           diffViewTests
+          selectionTests
           cmdQuitTests ]

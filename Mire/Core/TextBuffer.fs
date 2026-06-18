@@ -5,11 +5,22 @@ namespace Mire.Core
 /// (not grapheme-aware): fine for ASCII-ish input; combining/wide clusters are a
 /// known approximation, matching the rest of the framework.
 type TextBuffer =
-    { Text: string
-      Cursor: int }
+    {
+        Text: string
+        Cursor: int
+        /// Selection anchor: `Some i` means text between `i` and `Cursor` is
+        /// selected; `None` means no selection (just the caret). Preserved across
+        /// `{ b with … }` copies, so plain move-ops keep it — `TextEdit` clears it on
+        /// a non-extending move and sets/extends it on a shift-move.
+        Anchor: int option
+    }
 
-    static member Empty = { Text = ""; Cursor = 0 }
-    static member Of(s: string) = { Text = s; Cursor = s.Length }
+    static member Empty = { Text = ""; Cursor = 0; Anchor = None }
+
+    static member Of(s: string) =
+        { Text = s
+          Cursor = s.Length
+          Anchor = None }
 
 module TextBuffer =
 
@@ -45,32 +56,79 @@ module TextBuffer =
     let ofString (s: string) : TextBuffer = TextBuffer.Of s
     let isEmpty (b: TextBuffer) = b.Text = ""
 
-    /// Insert `s` at the cursor and advance past it.
+    /// The selected range as `(lo, hi)` char indices (`hi` exclusive), or `None`
+    /// when there's no selection.
+    let selection (b: TextBuffer) : (int * int) option =
+        b.Anchor |> Option.map (fun a -> (min a b.Cursor, max a b.Cursor))
+
+    /// True when a non-empty range is selected.
+    let hasSelection (b: TextBuffer) : bool =
+        match selection b with
+        | Some(lo, hi) -> hi > lo
+        | None -> false
+
+    /// Drop any selection, keeping the caret where it is.
+    let clearSelection (b: TextBuffer) : TextBuffer = { b with Anchor = None }
+
+    /// Delete the selected range (caret to its start); a no-op collapse otherwise.
+    let deleteSelection (b: TextBuffer) : TextBuffer =
+        match selection b with
+        | Some(lo, hi) when hi > lo ->
+            { Text = b.Text.Substring(0, lo) + b.Text.Substring(hi)
+              Cursor = lo
+              Anchor = None }
+        | _ -> { b with Anchor = None }
+
+    /// Select the whole buffer (anchor at 0, caret at the end).
+    let selectAll (b: TextBuffer) : TextBuffer =
+        { b with
+            Anchor = Some 0
+            Cursor = b.Text.Length }
+
+    /// Apply a motion as a selection extension (shift+move): anchor at the current
+    /// caret if not already anchored, then move — the move preserves the anchor.
+    let extend (move: TextBuffer -> TextBuffer) (b: TextBuffer) : TextBuffer =
+        move (
+            match b.Anchor with
+            | Some _ -> b
+            | None -> { b with Anchor = Some b.Cursor }
+        )
+
+    /// Insert `s` at the cursor (replacing any selection) and advance past it.
     let insert (s: string) (b: TextBuffer) : TextBuffer =
-        let b = clampCursor b
+        let b = clampCursor (deleteSelection b)
 
         { Text = b.Text.Substring(0, b.Cursor) + s + b.Text.Substring(b.Cursor)
-          Cursor = b.Cursor + s.Length }
+          Cursor = b.Cursor + s.Length
+          Anchor = None }
 
-    /// Delete the char before the cursor (Backspace).
+    /// Delete the selection if any, else the char before the cursor (Backspace).
     let backspace (b: TextBuffer) : TextBuffer =
-        let b = clampCursor b
-
-        if b.Cursor = 0 then
-            b
+        if hasSelection b then
+            deleteSelection b
         else
-            { Text = b.Text.Substring(0, b.Cursor - 1) + b.Text.Substring(b.Cursor)
-              Cursor = b.Cursor - 1 }
+            let b = clampCursor b
 
-    /// Delete the char at the cursor (forward Delete).
+            if b.Cursor = 0 then
+                { b with Anchor = None }
+            else
+                { Text = b.Text.Substring(0, b.Cursor - 1) + b.Text.Substring(b.Cursor)
+                  Cursor = b.Cursor - 1
+                  Anchor = None }
+
+    /// Delete the selection if any, else the char at the cursor (forward Delete).
     let delete (b: TextBuffer) : TextBuffer =
-        let b = clampCursor b
-
-        if b.Cursor >= b.Text.Length then
-            b
+        if hasSelection b then
+            deleteSelection b
         else
-            { b with
-                Text = b.Text.Substring(0, b.Cursor) + b.Text.Substring(b.Cursor + 1) }
+            let b = clampCursor b
+
+            if b.Cursor >= b.Text.Length then
+                { b with Anchor = None }
+            else
+                { b with
+                    Text = b.Text.Substring(0, b.Cursor) + b.Text.Substring(b.Cursor + 1)
+                    Anchor = None }
 
     let left (b: TextBuffer) : TextBuffer =
         { b with Cursor = max 0 (b.Cursor - 1) }
@@ -110,6 +168,12 @@ module TextBuffer =
 
         { b with Cursor = i }
 
+    /// Select the word around/before the cursor (anchor at its start, caret at its end).
+    let selectWord (b: TextBuffer) : TextBuffer =
+        { b with
+            Anchor = Some (wordLeft b).Cursor
+            Cursor = (wordRight b).Cursor }
+
     /// Delete from the cursor back to the start of the previous word. The action
     /// is key-agnostic; the conventional binding (Ctrl/Cmd+Backspace) is wired in
     /// `Mire.Core.TextEdit`.
@@ -118,7 +182,8 @@ module TextBuffer =
         let i = (wordLeft b).Cursor
 
         { Text = b.Text.Substring(0, i) + b.Text.Substring(b.Cursor)
-          Cursor = i }
+          Cursor = i
+          Anchor = None }
 
     /// Delete from the cursor forward to the end of the next word.
     let deleteWordForward (b: TextBuffer) : TextBuffer =
