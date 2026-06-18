@@ -1940,6 +1940,63 @@ let focusTests =
               Expect.isFalse (Focus.isTrapped Focus.empty) "empty → not trapped"
           } ]
 
+// Region collection + mouse hit-testing (Focusable nodes) -------------------
+
+let regionTests =
+    testList
+        "Regions"
+        [ test "collectRegions records each Focusable's laid-out rect" {
+              let node: LayoutNode<unit> =
+                  Mire.Widgets.Stack.vstackOf
+                      [ Mire.Widgets.Stack.sized
+                            (Length.Cells 2)
+                            (Mire.Widgets.Focusable.region (RegionId "top") (Mire.Widgets.Backdrop.solid Style.Default))
+                        Mire.Widgets.Stack.sized
+                            (Length.Cells 2)
+                            (Mire.Widgets.Focusable.region (RegionId "bot") (Mire.Widgets.Backdrop.solid Style.Default)) ]
+
+              let laid = Layout.measure (Rect.Create(0, 0, 10, 4)) node
+              let regions = Layout.collectRegions laid
+              Expect.equal (List.length regions) 2 "two focusable regions"
+              Expect.equal (fst regions.[0]) (RegionId "top") "first is the top region"
+              Expect.equal (snd regions.[0]) (Rect.Create(0, 0, 10, 2)) "top rect"
+              Expect.equal (snd regions.[1]) (Rect.Create(0, 2, 10, 2)) "bottom rect"
+          }
+          test "regionAt finds the region under a point, None outside" {
+              let regions =
+                  [ (RegionId "top", Rect.Create(0, 0, 10, 2))
+                    (RegionId "bot", Rect.Create(0, 2, 10, 2)) ]
+
+              Expect.equal (Layout.regionAt regions (Point.Create(5, 0))) (Some(RegionId "top")) "in the top band"
+              Expect.equal (Layout.regionAt regions (Point.Create(5, 3))) (Some(RegionId "bot")) "in the bottom band"
+              Expect.equal (Layout.regionAt regions (Point.Create(5, 9))) None "below everything → none"
+          }
+          test "regionAt picks the topmost (last-painted) overlapping region" {
+              // later entries paint on top
+              let regions =
+                  [ (RegionId "under", Rect.Create(0, 0, 10, 10))
+                    (RegionId "over", Rect.Create(2, 2, 4, 4)) ]
+
+              Expect.equal
+                  (Layout.regionAt regions (Point.Create(3, 3)))
+                  (Some(RegionId "over"))
+                  "overlap → topmost wins"
+
+              Expect.equal
+                  (Layout.regionAt regions (Point.Create(8, 8)))
+                  (Some(RegionId "under"))
+                  "outside the top one → under"
+          }
+          test "regions inside a Scroll are omitted (virtual content space)" {
+              let node: LayoutNode<unit> =
+                  Mire.Widgets.Scroll.vertical
+                      0
+                      (Mire.Widgets.Focusable.region (RegionId "scrolled") (Mire.Widgets.Backdrop.solid Style.Default))
+
+              let laid = Layout.measure (Rect.Create(0, 0, 10, 4)) node
+              Expect.isEmpty (Layout.collectRegions laid) "a Focusable under a Scroll is not hit-testable here"
+          } ]
+
 // Mire.Agent DiffView (split columns + status markers) ----------------------
 
 let diffViewTests =
@@ -2217,6 +2274,7 @@ let all =
           layoutTests
           positionedTests
           focusTests
+          regionTests
           widgetTests
           textBufferTests
           textEditTests

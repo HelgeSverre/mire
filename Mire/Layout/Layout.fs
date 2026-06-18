@@ -50,6 +50,10 @@ type LayoutNode<'msg> =
     /// box) and works standalone (a corner badge). For a top-level `Overlay`
     /// layer the assigned rect is the screen.
     | Positioned of Rect * Placement * Length * Length * LayoutNode<'msg>
+    /// Tags its subtree with a `RegionId` so the runtime can hit-test mouse events
+    /// against the laid-out rect (`Layout.collectRegions`/`regionAt`). Layout-neutral
+    /// — the child fills the assigned rect exactly; it only records the rect + id.
+    | Focusable of Rect * RegionId * LayoutNode<'msg>
 
 and DockChild<'msg> =
     { Position: DockPosition
@@ -104,6 +108,7 @@ module Layout =
             else
                 children |> List.map (contentExtent dir) |> List.max
         | Positioned(_, _, _, _, child) -> contentExtent dir child
+        | Focusable(_, _, child) -> contentExtent dir child
 
     /// The size of the virtual content surface a `Scroll` lays its child onto.
     /// At least the viewport size, expanded to the child's intrinsic extent so
@@ -296,6 +301,9 @@ module Layout =
                 | BottomRight -> max available.Top (available.Bottom - h + 1)
 
             Positioned(available, placement, width, height, measure (Rect.Create(x, y, w, h)) child)
+        | Focusable(_, id, child) ->
+            // Layout-neutral: the child fills the assigned rect; record it.
+            Focusable(available, id, measure available child)
 
     let rec render (surface: Surface) (node: LayoutNode<'msg>) : unit =
         match node with
@@ -320,6 +328,7 @@ module Layout =
             for child in children do
                 render surface child
         | Positioned(_, _, _, _, child) -> render surface child
+        | Focusable(_, _, child) -> render surface child
 
     /// Renders a scroll child onto an off-screen content surface, then blits the
     /// window selected by the scroll offset into the viewport. Offsets are clamped
@@ -345,3 +354,35 @@ module Layout =
                 for vx in 0 .. viewport.Width - 1 do
                     let sx = vx + offX
                     surface.[viewport.Left + vx, viewport.Top + vy] <- temp.[sx, sy]
+
+    /// Collect the `(RegionId, Rect)` of every `Focusable` node in a *measured* tree,
+    /// in paint order (later entries paint on top). This is the retained region table
+    /// the runtime hit-tests mouse events against. Regions nested inside a `Scroll`
+    /// are omitted — their measured rects live in the scroll's virtual content space,
+    /// not screen space, so they can't be hit-tested from a screen coordinate.
+    let collectRegions (node: LayoutNode<'msg>) : (RegionId * Rect) list =
+        let acc = ResizeArray<RegionId * Rect>()
+
+        let rec go n =
+            match n with
+            | Empty
+            | Text _
+            | Filled _ -> ()
+            | Box(_, _, children) -> children |> List.iter go
+            | Dock(_, children) -> children |> List.iter (fun c -> go c.Child)
+            | Stack(_, _, children) -> children |> List.iter (fun c -> go c.Child)
+            | Scroll _ -> () // virtual content space — not hit-testable here
+            | Overlay(_, children) -> children |> List.iter go
+            | Positioned(_, _, _, _, child) -> go child
+            | Focusable(rect, id, child) ->
+                acc.Add(id, rect)
+                go child
+
+        go node
+        List.ofSeq acc
+
+    /// The topmost focusable region containing `point` — last match wins, matching
+    /// paint order (z-order) — or `None`.
+    let regionAt (regions: (RegionId * Rect) list) (point: Point) : RegionId option =
+        regions
+        |> List.fold (fun acc (id, rect) -> if rect.Contains point then Some id else acc) None

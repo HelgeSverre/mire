@@ -179,6 +179,13 @@ module Scroll =
             child
         )
 
+/// Tag a subtree with a `RegionId` so the runtime can hit-test mouse clicks against
+/// its laid-out rect (`Program.withMouseRegion` + `Layout.regionAt`). Layout-neutral
+/// — `child` fills the assigned rect; this only records `id` + rect for hit-testing.
+module Focusable =
+    let region (id: RegionId) (child: LayoutNode<'msg>) : LayoutNode<'msg> =
+        LayoutNode.Focusable(Rect.Create(0, 0, 0, 0), id, child)
+
 module Backdrop =
     /// An opaque rectangle filling its assigned rect — panel background, modal
     /// backdrop, or highlight. Occludes whatever it covers in an Overlay.

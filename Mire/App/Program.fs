@@ -92,6 +92,13 @@ type Program<'model, 'msg> =
         /// the current scheme at startup, and `ThemeChanged` events flow through
         /// `MapInput` like any other input — let an app retheme on the fly.
         ThemeNotifications: bool
+        /// Hit-test mouse events against the previous frame's `Focusable` regions.
+        /// Called with the topmost region under the cursor (`None` if none) and the
+        /// mouse event; returning `Some msg` consumes the event (it does *not* also
+        /// go to `MapInput`). Default ignores it (mouse goes straight to `MapInput`),
+        /// so apps that hand-compute hit rects are unaffected. Lets an app focus or
+        /// activate by `RegionId` instead of re-deriving rects (see `Focusable.region`).
+        OnMouseRegion: RegionId option -> MouseEvent -> 'msg option
     }
 
 module Program =
@@ -112,7 +119,8 @@ module Program =
                 | Key ke -> ke.Key = Key.Char "c" && ke.Modifiers.Ctrl
                 | _ -> false
           KeyReleases = false
-          ThemeNotifications = false }
+          ThemeNotifications = false
+          OnMouseRegion = fun _ _ -> None }
 
     let withMapInput (f: InputEvent -> 'msg option) (program: Program<'model, 'msg>) = { program with MapInput = f }
 
@@ -139,6 +147,13 @@ module Program =
         { program with
             ThemeNotifications = enabled }
 
+    /// Route mouse events through the previous frame's `Focusable` region table: the
+    /// handler gets the topmost `RegionId` under the cursor (or `None`) and the mouse
+    /// event, and `Some msg` consumes it. Lets an app focus/activate by id rather than
+    /// hand-computing hit rects. Tag regions in the view with `Focusable.region`.
+    let withMouseRegion (f: RegionId option -> MouseEvent -> 'msg option) (program: Program<'model, 'msg>) =
+        { program with OnMouseRegion = f }
+
 type RuntimeState<'model, 'msg> =
     { Model: 'model
       PreviousSurface: Surface option
@@ -152,7 +167,7 @@ module Runtime =
         let surface = Surface(size)
         let laidOut = Layout.measure (Rect.FromOrigin(size)) view
         Layout.render surface laidOut
-        surface
+        surface, laidOut
 
     let run (program: Program<'model, 'msg>) =
         // Setup terminal
@@ -204,6 +219,10 @@ module Runtime =
         // marker can't grow the buffer without bound.
         let mutable pasteCarry: byte[] = [||]
         let pasteCap = 1 <<< 20 // 1 MiB
+
+        // Retained region table from the last rendered frame — what mouse events are
+        // hit-tested against (`Program.withMouseRegion`).
+        let mutable lastRegions: (RegionId * Rect) list = []
 
         // Dispatch initial command
         Cmd.dispatch requestQuit writeRaw sendMsg initialCmd
@@ -264,9 +283,22 @@ module Runtime =
                             elif program.QuitOn inputEvent then
                                 state <- { state with Running = false }
                             else
-                                match program.MapInput inputEvent with
+                                // Mouse events first hit-test the retained region
+                                // table; a handled hit consumes the event.
+                                let regionMsg =
+                                    match inputEvent with
+                                    | Mouse me ->
+                                        program.OnMouseRegion
+                                            (Layout.regionAt lastRegions (Point.Create(me.X, me.Y)))
+                                            me
+                                    | _ -> None
+
+                                match regionMsg with
                                 | Some msg -> sendMsg msg
-                                | None -> ()
+                                | None ->
+                                    match program.MapInput inputEvent with
+                                    | Some msg -> sendMsg msg
+                                    | None -> ()
                         | None -> ()
 
                     // Process messages
@@ -302,7 +334,8 @@ module Runtime =
                     // Render if needed
                     if state.NeedsRender then
                         let view = program.View state.Model
-                        let surface = renderFrame view state.LastSize
+                        let surface, laidOut = renderFrame view state.LastSize
+                        lastRegions <- Layout.collectRegions laidOut
                         let diff = Diff.compute state.PreviousSurface surface
 
                         match state.PreviousSurface with

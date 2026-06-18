@@ -57,9 +57,10 @@ notifications). **Gate to tag:**
 
 - [ ] Widget gallery app (revives the deleted KitchenSink's coverage — every widget × its states)
 - [x] `ImagePreview` (Kitty graphics + text fallback) and light/dark theme notifications — done; every widget in the reference table is now built
-- [ ] True grapheme clusters — astral-plane / emoji-ZWJ (the second Correctness item)
+- [x] True grapheme clusters — astral-plane / emoji-ZWJ (the second Correctness item)
 - [ ] Performance tiers _as they hurt_ — frame coalescing for streaming first (the one an agent UI feels)
-- [ ] Runtime-owned / mouse-hit-testing half of focus — retires the demo's hand-mirrored modal hit-test
+- [x] Runtime-owned / mouse-hit-testing half of focus — `Focusable` node + retained region table + `Program.withMouseRegion` (demo migration of its modal hit-test still pending)
+- [ ] Widget gallery app — every widget in all its states
 
 ### 1.0.0 — later (not a near-term goal)
 
@@ -181,7 +182,7 @@ Recommended order — each step names its extraction source in the demo:
 - [x] OSC 52 clipboard — `Cmd.setClipboard text`, written to the terminal by the runtime (same hook shape as `Cmd.quit`)
 - [x] Kitty graphics protocol → `ImagePreview` with text fallback — `ANSI.kittyImage` (chunked transmit-and-display) + `Cmd.kittyImage`/`Cmd.writeRaw`; `Widgets.ImagePreview` renders the cell fallback
 - [x] Light/dark theme notifications — DEC mode 2031: `Program.withThemeNotifications` enables the mode + queries the scheme at startup; `InputParser` decodes `CSI ? 997 ; 1|2 n` into `ThemeChanged Dark`/`Light`, delivered through `MapInput`
-- [ ] Richer mouse (hit-testing → focus/selection) — the runtime-owned half of focus: `Focusable` node + retained region table (the `Region`/`RenderMode` scaffolding in `Core/Region.fs` is the forward declaration)
+- [x] Richer mouse (hit-testing → focus/selection) — the runtime-owned half of focus: a `LayoutNode.Focusable` node (`Widgets.Focusable.region`) tags a subtree with a `RegionId`; the runtime retains `Layout.collectRegions` of the rendered frame and hit-tests mouse events through `Layout.regionAt`, delivering the hit `RegionId` to `Program.withMouseRegion`. _Follow-up:_ migrate the Agent demo's hand-computed modal hit-test onto it.
 
 ### Cross-cutting — Performance & rendering ⬜
 
@@ -222,8 +223,8 @@ Things that work "well enough" today but have a sharp edge worth remembering:
 - **`Box` is single-child by design.** A `Box` renders one child filling its inner rect; passing multiple children overlaps them — flow is `Stack`'s job, so nest a `Stack` (the `panel`/`statusBar` helpers do this internally).
 - **Input decoding is feature-complete for the targeted terminals.** Keyboard (Kitty `CSI u` chords + press/repeat/release event types + private-use functional codepoints — keypad/F13–F35/media), mouse (SGR 1006), bracketed paste (reassembled across reads), and focus events all decode.
 - **One input event per read.** `InputParser.parseBytes` decodes a single event from a buffer, and the runtime calls it once per read. Interactive typing is unaffected (each keystroke is its own read), but a burst of *distinct* keystrokes delivered in one `read()` (e.g. piped/scripted input) only yields the first — non-bracketed bursts aren't split into multiple events. Bracketed paste is handled separately (reassembled, not split). Low priority; surfaces mainly in headless input-feeding tests.
-- **Wide-char rendering is BMP-only and leaves a trailing cell.** Tracked as Cross-cutting — Correctness above.
-- **Dead scaffolding.** `RegionId` is load-bearing (the `Mire.Layout.Focus` key), but `Region`/`RenderMode` (and the `Focusable`/`ZIndex`/`Clip` fields) in `Core/Region.fs` are wired to nothing — forward declarations for the v0.5 runtime-owned focus / z-ordering. (The unused `tcgetattr`/`tcsetattr`/`ioctl` externs and the stale "For now, use Console APIs" comment in `TerminalMode` were removed.)
+- **Wide-char / grapheme rendering.** Resolved — see Cross-cutting — Correctness above (continuation cells + UAX #29 clusters).
+- **Dead scaffolding.** `RegionId` is load-bearing (the `Mire.Layout.Focus` key _and_ the `LayoutNode.Focusable` region table). The `Region`/`RenderMode` record in `Core/Region.fs` (and its `ZIndex`/`Clip`/`RenderMode` fields) is still a forward declaration for full z-ordering — the runtime hit-tests a lighter `(RegionId * Rect)` list today, not the full `Region`. (The unused `tcgetattr`/`tcsetattr`/`ioctl` externs and the stale "For now, use Console APIs" comment in `TerminalMode` were removed.)
 - **Solution file is `Mire.slnx`** (modern XML format), not `Mire.sln`.
 
 ---
