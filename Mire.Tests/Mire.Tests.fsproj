@@ -25,6 +25,8 @@
 
   <ItemGroup>
     <ProjectReference Include="../Mire/Mire.fsproj" />
+    <!-- The agent-domain widget layer (DiffView split logic, etc.). -->
+    <ProjectReference Include="../Mire.Agent/Mire.Agent.fsproj" />
     <!-- FeedDemo is an Exe, but referencing it lets us unit-test its pure Feed
          helpers (parseDate, isValidUrl); the referenced entry point is ignored. -->
     <ProjectReference Include="../Mire.Demo.Feed/Mire.Demo.Feed.fsproj" />

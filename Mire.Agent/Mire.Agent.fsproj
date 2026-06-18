@@ -15,6 +15,7 @@
     <Compile Include="Transcript.fs" />
     <Compile Include="PromptBox.fs" />
     <Compile Include="ApprovalModal.fs" />
+    <Compile Include="DiffView.fs" />
   </ItemGroup>
 
   <ItemGroup>

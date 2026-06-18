@@ -6,6 +6,7 @@ open Mire.Protocol
 open Mire.Renderer
 open Mire.Layout
 open Mire.App
+open Mire.Agent
 open Mire.Demo.Feed
 
 // Helpers ------------------------------------------------------------------
@@ -1585,6 +1586,39 @@ let focusTests =
               Expect.isFalse (Focus.isTrapped Focus.empty) "empty → not trapped"
           } ]
 
+// Mire.Agent DiffView (split columns + status markers) ----------------------
+
+let diffViewTests =
+    testList
+        "DiffView"
+        [ test "splitColumns: removed go left, added go right, context to both" {
+              let lines =
+                  [ { Sign = ' '; Text = "ctx" }
+                    { Sign = '-'; Text = "old" }
+                    { Sign = '+'; Text = "new" } ]
+
+              let left, right = DiffView.splitColumns lines
+              Expect.equal (left |> List.map (fun l -> l.Text)) [ "ctx"; "old" ] "left = context + removed"
+              Expect.equal (right |> List.map (fun l -> l.Text)) [ "ctx"; "new" ] "right = context + added"
+          }
+          test "splitColumns pads the shorter column with blanks to equal height" {
+              let lines =
+                  [ { Sign = ' '; Text = "ctx" }
+                    { Sign = '-'; Text = "a" }
+                    { Sign = '-'; Text = "b" }
+                    { Sign = '+'; Text = "x" } ]
+
+              let left, right = DiffView.splitColumns lines
+              Expect.equal (List.length left) (List.length right) "columns are equal height"
+              Expect.equal (left |> List.map (fun l -> l.Text)) [ "ctx"; "a"; "b" ] "left keeps context + both removed"
+              Expect.equal (right |> List.map (fun l -> l.Text)) [ "ctx"; "x"; "" ] "right is padded with a blank"
+          }
+          test "statusMark glyphs" {
+              Expect.equal (DiffView.statusMark Accepted) "✓" "accepted"
+              Expect.equal (DiffView.statusMark Rejected) "✗" "rejected"
+              Expect.equal (DiffView.statusMark Pending) "·" "pending"
+          } ]
+
 [<Tests>]
 let all =
     testList
@@ -1609,4 +1643,5 @@ let all =
           markdownTests
           goldenFrameTests
           feedTests
+          diffViewTests
           cmdQuitTests ]
