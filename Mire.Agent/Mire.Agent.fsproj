@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Mire.Agent — the optional agent-domain widget layer. Sits above the base
+    framework and references `Mire` ONLY (one-directional dependency chain: the
+    base framework must never depend on agent concepts). Styled by the
+    framework's `Mire.Widgets.AppTheme`, so it carries no app-specific theme.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Transcript.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Mire/Mire.fsproj" />
+  </ItemGroup>
+
+</Project>
