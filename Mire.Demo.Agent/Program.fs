@@ -489,31 +489,6 @@ let private resolveModal (which: ButtonFocus) (ms: ModalState) (m: Model) : Mode
 /// `[blank; intro] @ cmd @ risk @ [blank; buttons; hint]`), so a click on a
 /// button's exact span activates it. `None` for clicks elsewhere. (No retained
 /// hit-testing in the framework yet — that's ROADMAP v0.5; this mirrors by hand.)
-let private modalButtonHit (spec: ModalSpec) (m: Model) (x: int) (y: int) : ButtonFocus option =
-    let cmdLen = if spec.Command = "" then 0 else 1
-
-    let riskLen =
-        match spec.Risk with
-        | Some _ -> 1
-        | None -> 0
-
-    let h = (5 + cmdLen + riskLen) + 3 // body rows + title + 2 border
-    let left = max 0 ((m.Size.Width - 52) / 2)
-    let top = max 0 ((m.Size.Height - h) / 2)
-    let rowY = top + 2 + (3 + cmdLen + riskLen) // +top border +title, then buttons' body index
-
-    if y <> rowY then
-        None
-    else
-        let aw = Grapheme.stringWidth (sprintf " [ %s ] " spec.AcceptLabel)
-        let dw = Grapheme.stringWidth (sprintf " ‹ %s › " spec.DenyLabel)
-        let ax0 = left + 1 // body starts one col in (box border)
-        let dx0 = ax0 + aw + 3 // 3-cell gap between the buttons
-
-        if x >= ax0 && x < ax0 + aw then Some AcceptBtn
-        elif x >= dx0 && x < dx0 + dw then Some DenyBtn
-        else None
-
 let private scrollBy (d: int) (m: Model) : Model * Cmd<Msg> =
     { m with
         Offset = clamp 0 (maxScroll m) (m.Offset + d) },
@@ -846,8 +821,11 @@ let update (msg: Msg) (m: Model) : Model * Cmd<Msg> =
     | MouseClick(x, y) ->
         match m.Overlay with
         | ModalOverlay ms ->
-            match modalButtonHit ms.Spec m x y with
-            | Some btn -> resolveModal btn ms m
+            let s = ms.Spec
+
+            match ApprovalModal.buttonHit s.Command s.Risk s.AcceptLabel s.DenyLabel m.Size.Width m.Size.Height x y with
+            | Some true -> resolveModal AcceptBtn ms m
+            | Some false -> resolveModal DenyBtn ms m
             | None -> m, Cmd.none
         | _ -> m, Cmd.none
     | RunCommand c -> runCommand c m
@@ -1100,48 +1078,15 @@ let private skillPanel (ss: SkillState) (m: Model) : LayoutNode<Msg> =
 let private modalPanel (ms: ModalState) (m: Model) : LayoutNode<Msg> =
     let spec = ms.Spec
 
-    let acceptStyle =
-        if ms.Focus = AcceptBtn then
-            Theme.selection
-        else
-            Theme.muted
-
-    let denyStyle = if ms.Focus = DenyBtn then Theme.selection else Theme.muted
-
-    let buttons =
-        Stack.hstackOf
-            [ Stack.sized Length.Content (Text.text (sprintf " [ %s ] " spec.AcceptLabel) acceptStyle)
-              Stack.sized (Length.Cells 3) (Text.text "   " Theme.text)
-              Stack.sized Length.Content (Text.text (sprintf " ‹ %s › " spec.DenyLabel) denyStyle) ]
-
-    let cmdLines =
-        if spec.Command = "" then
-            []
-        else
-            [ Text.text (sprintf " ❯ %s" spec.Command) Theme.text ]
-
-    let riskLines =
-        match spec.Risk with
-        | Some r -> [ Text.text (sprintf " risk: %s" r) Theme.warnStyle ]
-        | None -> []
-
-    let bodyRows =
-        [ Text.text "" Theme.text; Text.text (" " + spec.Intro) Theme.muted ]
-        @ cmdLines
-        @ riskLines
-        @ [ Text.text "" Theme.text
-            buttons
-            Text.text " ←/→ or Tab move · Enter confirm · Esc deny" Theme.subtle ]
-
-    // height = title (1) + body rows + box border (2)
-    Mire.Widgets.Modal.modal
-        Style.Default
-        Theme.borderStyle
-        Theme.warnStyle
-        52
-        (List.length bodyRows + 3)
+    ApprovalModal.view
+        Theme.app
         spec.Title
-        (Stack.vstack bodyRows)
+        spec.Intro
+        spec.Command
+        spec.Risk
+        spec.AcceptLabel
+        spec.DenyLabel
+        (ms.Focus = AcceptBtn)
 
 let private renderToast (t: Toast) : LayoutNode<Msg> =
     opaque
