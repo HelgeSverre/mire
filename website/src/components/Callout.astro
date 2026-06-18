@@ -1,0 +1,14 @@
+---
+// A note/warning callout. Usable from .astro and (via MDX) from docs content.
+interface Props {
+  type?: "note" | "warn";
+  label?: string;
+}
+const { type = "note", label } = Astro.props;
+const text = label ?? (type === "warn" ? "heads up" : "note");
+---
+
+<aside class={`callout callout--${type}`}>
+  <div class="callout__label">{text}</div>
+  <div><slot /></div>
+</aside>

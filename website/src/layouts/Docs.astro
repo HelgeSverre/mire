@@ -1,0 +1,29 @@
+---
+import Base from "./Base.astro";
+import Sidebar from "../components/Sidebar.astro";
+import PageNav from "../components/PageNav.astro";
+import { CATEGORY_LABEL, type Doc } from "../nav";
+
+interface Props {
+  doc: Doc;
+  prev?: Doc;
+  next?: Doc;
+}
+const { doc, prev, next } = Astro.props;
+const { title, description, category } = doc.data;
+---
+
+<Base title={title} description={description}>
+  <div class="docs">
+    <Sidebar currentId={doc.id} />
+    <article class="docs__main">
+      <p class="docs__kicker">{CATEGORY_LABEL[category]}</p>
+      <h1 class="docs__title">{title}</h1>
+      <p class="docs__lead">{description}</p>
+      <div class="prose">
+        <slot />
+      </div>
+      <PageNav prev={prev} next={next} />
+    </article>
+  </div>
+</Base>

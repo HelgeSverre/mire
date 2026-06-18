@@ -1,0 +1,98 @@
+---
+import Base from "../layouts/Base.astro";
+import Mark from "../components/Mark.astro";
+import Terminal from "../components/Terminal.astro";
+import Card from "../components/Card.astro";
+---
+
+<Base title="Mire">
+  <div class="wrap">
+    <!-- Hero -->
+    <section class="hero">
+      <Mark class="hero__mark" label="Mire" />
+      <h1>Elmish for the terminal.</h1>
+      <p class="hero__lead">
+        Mire builds a full screen every frame, then paints only the cells that changed.
+        You write <code>update</code> and <code>view</code>; Mire owns the loop, the
+        layout, the input, and the terminal protocol.
+      </p>
+      <div class="btn-row">
+        <a class="btn btn--primary" href="/docs/tutorials/your-first-app/">Get started</a>
+        <a class="btn" href="/docs/reference/widgets/">Browse widgets</a>
+        <a class="btn" href="https://github.com/HelgeSverre/mire">GitHub</a>
+      </div>
+      <p style="color:var(--fg-subtle);font-family:var(--font-mono);font-size:var(--text-sm)">
+        F# · .NET 10 · Ghostty and Kitty-compatible terminals
+      </p>
+    </section>
+
+    <!-- Show, don't say -->
+    <section class="section">
+      <h2 class="section__title">A counter, end to end</h2>
+      <p class="section__lead">
+        A model, an <code>update</code> that folds messages into it, and a <code>view</code>.
+        Hand the program to <code>Runtime.run</code> and it drives the loop at ~30 FPS.
+      </p>
+      <Terminal title="dotnet run">
+<span class="subtle">┌ counter ──────────┐</span>
+<span class="subtle">│</span> count: 7          <span class="subtle">│</span>
+<span class="subtle">│</span> <span class="accent">↑</span> inc   <span class="accent">↓</span> dec     <span class="subtle">│</span>
+<span class="subtle">└───────────────────┘</span>
+      </Terminal>
+      <p style="color:var(--fg-muted)">
+        The view is a pure description of the screen. Rebuild it every frame; the diff
+        makes updates cheap. See <a href="/docs/tutorials/your-first-app/">Your first app</a>
+        for the full source.
+      </p>
+    </section>
+
+    <!-- What's in the box -->
+    <section class="section">
+      <h2 class="section__title">What you get</h2>
+      <ul class="feature-list">
+        <li><b>Layout engine</b> Stack, Dock, Box, Scroll, Overlay, and 9-point placement, with cell, fraction, content, and fill sizing.</li>
+        <li><b>Widget library</b> Virtualized lists and tables, a fuzzy command palette, completion, modals, toasts, tabs, a markdown renderer, and more.</li>
+        <li><b>Real input</b> Kitty keyboard chords, SGR mouse, bracketed paste, focus events, and light/dark theme notifications, decoded for you.</li>
+        <li><b>Text editing</b> A pure TextBuffer with selection and word motions, an overridable keymap, single-line and soft-wrapping multi-line views.</li>
+        <li><b>True widths</b> Grapheme-cluster measurement: astral scalars, emoji-ZWJ sequences, flags, and variation selectors all land in the right cells.</li>
+        <li><b>Agent layer</b> A transcript, a prompt with history and completion, an approval modal, and a diff reviewer in the optional Mire.Agent package.</li>
+      </ul>
+    </section>
+
+    <!-- Install -->
+    <section class="section">
+      <h2 class="section__title">Install</h2>
+      <p class="section__lead">Mire ships as a single NuGet package targeting <code>net10.0</code>.</p>
+      <Terminal>
+<span class="muted">$</span> dotnet add package Mire
+      </Terminal>
+      <p style="color:var(--fg-subtle);font-size:var(--text-sm)">
+        Pre-1.0 — the public API still moves between minor versions. Pin an exact version.
+      </p>
+    </section>
+
+    <!-- Docs / Diátaxis -->
+    <section class="section">
+      <h2 class="section__title">Documentation</h2>
+      <p class="section__lead">
+        Organized the <a href="https://diataxis.fr/">Diátaxis</a> way: learn with
+        tutorials, solve a problem with how-to guides, look things up in the reference,
+        and understand the design in the explanations.
+      </p>
+      <div class="card-grid">
+        <Card href="/docs/tutorials/your-first-app/" kicker="learning" title="Tutorials">
+          Step-by-step lessons. Start with the counter, then build a small interactive app.
+        </Card>
+        <Card href="/docs/how-to/handle-input/" kicker="tasks" title="How-to guides">
+          Focused recipes: input, theming, overlays, mouse and focus, text editing, images.
+        </Card>
+        <Card href="/docs/reference/widgets/" kicker="lookup" title="Reference">
+          The widget catalog, layout nodes, the Program/Cmd/Sub API, styling, and the agent layer.
+        </Card>
+        <Card href="/docs/explanation/the-loop/" kicker="understanding" title="Explanation">
+          Why MVU for the terminal, how the render pipeline works, and the region model.
+        </Card>
+      </div>
+    </section>
+  </div>
+</Base>

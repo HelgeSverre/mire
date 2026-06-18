@@ -1,0 +1,28 @@
+---
+import { docsByCategory, docHref } from "../nav";
+
+interface Props {
+  currentId: string;
+}
+const { currentId } = Astro.props;
+const groups = await docsByCategory();
+---
+
+<nav class="sidebar" aria-label="Documentation">
+  {
+    groups.map((group) => (
+      <div class="sidebar__group">
+        <p class="sidebar__title">{group.label}</p>
+        <ul>
+          {group.items.map((doc) => (
+            <li>
+              <a href={docHref(doc)} aria-current={doc.id === currentId ? "page" : undefined}>
+                {doc.data.title}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    ))
+  }
+</nav>

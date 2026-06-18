@@ -1,0 +1,33 @@
+---
+import type { Doc } from "../nav";
+import { docHref } from "../nav";
+
+interface Props {
+  prev?: Doc;
+  next?: Doc;
+}
+const { prev, next } = Astro.props;
+---
+
+<nav class="page-nav" aria-label="Pagination">
+  {
+    prev ? (
+      <a href={docHref(prev)}>
+        <span class="page-nav__dir">← previous</span>
+        {prev.data.title}
+      </a>
+    ) : (
+      <span />
+    )
+  }
+  {
+    next ? (
+      <a href={docHref(next)} style="text-align:right">
+        <span class="page-nav__dir">next →</span>
+        {next.data.title}
+      </a>
+    ) : (
+      <span />
+    )
+  }
+</nav>

@@ -1,0 +1,126 @@
+---
+title: Your first app
+description: Build and run a counter — a model, an update, a view, and the loop. Fifteen minutes, start to finish.
+category: tutorials
+order: 1
+---
+
+import Callout from "../../../components/Callout.astro";
+import Terminal from "../../../components/Terminal.astro";
+
+This tutorial builds a working Mire app from an empty folder: a counter you drive with
+the arrow keys. By the end you will have run a real terminal UI and understand the four
+pieces every Mire app is made of.
+
+## Before you start
+
+You need the **.NET 10 SDK** (`dotnet --version` should report `10.x`) and a modern,
+Kitty-compatible terminal — Ghostty, Kitty, or WezTerm. Mire uses truecolor, the
+alternate screen, and the Kitty keyboard protocol; it is not a `System.Console`
+drop-in and has no legacy-console fallback.
+
+## 1. Create the project
+
+```bash
+dotnet new console -lang F# -o counter
+cd counter
+dotnet add package Mire
+```
+
+## 2. Write the app
+
+Replace `Program.fs` with this. Read it top to bottom — it is the whole app.
+
+```fsharp
+open Mire.Core      // InputEvent, Key
+open Mire.Widgets   // Text, Stack, Style
+open Mire.App       // Cmd, Program, Runtime
+
+// 1. Messages — every way the world can change the model.
+type Msg =
+    | Increment
+    | Decrement
+
+// 2. The model and its starting value (plus a command to run on start).
+let init () = 0, Cmd.none
+
+// 3. update folds a message into the model, returning the next model and a command.
+let update msg model =
+    match msg with
+    | Increment -> model + 1, Cmd.none
+    | Decrement -> model - 1, Cmd.none
+
+// 4. view is a pure description of the screen for the current model.
+let view model =
+    Stack.vstack
+        [ Text.title (sprintf " count: %d " model)
+          Text.text "  up: increment   down: decrement   Ctrl+C: quit" Style.dim ]
+
+// 5. mapInput turns raw terminal input into messages. None ignores an event.
+let mapInput (e: InputEvent) : Msg option =
+    match e with
+    | Key ke ->
+        match ke.Key with
+        | ArrowUp -> Some Increment
+        | ArrowDown -> Some Decrement
+        | _ -> None
+    | _ -> None
+
+[<EntryPoint>]
+let main _ =
+    Program.mkProgram init update view
+    |> Program.withMapInput mapInput
+    |> Runtime.run
+
+    0
+```
+
+## 3. Run it
+
+```bash
+dotnet run
+```
+
+The terminal switches to the alternate screen and shows the counter. Press the up and
+down arrows; press **Ctrl+C** to quit (Mire restores the terminal on the way out).
+
+<Terminal title="dotnet run">
+<span class="subtle">count: 7</span>
+  up: increment   down: decrement   Ctrl+C: quit
+</Terminal>
+
+## What just happened
+
+The five pieces above are the whole architecture — [The Elm Architecture](/docs/explanation/the-loop/),
+adapted for the terminal:
+
+- **`init`** returns the starting model and a `Cmd` (work for the runtime to perform).
+- **`update`** is pure: a message and the current model in, the next model and a `Cmd` out.
+- **`view`** is pure: a model in, a `LayoutNode` tree out. No drawing, no escape codes.
+- **`mapInput`** maps a decoded `InputEvent` to a message — your keybindings live here.
+- **`Runtime.run`** drives the loop: read input → `mapInput` → `update` → `view` → lay
+  out onto a screen → diff against the last frame → write only the changed cells.
+
+Because `view` is a pure description, you rebuild the whole tree every frame and let the
+diff make it cheap. That is also what makes layout testable without a terminal.
+
+<Callout type="note">
+Keep <code>update</code> free of I/O and <code>view</code> free of side effects. When you
+need to do work — fetch data, run a process — return a <code>Cmd</code> (see
+<a href="/docs/reference/program-cmd-sub/">Program, Cmd, and Sub</a>). That separation is
+what lets you render any view to text for tests.
+</Callout>
+
+## Verify without a terminal
+
+A Mire app takes over the screen, which is awkward in CI. Because layout is pure, you can
+render a view to a grid of cells and assert on it — no terminal required. Every demo in
+the repo wires a `-- --dump` flag that does exactly this; add one to your app to snapshot
+screens. See [the loop](/docs/explanation/the-loop/) for the recipe.
+
+## Next
+
+You have the shape. Next, build something interactive with state and a list:
+
+- [Build a task list](/docs/tutorials/task-list/) — selection, editing, and a status bar.
+- Or jump to a recipe in the [how-to guides](/docs/how-to/handle-input/).

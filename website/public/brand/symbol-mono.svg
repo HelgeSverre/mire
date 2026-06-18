@@ -1,0 +1,7 @@
+<!--
+  Mire — single-fill mark, currentColor.
+  Inherits the surrounding text color; use anywhere the context sets color.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter">
+  <path d="M6 4 V18 H20"/>
+</svg>

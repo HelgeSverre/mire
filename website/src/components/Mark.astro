@@ -1,0 +1,24 @@
+---
+// The Mire mark: a box-drawing corner `└`, the framing primitive Mire renders
+// with. Single-fill, inherits currentColor (set the color on the parent).
+interface Props {
+  class?: string;
+  label?: string;
+}
+const { class: klass, label } = Astro.props;
+---
+
+<svg
+  class={klass}
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2.5"
+  stroke-linecap="square"
+  stroke-linejoin="miter"
+  role={label ? "img" : "presentation"}
+  aria-label={label}
+  aria-hidden={label ? undefined : "true"}
+>
+  <path d="M6 4 V18 H20"></path>
+</svg>

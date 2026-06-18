@@ -1,0 +1,40 @@
+---
+import Base from "../../layouts/Base.astro";
+import Sidebar from "../../components/Sidebar.astro";
+import Card from "../../components/Card.astro";
+---
+
+<Base title="Documentation" description="Mire documentation — tutorials, how-to guides, reference, and explanation, organized the Diátaxis way.">
+  <div class="docs">
+    <Sidebar currentId="" />
+    <article class="docs__main">
+      <p class="docs__kicker">Documentation</p>
+      <h1 class="docs__title">Learn Mire</h1>
+      <p class="docs__lead">
+        Organized the <a href="https://diataxis.fr/">Diátaxis</a> way. New here? Start
+        with the tutorials. Solving a specific problem? Jump to a how-to guide. Looking
+        something up? The reference has it. Want the reasoning? Read the explanations.
+      </p>
+      <div class="prose">
+        <div class="card-grid">
+          <Card href="/docs/tutorials/your-first-app/" kicker="learning" title="Tutorials">
+            Hands-on lessons that build a working app from nothing. Start here.
+          </Card>
+          <Card href="/docs/how-to/handle-input/" kicker="tasks" title="How-to guides">
+            Focused recipes for a specific job: input, theming, overlays, mouse, text, images.
+          </Card>
+          <Card href="/docs/reference/widgets/" kicker="lookup" title="Reference">
+            Dry, complete descriptions: widgets, layout nodes, the API, styling, the agent layer.
+          </Card>
+          <Card href="/docs/explanation/the-loop/" kicker="understanding" title="Explanation">
+            The reasoning: the render pipeline, why MVU for terminals, the region model.
+          </Card>
+        </div>
+        <h2>Install</h2>
+        <p>Mire is a single NuGet package targeting <code>net10.0</code>:</p>
+        <pre class="astro-code"><code>dotnet add package Mire</code></pre>
+        <p>Then follow <a href="/docs/tutorials/your-first-app/">Your first app</a>.</p>
+      </div>
+    </article>
+  </div>
+</Base>

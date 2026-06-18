@@ -1,0 +1,8 @@
+<!--
+  Mire — 16x16 favicon. Hand-tuned, not symbol-mono resized:
+  heavier stroke (3) and square caps so the corner stays legible at tab size.
+  Emerald accent baked in for the browser tab.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="#1A8870" stroke-width="3" stroke-linecap="square" stroke-linejoin="miter">
+  <path d="M5 3 V11 H13"/>
+</svg>

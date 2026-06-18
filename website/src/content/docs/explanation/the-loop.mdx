@@ -1,0 +1,83 @@
+---
+title: The loop and the render pipeline
+description: How a frame is produced — from input bytes to the cells that changed — and why the view is a pure description.
+category: explanation
+order: 1
+---
+
+import Terminal from "../../../components/Terminal.astro";
+
+Mire is an Elmish runtime. The shape — `init`, `update`, `view` — is The Elm
+Architecture, but the back half is built for a terminal rather than a browser. This page
+explains what happens between a keypress and the screen changing, and why the design
+falls out the way it does.
+
+## One frame, end to end
+
+`Runtime.run` drives a loop at roughly 30 frames per second. Each frame:
+
+<Terminal title="one frame">
+read input  <span class="subtle">→</span>  decode to InputEvent  <span class="subtle">→</span>  MapInput  <span class="subtle">→</span>  msg
+            <span class="subtle">→</span>  Update model  <span class="subtle">→</span>  View  <span class="subtle">→</span>  measure onto a Surface
+            <span class="subtle">→</span>  Diff against the last frame  <span class="subtle">→</span>  write only the changed cell runs
+</Terminal>
+
+1. **Read and decode.** Raw bytes are read from the terminal and parsed into one
+   `InputEvent` — a key, a mouse event, a paste, a resize, a focus change. The parser
+   handles the Kitty keyboard protocol, SGR mouse, and bracketed paste (reassembled
+   across reads).
+2. **Map to a message.** Your `MapInput` turns the event into a `'msg` (or `None`). This
+   is the only place raw input meets your app.
+3. **Update.** `update msg model` returns the next model and a `Cmd`. It is pure — same
+   inputs, same outputs, no I/O.
+4. **View.** `view model` returns a `LayoutNode<'msg>` tree. Also pure: it describes the
+   screen, it does not draw it.
+5. **Measure.** `Layout.measure` assigns every node a rectangle and paints it onto a
+   fresh `Surface` — a `Width × Height` grid of `Cell`s (a grapheme, a width, a style).
+6. **Diff.** `Diff.compute` compares this frame's `Surface` to the previous one and emits
+   the minimal set of changed cell runs.
+7. **Write.** Only those runs are written to the terminal, bracketed in synchronized
+   output so the frame appears atomically — no tearing, no flicker.
+
+```
+model → view tree → layout → surface → diff → terminal
+```
+
+## Why the view is rebuilt every frame
+
+It looks wasteful to rebuild the entire `view` tree on every change. It isn't, because
+the tree is a *description*, not the screen. Building a `LayoutNode` allocates a few small
+records; nothing touches the terminal. The expensive part — writing bytes — is gated by
+the diff, which only emits cells that actually changed. So a one-character edit in a full
+screen writes one cell, not the whole screen, even though `view` produced a complete tree.
+
+This is the same bargain as a virtual DOM, with two terminal-specific wins: the "DOM" is
+a flat grid (diffing is a linear cell compare, not a tree reconciliation), and the output
+is tiny (escape sequences for a handful of runs).
+
+## Why side effects live in `Cmd`, not `update`
+
+`update` is pure so it stays testable and predictable: feed it a message and a model, get
+a model back. Real work — fetching data, running a process, copying to the clipboard —
+returns a `Cmd` instead, which the runtime performs and feeds results back as new
+messages. `Cmd.ofAsync` runs off the loop, so a slow fetch never freezes the UI; the
+result arrives later as an ordinary message and flows through `update` like any other.
+
+The same purity makes layout testable without a terminal: because `view` and
+`Layout.measure`/`render` have no I/O, you can render any model to a `Surface` in a test
+and assert on the resulting cells. That is exactly what the repo's `--dump` mode and
+snapshot tests do — they exercise the real layout path, not a mock.
+
+## What Mire owns
+
+In a browser, the platform owns layout, scrolling, focus, and input normalization. There
+is no platform here, so Mire owns them: the layout engine, scroll offsets, the focus
+ring, input decoding, and terminal-protocol control are all first-class. That is the
+trade — you give up the browser's conveniences and get direct, predictable control over
+every cell and every byte.
+
+## Related
+
+- [Why MVU for terminals](/docs/explanation/why-mvu-for-terminals/) — the case for this architecture specifically.
+- [The region model](/docs/explanation/the-region-model/) — how focus and mouse hit-testing fit in.
+- [Program, Cmd, and Sub](/docs/reference/program-cmd-sub/) — the API the loop runs on.

@@ -1,0 +1,150 @@
+---
+title: Build a task list
+description: A small interactive app — a selectable list you can move through, toggle, and delete. Adds state, key routing, and a status bar to the counter.
+category: tutorials
+order: 2
+---
+
+import Terminal from "../../../components/Terminal.astro";
+import Callout from "../../../components/Callout.astro";
+
+[Your first app](/docs/tutorials/your-first-app/) was stateless. This one holds a list,
+tracks a selection, and reacts to several keys — the shape of a real TUI. You will use
+the `ListView` widget, a `StatusBar`, and `Dock` to frame the screen.
+
+## The model
+
+A task is some text and a done flag. The model is the list plus the selected index.
+
+```fsharp
+open Mire.Core
+open Mire.Widgets
+open Mire.App
+
+type Task = { Text: string; Done: bool }
+
+type Model = { Tasks: Task list; Selected: int }
+
+let init () =
+    { Tasks =
+        [ { Text = "Read the tutorial"; Done = true }
+          { Text = "Build a task list"; Done = false }
+          { Text = "Ship something"; Done = false } ]
+      Selected = 0 },
+    Cmd.none
+```
+
+## Messages and update
+
+Move the selection, toggle the selected task, delete it. `update` stays pure — it just
+returns the next model.
+
+```fsharp
+type Msg =
+    | Up
+    | Down
+    | Toggle
+    | Delete
+
+let private clamp lo hi v = max lo (min hi v)
+
+let update msg m =
+    let last = List.length m.Tasks - 1
+    match msg with
+    | Up -> { m with Selected = clamp 0 last (m.Selected - 1) }, Cmd.none
+    | Down -> { m with Selected = clamp 0 last (m.Selected + 1) }, Cmd.none
+    | Toggle ->
+        let tasks =
+            m.Tasks
+            |> List.mapi (fun i t -> if i = m.Selected then { t with Done = not t.Done } else t)
+        { m with Tasks = tasks }, Cmd.none
+    | Delete ->
+        let tasks = m.Tasks |> List.indexed |> List.filter (fun (i, _) -> i <> m.Selected) |> List.map snd
+        { m with Tasks = tasks; Selected = clamp 0 (List.length tasks - 1) m.Selected }, Cmd.none
+```
+
+## The view
+
+Render each task as `[x] text` / `[ ] text`, hand the labels to `ListView` (it draws the
+selection highlight and auto-scrolls), and frame it with a title bar and a status bar
+using `Dock`.
+
+```fsharp
+let private theme = AppTheme.defaultTheme
+
+let private label (t: Task) =
+    sprintf "%s %s" (if t.Done then "[x]" else "[ ]") t.Text
+
+let view m =
+    let done' = m.Tasks |> List.filter (fun t -> t.Done) |> List.length
+
+    let list =
+        Box.box theme.border
+            [ ListView.view
+                10                              // visible rows
+                theme.selection                 // selected-row style (inverse video)
+                theme.fg                         // normal-row style
+                m.Selected
+                (m.Tasks |> List.map label) ]
+
+    let status =
+        StatusBar.statusBar
+            [ Text.text (sprintf " %d/%d done" done' (List.length m.Tasks)) theme.fgMuted ]
+            []
+            [ Text.text "↑↓ move · space toggle · d delete · Ctrl+C quit " theme.fgSubtle ]
+
+    Dock.dock
+        [ Dock.top 1 (Text.title " tasks")
+          Dock.bottom 1 status
+          Dock.fill list ]
+```
+
+## Routing keys
+
+Map each key to a message. Note that `space` and `Char "d"` are distinct cases.
+
+```fsharp
+let mapInput (e: InputEvent) : Msg option =
+    match e with
+    | Key ke ->
+        match ke.Key with
+        | ArrowUp -> Some Up
+        | ArrowDown -> Some Down
+        | Space -> Some Toggle
+        | Char "d" -> Some Delete
+        | _ -> None
+    | _ -> None
+
+[<EntryPoint>]
+let main _ =
+    Program.mkProgram init update view
+    |> Program.withMapInput mapInput
+    |> Runtime.run
+    0
+```
+
+Run it with `dotnet run`:
+
+<Terminal title="tasks">
+ tasks
+<span class="subtle">┌──────────────────────────┐</span>
+<span class="subtle">│</span> [x] Read the tutorial    <span class="subtle">│</span>
+<span class="subtle">│</span><span class="accent"> [ ] Build a task list    </span><span class="subtle">│</span>
+<span class="subtle">│</span> [ ] Ship something        <span class="subtle">│</span>
+<span class="subtle">└──────────────────────────┘</span>
+ 1/3 done      ↑↓ move · space toggle · d delete
+</Terminal>
+
+<Callout type="note">
+<code>ListView.view</code> is <b>virtualized</b> — it builds only the visible window of
+rows, so the same call handles three tasks or three million. The app owns the selection
+index and the key handling; the widget only renders. That division — state in your model,
+rendering in pure widgets — is the pattern throughout Mire.
+</Callout>
+
+## Where to go next
+
+- Add new tasks by typing: see [Edit text](/docs/how-to/edit-text/) for `TextBuffer` and the editing keymap.
+- Make rows clickable with the mouse: [Mouse and focus](/docs/how-to/mouse-and-focus/).
+- Theme it: [Theme your app](/docs/how-to/theme-your-app/).
+- Understand why the whole view rebuilds every frame: [The loop](/docs/explanation/the-loop/).

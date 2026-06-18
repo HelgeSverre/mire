@@ -1,0 +1,8 @@
+<!--
+  Mire — full-color mark. Emerald accent (#1A8870) on transparent.
+  Box-drawing corner: the framing/regions primitive Mire draws with.
+  Use this version where the accent is the focal moment.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#1A8870" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter">
+  <path d="M6 4 V18 H20"/>
+</svg>

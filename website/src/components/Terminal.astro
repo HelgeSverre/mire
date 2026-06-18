@@ -1,0 +1,19 @@
+---
+// A terminal frame — the brand's "show, don't say" device. Put monospace content
+// (box-drawing, CLI output) in the default slot; mark the one accent moment with
+// <span class="accent">…</span>, muted text with <span class="muted">…</span>.
+interface Props {
+  title?: string;
+}
+const { title } = Astro.props;
+---
+
+<div class="terminal">
+  <div class="terminal__bar">
+    <span class="terminal__dot"></span>
+    <span class="terminal__dot"></span>
+    <span class="terminal__dot"></span>
+    {title && <span class="terminal__title">{title}</span>}
+  </div>
+  <pre><slot /></pre>
+</div>

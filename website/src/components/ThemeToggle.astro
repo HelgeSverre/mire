@@ -1,0 +1,30 @@
+---
+// A light/dark toggle. The no-FOUC init lives in Base.astro's <head>; this only
+// flips the data-theme attribute and persists the choice.
+---
+
+<button class="theme-toggle" type="button" aria-label="Toggle color theme" data-theme-toggle>
+  <span aria-hidden="true" data-theme-icon></span>
+</button>
+
+<script is:inline>
+  (() => {
+    const btn = document.querySelector("[data-theme-toggle]");
+    const icon = document.querySelector("[data-theme-icon]");
+    const root = document.documentElement;
+    const sysDark = () => window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const current = () => root.getAttribute("data-theme") || (sysDark() ? "dark" : "light");
+    const paint = () => {
+      if (icon) icon.textContent = current() === "dark" ? "☀" : "☾";
+    };
+    paint();
+    btn?.addEventListener("click", () => {
+      const next = current() === "dark" ? "light" : "dark";
+      root.setAttribute("data-theme", next);
+      try {
+        localStorage.setItem("theme", next);
+      } catch {}
+      paint();
+    });
+  })();
+</script>
