@@ -234,47 +234,22 @@ let private mentionFiles =
       "SPEC.md"
       "DEMO-TODOS.md" ]
 
-/// The active `@token` — the last whitespace-delimited word if it starts with '@',
-/// returned without the leading '@'.
-let private activeMention (value: string) : string option =
-    let lastSpace = value.LastIndexOf(' ')
-
-    let token =
-        if lastSpace < 0 then
-            value
-        else
-            value.Substring(lastSpace + 1)
-
-    if token.StartsWith("@") then
-        Some(token.Substring(1))
-    else
-        None
-
 let private mentionMatches (q: string) =
     let ql = q.ToLowerInvariant()
     mentionFiles |> List.filter (fun f -> f.ToLowerInvariant().Contains(ql))
 
-/// Replace the trailing `@token` with `@path ` (selected file + trailing space).
-let private acceptMention (path: string) (value: string) : string =
-    let lastSpace = value.LastIndexOf(' ')
+/// The completion token under the caret + its kind, via the framework's
+/// `PromptBox.completionToken`: an `@`-token anywhere is a mention; a `/`-token at
+/// the very start of the prompt is a slash command (a `/` mid-text is just a path).
+let private activeToken (p: PromptBox) : (CompletionToken * CompletionKind) option =
+    match PromptBox.completionToken [ '/'; '@' ] p with
+    | Some tok when tok.Trigger = '@' -> Some(tok, MentionC)
+    | Some tok when tok.Trigger = '/' && tok.Start = 0 -> Some(tok, SlashC)
+    | _ -> None
 
-    let prefix =
-        if lastSpace < 0 then
-            ""
-        else
-            value.Substring(0, lastSpace + 1)
-
-    prefix + "@" + path + " "
-
-/// The active completion (kind + query): `/slash` when the whole prompt is one
-/// slash-token, else an `@mention` token, else none.
-let private activeCompletion (value: string) : (CompletionKind * string) option =
-    if value.StartsWith("/") && not (value.Contains(" ")) then
-        Some(SlashC, value.Substring(1))
-    else
-        match activeMention value with
-        | Some q -> Some(MentionC, q)
-        | None -> None
+/// The active completion (kind + query), or none.
+let private activeCompletion (p: PromptBox) : (CompletionKind * string) option =
+    activeToken p |> Option.map (fun (tok, kind) -> (kind, tok.Query))
 
 /// Candidate list for a completion kind: (acceptValue, displayLabel, sublabel).
 let private completionList (kind: CompletionKind) (q: string) : (string * string * string) list =
@@ -289,7 +264,7 @@ let private completionList (kind: CompletionKind) (q: string) : (string * string
 
 /// Open / refresh / close the completion popup based on the current prompt text.
 let private refreshCompletion (m: Model) : Model =
-    match activeCompletion (PromptBox.value m.Prompt) with
+    match activeCompletion m.Prompt with
     | Some(kind, q) ->
         let n = List.length (completionList kind q)
 
@@ -442,16 +417,17 @@ let private runCommand (text: string) (m: Model) : Model * Cmd<Msg> =
 
 /// Accept the highlighted completion. @mentions insert the path; /slash commands run.
 let private acceptCompletion (m: Model) : Model * Cmd<Msg> =
-    match m.Completion, activeCompletion (PromptBox.value m.Prompt) with
-    | Some(kind, sel), Some(kind2, q) when kind = kind2 ->
-        let items = completionList kind q
+    match m.Completion, activeToken m.Prompt with
+    | Some(kind, sel), Some(tok, kind2) when kind = kind2 ->
+        let items = completionList kind tok.Query
 
         match List.tryItem (clamp 0 (max 0 (List.length items - 1)) sel) items with
         | Some(value, _, _) ->
             match kind with
             | MentionC ->
+                // splice the picked file as `@path ` in place of the typed token
                 { m with
-                    Prompt = PromptBox.ofString (acceptMention value (PromptBox.value m.Prompt))
+                    Prompt = PromptBox.acceptCompletion tok value m.Prompt
                     Completion = None },
                 Cmd.none
             | SlashC ->
@@ -539,8 +515,7 @@ let private updateBase (k: Key2) (m: Model) : Model * Cmd<Msg> =
     | KDown ->
         match m.Completion with
         | Some(kind, s) ->
-            let q =
-                defaultArg (activeCompletion (PromptBox.value m.Prompt) |> Option.map snd) ""
+            let q = defaultArg (activeCompletion m.Prompt |> Option.map snd) ""
 
             let n = List.length (completionList kind q)
 
@@ -1089,8 +1064,7 @@ let private toastLayer (m: Model) : LayoutNode<Msg> =
 
 /// The completion popup (@mentions or /slash commands), floated above the prompt.
 let private completionPopup (kind: CompletionKind) (sel: int) (m: Model) : LayoutNode<Msg> =
-    let q =
-        defaultArg (activeCompletion (PromptBox.value m.Prompt) |> Option.map snd) ""
+    let q = defaultArg (activeCompletion m.Prompt |> Option.map snd) ""
 
     let items = completionList kind q
 
