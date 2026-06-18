@@ -1820,6 +1820,48 @@ let selectionTests =
                   (TextEdit.defaultKeymap (mk (Char "a") { KeyModifiers.None with Ctrl = true }))
                   (Some SelectAll)
                   "Ctrl+A selects all"
+          }
+          test "Input.render highlights the selected range with the cursor style" {
+              let selBg = Color.Rgb(0x33uy, 0x66uy, 0x99uy)
+              let cur = Style.Default.WithBackground(selBg)
+
+              let node: LayoutNode<unit> =
+                  Mire.Widgets.Input.render
+                      10
+                      Style.Default
+                      cur
+                      true
+                      { Text = "hello"
+                        Cursor = 3
+                        Anchor = Some 1 } // select [1,3)
+
+              let surf = Surface(Size.Create(10, 1))
+              Layout.measure (Rect.Create(0, 0, 10, 1)) node |> Layout.render surf
+              Expect.equal surf.[1, 0].Style.Background (Some selBg) "selected char (idx 1) highlighted"
+              Expect.equal surf.[2, 0].Style.Background (Some selBg) "selected char (idx 2) highlighted"
+              Expect.isTrue surf.[0, 0].Style.Background.IsNone "char before selection not highlighted"
+              Expect.isTrue surf.[3, 0].Style.Background.IsNone "char at the exclusive end not highlighted"
+          }
+          test "TextArea.render highlights a multi-line selection" {
+              let selBg = Color.Rgb(0x22uy, 0x55uy, 0x88uy)
+              let cur = Style.Default.WithBackground(selBg)
+
+              let node: LayoutNode<unit> =
+                  Mire.Widgets.TextArea.render
+                      6
+                      3
+                      Style.Default
+                      cur
+                      true
+                      { Text = "ab\ncd"
+                        Cursor = 4
+                        Anchor = Some 1 } // select [1,4) across the newline
+
+              let surf = Surface(Size.Create(6, 3))
+              Layout.measure (Rect.Create(0, 0, 6, 3)) node |> Layout.render surf
+              Expect.equal surf.[1, 0].Style.Background (Some selBg) "line 0: 'b' selected"
+              Expect.equal surf.[0, 1].Style.Background (Some selBg) "line 1: 'c' selected"
+              Expect.isTrue surf.[0, 0].Style.Background.IsNone "line 0: 'a' not selected"
           } ]
 
 [<Tests>]

@@ -403,26 +403,38 @@ module Input =
         if not focused then
             Text.text visible textStyle
         else
-            let cw = cur - start // cursor column within the window (0 .. width-1)
+            match TextBuffer.selection buf with
+            // A selection renders as a highlighted range (reusing `cursorStyle` —
+            // inverse video reads as selected text), clipped to the visible window.
+            | Some(lo, hi) when hi > lo && min visible.Length (hi - start) > max 0 (lo - start) ->
+                let s0 = max 0 (lo - start)
+                let s1 = min visible.Length (hi - start)
 
-            let leftPart =
-                if cw <= 0 then
-                    ""
-                else
-                    visible.Substring(0, min cw visible.Length)
+                Stack.hstackOf
+                    [ Stack.sized Length.Content (Text.text (visible.Substring(0, s0)) textStyle)
+                      Stack.sized Length.Content (Text.text (visible.Substring(s0, s1 - s0)) cursorStyle)
+                      Stack.sized Length.Content (Text.text (visible.Substring(s1)) textStyle) ]
+            | _ ->
+                let cw = cur - start // cursor column within the window (0 .. width-1)
 
-            let atCursor = if cw < visible.Length then string visible.[cw] else " "
+                let leftPart =
+                    if cw <= 0 then
+                        ""
+                    else
+                        visible.Substring(0, min cw visible.Length)
 
-            let rightPart =
-                if cw + 1 <= visible.Length then
-                    visible.Substring(min (cw + 1) visible.Length)
-                else
-                    ""
+                let atCursor = if cw < visible.Length then string visible.[cw] else " "
 
-            Stack.hstackOf
-                [ Stack.sized Length.Content (Text.text leftPart textStyle)
-                  Stack.sized (Length.Cells 1) (Text.text atCursor cursorStyle)
-                  Stack.sized Length.Content (Text.text rightPart textStyle) ]
+                let rightPart =
+                    if cw + 1 <= visible.Length then
+                        visible.Substring(min (cw + 1) visible.Length)
+                    else
+                        ""
+
+                Stack.hstackOf
+                    [ Stack.sized Length.Content (Text.text leftPart textStyle)
+                      Stack.sized (Length.Cells 1) (Text.text atCursor cursorStyle)
+                      Stack.sized Length.Content (Text.text rightPart textStyle) ]
 
 /// One table column: a header label, a width (`Length`), and a per-row cell
 /// renderer. `Table.textColumn` builds a plain styled-text column.
@@ -619,12 +631,47 @@ module TextArea =
             // horizontal window so the cursor column stays visible (no wrap)
             let hstart = if curCol < width then 0 else curCol - width + 1
 
+            // Global char offset of each line's start, for mapping the (whole-text)
+            // selection onto individual lines.
+            let mutable acc = 0
+
+            let lineStarts =
+                [| for ln in lines ->
+                       let s = acc
+                       acc <- acc + ln.Length + 1
+                       s |]
+
+            let sel = if focused then TextBuffer.selection buf else None
+
             let renderLine (idx: int) (line: string) : LayoutNode<'msg> =
                 let visLen = min (max 0 (line.Length - hstart)) width
                 let visible = if visLen <= 0 then "" else line.Substring(hstart, visLen)
+                let gStart = lineStarts.[idx]
 
-                if focused && idx = curRow then
-                    // reuse Input's left / atCursor / right block-cursor split
+                // this line's selected sub-range, clipped to the visible window
+                let selRange =
+                    match sel with
+                    | Some(lo, hi) ->
+                        let a = max lo gStart
+                        let b = min hi (gStart + line.Length)
+
+                        if b > a then
+                            let la = max 0 (a - gStart - hstart)
+                            let lb = min visible.Length (b - gStart - hstart)
+                            if lb > la then Some(la, lb) else None
+                        else
+                            None
+                    | None -> None
+
+                match selRange with
+                | Some(la, lb) ->
+                    // selection highlight (reuse cursorStyle — inverse video)
+                    Stack.hstackOf
+                        [ Stack.sized Length.Content (Text.text (visible.Substring(0, la)) textStyle)
+                          Stack.sized Length.Content (Text.text (visible.Substring(la, lb - la)) cursorStyle)
+                          Stack.sized Length.Content (Text.text (visible.Substring(lb)) textStyle) ]
+                | None when focused && idx = curRow && Option.isNone sel ->
+                    // block cursor — only when nothing is selected
                     let cw = curCol - hstart
 
                     let leftPart =
@@ -649,8 +696,7 @@ module TextArea =
                         [ Stack.sized Length.Content (Text.text leftPart textStyle)
                           Stack.sized (Length.Cells 1) (Text.text atCursor cursorStyle)
                           Stack.sized Length.Content (Text.text rightPart textStyle) ]
-                else
-                    Text.text visible textStyle
+                | None -> Text.text visible textStyle
 
             Stack.vstackOf
                 [ for y in offY .. min (lines.Length - 1) (offY + height - 1) ->
