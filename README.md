@@ -6,7 +6,7 @@ A small, composable F# runtime for building **modern terminal UIs** — coding a
 
 Mire is **opinionated about its target**. It assumes a modern, Kitty-compatible terminal (Ghostty first) and uses truecolor, the alternate screen, the Kitty keyboard protocol, bracketed paste, mouse tracking, OSC 8 hyperlinks, and synchronized output. There is intentionally no support for legacy consoles, 16-color fallbacks, or "works over every SSH/tmux setup ever."
 
-> **Status: 0.4.0 — the core framework, first published release.** The runtime, rendering pipeline, layout engine, a real widget library (virtualized lists & tables, a fuzzy command palette, cursor-anchored completion, single- and multi-line text editing, split views, tooltips, progress bars, spinners, tabs, toggles, markdown, overlay positioning + modals, toasts, a scrollview, a keyboard focus manager, plus separators/badges/key-hints), full keyboard/mouse/paste/focus input decoding, and **three** demo apps exist and run. The agent-domain component library in [`SPEC.md`](https://github.com/HelgeSverre/mire/blob/main/SPEC.md) is still design — prototyped only at the app level in `Mire.Demo.Agent`. See [Current status](#current-status).
+> **Status: 0.5.0 — core framework + the agent layer.** The runtime, rendering pipeline, layout engine, and a complete base-widget library (virtualized lists & tables, a fuzzy command palette, cursor-anchored completion, single- and multi-line text editing with selection and soft-wrap, split views, tooltips, progress bars, spinners, tabs, toggles, markdown, overlay positioning + modals, toasts, a scrollview, a keyboard focus manager, an image-preview widget, plus separators/badges/key-hints). Full keyboard/mouse/paste/focus input decoding, true grapheme-cluster widths, OSC 8 links, OSC 52 clipboard, Kitty graphics, light/dark theme notifications, and runtime mouse hit-testing → focus. The agent-domain layer (**`Mire.Agent`**) now ships `ChatTranscript`, `PromptBox` (history + completion), `ApprovalModal`, and `DiffView`, composed by the `samples/AgentShell` MVP. New to Mire? Start with the **[user guide](docs/guide/README.md)**.
 
 ## Installation
 
@@ -19,10 +19,10 @@ dotnet add package Mire
 Or as a `<PackageReference>` in your `.fsproj`:
 
 ```xml
-<PackageReference Include="Mire" Version="0.4.0" />
+<PackageReference Include="Mire" Version="0.5.0" />
 ```
 
-> `0.4.0` is the current release on nuget.org, published via the tagged-release
+> `0.5.0` is the current release on nuget.org, published via the tagged-release
 > workflow. (Pin an exact version — the API still moves between minors, pre-1.0.)
 
 A minimal app — wire an Elmish `Program` and hand it to `Runtime.run` (see `Mire.Demo.Agent` for a complete one):
@@ -149,13 +149,24 @@ This repo is a working foundation — the 0.4.0 core widget layer. What works to
 - ✅ Headless `--dump` mode and the Expecto suite
 - ✅ **`AppTheme`** record — a swappable theme set; **`AppTheme.defaultTheme` is the Mire brand** (emerald accent, neutral hierarchy, inverse-video selection), built from `Mire.Brand.Palette`. The `Style.*` primitives and `Markdown.defaultStyle` are brand-sourced too, so the default look is on-brand with no per-app theme code
 
+Added since 0.4.0 (the 0.5.0 release):
+
+- ✅ Text **selection** across the editing stack (`TextBuffer` anchor + `TextEdit` shift-select/select-all) and `TextArea` **soft-wrap**
+- ✅ True **grapheme clusters** — astral scalars, emoji-ZWJ sequences, regional-indicator flags, VS15/VS16 presentation
+- ✅ **`ImagePreview`** widget + the **Kitty graphics** protocol (`Cmd.kittyImage`); **light/dark theme notifications** (`withThemeNotifications`); Kitty private-use functional keys
+- ✅ Runtime-owned **mouse hit-testing → focus** — a `Focusable` node + retained region table + `Program.withMouseRegion`
+- ✅ The agent layer **`Mire.Agent`** — `ChatTranscript` (virtualized + follow-tail), `PromptBox` (history + slash/@-mention completion), `ApprovalModal`, `DiffView` — composed by `samples/AgentShell`, with a `samples/Gallery` showcase of every base widget
+
 Not yet (described in `SPEC.md` as the target):
 
-- ⏳ Remaining widget: `ImagePreview` (Kitty graphics protocol)
-- ⏳ The runtime-owned / mouse-driven half of focus (spatial hit-testing)
-- ⏳ Kitty graphics (images) and light/dark theme notifications
-- ⏳ Text selection in `TextBuffer` (so `Input`/`TextArea` are cursor-only)
-- 🚧 The agent-domain layer (`Mire.Agent`) — **underway for 0.5.0.** `ChatTranscript`, `PromptBox`, `ApprovalModal`, and `DiffView` (unified/split + accept-reject) now ship in `Mire.Agent`, composed by the `samples/AgentShell` MVP (`just shell`). Remaining: folding completion/history + virtualization into the widgets.
+- ⏳ Performance tiers — frame coalescing for streaming, caching — _done as they hurt, not before_ (see [`ROADMAP.md`](https://github.com/HelgeSverre/mire/blob/main/ROADMAP.md))
+
+## Documentation
+
+The **[user guide](https://github.com/HelgeSverre/mire/blob/main/docs/guide/README.md)** (in `docs/guide/`) is the place to start — task-oriented and grounded in the shipping code:
+
+- [Getting started](https://github.com/HelgeSverre/mire/blob/main/docs/guide/getting-started.md) · [Architecture](https://github.com/HelgeSverre/mire/blob/main/docs/guide/architecture.md) · [Layout](https://github.com/HelgeSverre/mire/blob/main/docs/guide/layout.md) · [Widgets](https://github.com/HelgeSverre/mire/blob/main/docs/guide/widgets.md)
+- [Styling & theming](https://github.com/HelgeSverre/mire/blob/main/docs/guide/styling-and-theming.md) · [Input](https://github.com/HelgeSverre/mire/blob/main/docs/guide/input.md) · [Text editing](https://github.com/HelgeSverre/mire/blob/main/docs/guide/text-editing.md) · [Terminal protocol](https://github.com/HelgeSverre/mire/blob/main/docs/guide/terminal-protocol.md) · [The agent layer](https://github.com/HelgeSverre/mire/blob/main/docs/guide/agent-layer.md)
 
 ## Roadmap & design document
 
