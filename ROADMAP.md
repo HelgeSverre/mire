@@ -128,14 +128,14 @@ agent widgets are the (not-yet-created) `Mire.Agent` layer.
 
 | Widget           | Status | Notes                                                                 |
 | ---------------- | ------ | --------------------------------------------------------------------- |
-| `ChatTranscript` | ⬜     | Block-virtualized transcript (user/assistant/tool/diff/error blocks). |
-| `PromptBox`      | ⬜     | Multiline input, slash commands, @mentions, history, attachments.     |
-| `ToolCallView`   | ⬜     | Name + status + streamed output, collapsible.                         |
-| `ThinkingBlock`  | ⬜     | Reasoning placeholder.                                                |
-| `DiffView`       | ⬜     | Unified/split hunks, accept/reject.                                   |
-| `FileTree`       | ⬜     | Workspace tree.                                                       |
-| `TaskTimeline`   | ⬜     | Run/step status over time.                                            |
-| `ApprovalModal`  | ⬜     | Command/risk approval prompt.                                         |
+| `ChatTranscript` | ✅     | `ChatTranscript.{render,renderBlock}` over a `TranscriptBlock` list, styled by `AppTheme`. _Virtualization/follow-tail still app-side (the app owns the `ScrollView`)._ |
+| `PromptBox`      | ✅     | `PromptBox` over `TextBuffer`/`TextEdit` + `render` (block cursor, placeholder). _Slash/@mention completion + history still app-side._ |
+| `ToolCallView`   | ✅     | A `TranscriptBlock.ToolCall` (name + cmd + status glyph/spinner + output) rendered by `ChatTranscript`. _Collapsing is app-side._ |
+| `ThinkingBlock`  | ✅     | A `TranscriptBlock.Thinking` card rendered by `ChatTranscript`.       |
+| `DiffView`       | 🟡     | Unified `TranscriptBlock.DiffBlock` (colored `+`/`-`) via `ChatTranscript`. Split view + accept/reject hunks still pending. |
+| `FileTree`       | ✅     | A `TranscriptBlock.FileTree` card via `ChatTranscript` (static paths). |
+| `TaskTimeline`   | ✅     | A `TranscriptBlock.TaskTimeline` card via `ChatTranscript`.           |
+| `ApprovalModal`  | ✅     | `ApprovalModal.view` (title/intro/command/risk + Accept/Deny) + `buttonHit` (click), styled by `AppTheme`. App owns the accept/deny behavior. |
 
 ---
 
@@ -164,19 +164,12 @@ Recommended order — each step names its extraction source in the demo:
 
 - [x] **1. Create `Mire.Agent` project** — classlib referencing `Mire` only, in `Mire.slnx` (CI builds the solution); one-directional chain preserved
 - [x] **2. `TranscriptBlock` model + `ChatTranscript`** — extracted from `Blocks.fs` into `Mire.Agent`, parameterized by `AppTheme` (`Notice` uses `AppTheme.Tone`); `ChatTranscript.{renderBlock,render,statusGlyph,statusStyle}`. The demo renders its transcript through it. _Follow-up:_ fold block virtualization + follow-tail into the widget (the demo still owns the `ScrollView`/offset).
-- [ ] **3. `PromptBox`** — from `PromptInput.fs` (already a thin
-      `TextBuffer`/`TextEdit` wrapper) + the demo's completion wiring; multiline,
-      slash commands, @mentions, history
-- [ ] **4. `ToolCallView` + `ThinkingBlock`** — from the tool/thinking cards in
-      `Blocks.fs` (status glyph + spinner + collapsible output)
-- [ ] **5. `ApprovalModal`** — from the demo's permission modal; `Widgets.Modal` + `Focus.pushTrap`/`popTrap` + focusable Accept/Deny actions
-- [ ] **6. `DiffView`** — unified first (from `Blocks.fs`); split view +
-      accept/reject hunks after
-- [ ] **7. `FileTree`, `TaskTimeline`** — no demo prototype yet; design from
-      `SPEC.md`
-- [ ] **8. Migrate `Mire.Demo.Agent` onto `Mire.Agent`** — the demo becomes the
-      dogfood app; retire the duplicated app-level code and most of
-      `DEMO-TODOS.md`
+- [x] **3. `PromptBox`** — `PromptInput.fs` moved into `Mire.Agent.PromptBox` (verbatim — it was already framework-only). _Follow-up:_ fold slash/@mention completion + history into the widget (still app-side).
+- [x] **4. `ToolCallView` + `ThinkingBlock`** — shipped as `TranscriptBlock.ToolCall`/`Thinking` rendered by `ChatTranscript` (they're transcript blocks here, not standalone widgets).
+- [x] **5. `ApprovalModal`** — `ApprovalModal.view` + `buttonHit` (click) in `Mire.Agent`, styled by `AppTheme`; the demo's permission modal renders + click-activates through it (accept/deny behavior stays app-side).
+- [🟡] **6. `DiffView`** — unified shipped as `TranscriptBlock.DiffBlock` via `ChatTranscript`; split view + accept/reject hunks still pending.
+- [x] **7. `FileTree`, `TaskTimeline`** — shipped as `TranscriptBlock.FileTree`/`TaskTimeline` rendered by `ChatTranscript`.
+- [🟡] **8. Migrate `Mire.Demo.Agent` onto `Mire.Agent`** — transcript, prompt, and approval modal now go through `Mire.Agent`; the remaining overlays (palette/skill/mcp) and the `agentShell`-style sample are the rest of the migration.
 - [ ] Widget gallery app — a dedicated demo exercising every widget in all its
       states (build after the brand-default theme + Agent refactor land)
 
