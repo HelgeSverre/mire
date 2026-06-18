@@ -3,6 +3,14 @@ import Base from "../layouts/Base.astro";
 import Mark from "../components/Mark.astro";
 import Terminal from "../components/Terminal.astro";
 import Card from "../components/Card.astro";
+
+// Terminal screens as raw-HTML strings so whitespace is preserved exactly.
+const counterScreen = `<span class="subtle">┌ counter ──────────┐</span>
+<span class="subtle">│</span> count: 7          <span class="subtle">│</span>
+<span class="subtle">│</span> <span class="accent">↑</span> inc   <span class="accent">↓</span> dec     <span class="subtle">│</span>
+<span class="subtle">└───────────────────┘</span>`;
+
+const installScreen = `<span class="muted">$</span> dotnet add package Mire`;
 ---
 
 <Base title="Mire">
@@ -33,12 +41,7 @@ import Card from "../components/Card.astro";
         A model, an <code>update</code> that folds messages into it, and a <code>view</code>.
         Hand the program to <code>Runtime.run</code> and it drives the loop at ~30 FPS.
       </p>
-      <Terminal title="dotnet run">
-<span class="subtle">┌ counter ──────────┐</span>
-<span class="subtle">│</span> count: 7          <span class="subtle">│</span>
-<span class="subtle">│</span> <span class="accent">↑</span> inc   <span class="accent">↓</span> dec     <span class="subtle">│</span>
-<span class="subtle">└───────────────────┘</span>
-      </Terminal>
+      <Terminal title="dotnet run" code={counterScreen} />
       <p style="color:var(--fg-muted)">
         The view is a pure description of the screen. Rebuild it every frame; the diff
         makes updates cheap. See <a href="/docs/tutorials/your-first-app/">Your first app</a>
@@ -63,9 +66,7 @@ import Card from "../components/Card.astro";
     <section class="section">
       <h2 class="section__title">Install</h2>
       <p class="section__lead">Mire ships as a single NuGet package targeting <code>net10.0</code>.</p>
-      <Terminal>
-<span class="muted">$</span> dotnet add package Mire
-      </Terminal>
+      <Terminal code={installScreen} />
       <p style="color:var(--fg-subtle);font-size:var(--text-sm)">
         Pre-1.0 — the public API still moves between minor versions. Pin an exact version.
       </p>

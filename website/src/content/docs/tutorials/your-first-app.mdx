@@ -8,6 +8,9 @@ order: 1
 import Callout from "../../../components/Callout.astro";
 import Terminal from "../../../components/Terminal.astro";
 
+export const counterScreen = `<span class="subtle">count: 7</span>
+  up: increment   down: decrement   Ctrl+C: quit`;
+
 This tutorial builds a working Mire app from an empty folder: a counter you drive with
 the arrow keys. By the end you will have run a real terminal UI and understand the four
 pieces every Mire app is made of.
@@ -84,10 +87,7 @@ dotnet run
 The terminal switches to the alternate screen and shows the counter. Press the up and
 down arrows; press **Ctrl+C** to quit (Mire restores the terminal on the way out).
 
-<Terminal title="dotnet run">
-<span class="subtle">count: 7</span>
-  up: increment   down: decrement   Ctrl+C: quit
-</Terminal>
+<Terminal title="dotnet run" code={counterScreen} />
 
 ## What just happened
 

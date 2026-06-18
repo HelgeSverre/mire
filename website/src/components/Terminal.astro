@@ -1,11 +1,16 @@
 ---
-// A terminal frame — the brand's "show, don't say" device. Put monospace content
-// (box-drawing, CLI output) in the default slot; mark the one accent moment with
-// <span class="accent">…</span>, muted text with <span class="muted">…</span>.
+// A terminal frame — the brand's "show, don't say" device.
+//
+// Pass the screen content as the `code` prop: a raw-HTML string (a JS template
+// literal). Its newlines and runs of spaces are preserved verbatim, where slot
+// content would have its whitespace collapsed by the template/MDX compiler. Mark
+// the one accent moment with <span class="accent">…</span>, muted text with
+// <span class="muted">…</span>. A plain single-line slot still works as a fallback.
 interface Props {
   title?: string;
+  code?: string;
 }
-const { title } = Astro.props;
+const { title, code } = Astro.props;
 ---
 
 <div class="terminal">
@@ -15,5 +20,5 @@ const { title } = Astro.props;
     <span class="terminal__dot"></span>
     {title && <span class="terminal__title">{title}</span>}
   </div>
-  <pre><slot /></pre>
+  {code ? <pre set:html={code} /> : <pre><slot /></pre>}
 </div>

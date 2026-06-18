@@ -8,6 +8,14 @@ order: 2
 import Terminal from "../../../components/Terminal.astro";
 import Callout from "../../../components/Callout.astro";
 
+export const tasksScreen = `<span class="muted"> tasks</span>
+<span class="subtle">┌──────────────────────────┐</span>
+<span class="subtle">│</span> [x] Read the tutorial    <span class="subtle">│</span>
+<span class="subtle">│</span><span class="accent"> [ ] Build a task list    </span><span class="subtle">│</span>
+<span class="subtle">│</span> [ ] Ship something        <span class="subtle">│</span>
+<span class="subtle">└──────────────────────────┘</span>
+ 1/3 done      <span class="subtle">↑↓ move · space toggle · d delete</span>`;
+
 [Your first app](/docs/tutorials/your-first-app/) was stateless. This one holds a list,
 tracks a selection, and reacts to several keys — the shape of a real TUI. You will use
 the `ListView` widget, a `StatusBar`, and `Dock` to frame the screen.
@@ -125,15 +133,7 @@ let main _ =
 
 Run it with `dotnet run`:
 
-<Terminal title="tasks">
- tasks
-<span class="subtle">┌──────────────────────────┐</span>
-<span class="subtle">│</span> [x] Read the tutorial    <span class="subtle">│</span>
-<span class="subtle">│</span><span class="accent"> [ ] Build a task list    </span><span class="subtle">│</span>
-<span class="subtle">│</span> [ ] Ship something        <span class="subtle">│</span>
-<span class="subtle">└──────────────────────────┘</span>
- 1/3 done      ↑↓ move · space toggle · d delete
-</Terminal>
+<Terminal title="tasks" code={tasksScreen} />
 
 <Callout type="note">
 <code>ListView.view</code> is <b>virtualized</b> — it builds only the visible window of
