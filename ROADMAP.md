@@ -30,7 +30,7 @@ next planned cycle is **1.0 hardening** (API review/freeze; see below).
 > agent-layer cycles (multi-event input, mouse drag, streaming caches, the
 > `Conversation` model + `AgentShell` builder).
 
-### 0.4.0 — Core framework · _next, ship soon_
+### 0.4.0 — Core framework · _released_
 
 The runtime, layout engine, and full base-widget layer (everything in the tables
 below), plus the protocol work done since v0.3: OSC 8 links, OSC 52 clipboard,
@@ -44,7 +44,7 @@ Honestly labeled "a usable core widget layer"; the agent layer is "coming in
 - [x] Cut the CHANGELOG `[Unreleased]` block into a dated `[0.4.0]` section
 - [x] Publish a `v0.4.0` GitHub Release → `publish.yml` → nuget.org (published; **0.4.0** is live)
 
-### 0.5.0 — Agent layer · _the promoted release (delivers SPEC phase v0.4)_
+### 0.5.0 — Agent layer · _released (delivers SPEC phase v0.4)_
 
 Extract `Mire.Agent` so the SPEC's headline `agentShell { … }` MVP works out of
 the box — the version actually worth announcing. Work = the **v0.4 phase below**
@@ -67,7 +67,11 @@ notifications). **Gate to tag:**
 - [x] Terminal-protocol inventory (`docs/PROTOCOLS.md`) + public `Terminal support` reference page
 - _(Performance tiers moved to their own cycle below — frame coalescing for streaming is the one an agent UI feels.)_
 
-### 0.7.0 — Input & protocol completeness · _next_
+### 0.7.0 · Cycle 1 — Input & protocol completeness · _released_
+
+> **`v0.7.0` bundled three cycles** (Cycle 1 input, Cycle 2 streaming perf, Cycle 3 agent
+> layer) into a single release on 2026-06-19. The three subsections below were the work
+> plan; all shipped together.
 
 The protocol audit (recorded in `docs/PROTOCOLS.md`) surfaced concrete input gaps. This
 cycle closes them — mostly pure, testable parser work that improves *felt* interactivity.
@@ -76,7 +80,7 @@ cycle closes them — mostly pure, testable parser work that improves *felt* int
 - [x] **Mouse motion / drag.** `parseMouseSgr` decodes the SGR `0x20` motion bit into a new `MouseEvent.Moved` flag, so a drag is distinguishable from a fresh click (button-held motion under mode 1002). Unlocks mouse text-selection, `SplitView` drag-resize, and drag-scroll for apps.
 - [ ] **Stretch — opt-in hover** (mode `1003`, behind `Program.withMouseMotion`) for hover highlights/tooltips; and small protocol niceties: underline color (`SGR 58`), the Kitty *associated-text* flag (16) so `CSI u` keys carry `Text`, and the Hyper/Meta/lock modifier bits.
 
-### 0.8.0 — Streaming performance · _done_
+### 0.7.0 · Cycle 2 — Streaming performance · _released_
 
 The still-open performance tiers, pulled together because they're what an agent UI feels:
 
@@ -84,7 +88,7 @@ The still-open performance tiers, pulled together because they're what an agent 
 - [x] Text-wrap + grapheme-width caching (Tier 7, 16) — `Grapheme.stringWidth` memoizes the non-ASCII (segmentation) path (ASCII keeps its allocation-free fast path); `ChatTranscript.blockHeight` memoizes a block's wrapped row height by `(wrapWidth, block)`. Both bounded.
 - [x] Append-only optimization for logs/transcripts (Tier 23) — `ChatTranscript.view` now measures every block from the height memo but only **renders** the blocks intersecting the viewport (was: render all to measure, discard off-screen), so a long, growing transcript costs O(visible) wrap/build work per frame, not O(all).
 
-### 0.9.0 — Agent layer expansion · _done_
+### 0.7.0 · Cycle 3 — Agent layer expansion · _released_
 
 `Mire.Agent` grew from four chat widgets into a real agent-UI layer (UI only — the
 framework never knows what an LLM is). Slices, in dependency order:
@@ -100,9 +104,9 @@ _(Naming was considered: keep `Mire.Agent` and grow into it, rather than renamin
 
 ### 1.0.0 — later (not a near-term goal)
 
-Stay 0.x until 0.4/0.5 bake under real use. 1.0 means an API review/freeze, full
-XML-doc coverage, and a deprecation policy — revisit once the agent layer has
-shipped and the public API stops moving.
+Stay 0.x until the shipped surface (through 0.7.0 — core, agent layer, input/perf)
+bakes under real use. 1.0 means an API review/freeze, full XML-doc coverage, and a
+deprecation policy — revisit once the public API stops moving.
 
 ---
 
@@ -189,7 +193,7 @@ decoding (Kitty `CSI u`, mouse, paste, focus events), the `Focus` manager,
 text editing, modals, toasts, scrollviews, …) all exist and are tested. Full
 checklists: [`docs/ROADMAP-ARCHIVE.md`](docs/ROADMAP-ARCHIVE.md).
 
-### v0.4 — Agent widgets ⬜ (`Mire.Agent`)
+### v0.4 — Agent widgets ✅ (`Mire.Agent`)
 
 Optional layer above `Mire.App`; the base framework must not depend on it.
 **The work is extraction, not invention** — `Mire.Demo.Agent` already builds
@@ -212,7 +216,7 @@ Recommended order — each step names its extraction source in the demo:
 - [x] Widget gallery app — `samples/Gallery`, a pure-framework demo exercising every
       base widget in its states across 7 tabbed pages (`just gallery` / `--dump`)
 
-### v0.5 — Kitty/Ghostty niceties 🟡
+### v0.5 — Kitty/Ghostty niceties ✅
 
 - [x] Full Kitty keyboard protocol decode — `CSI u` **modifier** decoding (see archive), **event types** (the runtime pushes `CSI > 3 u`; `InputParser` decodes the `:event` sub-param into `Press`/`Repeat`/`Release`, and the runtime drops `Release` unless `Program.withKeyReleases`), **and the private-use functional codepoints** (PUA 57344–57454 → keypad/F13–F35/media keys; `keyOfFunctional`). Input decoding is now feature-complete for the targeted terminals.
 - [x] Buffer large bracketed pastes split across `read()`s — the runtime carries an unfinished paste (via `InputParser.stepPasteBuffer`, capped at 1 MiB) and reassembles it into one `Paste`
@@ -222,16 +226,16 @@ Recommended order — each step names its extraction source in the demo:
 - [x] Light/dark theme notifications — DEC mode 2031: `Program.withThemeNotifications` enables the mode + queries the scheme at startup; `InputParser` decodes `CSI ? 997 ; 1|2 n` into `ThemeChanged Dark`/`Light`, delivered through `MapInput`
 - [x] Richer mouse (hit-testing → focus/selection) — the runtime-owned half of focus: a `LayoutNode.Focusable` node (`Widgets.Focusable.region`) tags a subtree with a `RegionId`; the runtime retains `Layout.collectRegions` of the rendered frame and hit-tests mouse events through `Layout.regionAt`, delivering the hit `RegionId` to `Program.withMouseRegion`. The Agent demo's modal Accept/Deny clicks route through it (`ApprovalModal.acceptRegion`/`denyRegion`), retiring the hand-computed hit-test.
 
-### Cross-cutting — Performance & rendering ⬜
+### Cross-cutting — Performance & rendering 🟡
 
 From `SPEC.md`'s optimization tiers. Do these _when they hurt_, not before.
 
 - [x] Tier 1–2: surface diffing + run-based output (baseline, done)
-- [x] Frame coalescing / render throttling for streaming (Tier 12) — the runtime drains the message queue per frame and renders once at ~30 FPS (0.8.0)
+- [x] Frame coalescing / render throttling for streaming (Tier 12) — the runtime drains the message queue per frame and renders once at ~30 FPS (0.7.0)
 - [x] Virtualized tables & transcript blocks (Tier 5–6) — `Table.view` windows its rows; `ChatTranscript.view` builds only the visible blocks
-- [x] Text-wrap + grapheme-width caching (Tier 7, 16) — memoized `stringWidth` (non-ASCII) + `ChatTranscript.blockHeight` (0.8.0)
-- [x] Append-only optimization for logs/transcripts (Tier 23) — `ChatTranscript.view` renders only viewport-intersecting blocks, measuring the rest from the height memo (0.8.0)
-- [ ] Dirty-region / partial composition (Tier 3, 20) — only for large/remote surfaces
+- [x] Text-wrap + grapheme-width caching (Tier 7, 16) — memoized `stringWidth` (non-ASCII) + `ChatTranscript.blockHeight` (0.7.0)
+- [x] Append-only optimization for logs/transcripts (Tier 23) — `ChatTranscript.view` renders only viewport-intersecting blocks, measuring the rest from the height memo (0.7.0)
+- [ ] Dirty-region / partial composition (Tier 3, 20) — only for large/remote surfaces _(deferred — current diffing suffices)_
 
 ### Cross-cutting — Correctness ✅
 
