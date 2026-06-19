@@ -45,8 +45,10 @@ Warp, WezTerm, xterm.js** (per the
 
 ### Mouse (button-event tracking + SGR coordinates)
 
-Modes `1002` + `1006`: clicks, wheel, and drag, with unlimited coordinates. Supported by
-essentially every modern terminal. (Hover / motion-without-button is not enabled.)
+Modes `1002` + `1006`: clicks, wheel, and drag, with unlimited coordinates. A held-button
+drag is distinguishable from a click (`MouseEvent.Moved`). Supported by essentially every
+modern terminal. (Hover / motion-without-button is not enabled.) A single read carrying
+several events — a fast scroll or drag burst — decodes them all, so input never lags.
 
 ### Synchronized output
 

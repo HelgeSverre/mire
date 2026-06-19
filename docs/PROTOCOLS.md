@@ -22,7 +22,7 @@ All sequences live in `Mire/Protocol/ANSI.fs`; the runtime writes them in
 | Truecolor SGR | `CSI 38;2;r;g;b m` / `48;2;…` | ISO 8613-6 | `foregroundRgb`/`backgroundRgb`, `Color.ToAnsiFg/Bg` | ✅ truecolor only (no 256/16 fallback — by design) |
 | Text attributes | `CSI 1/2/3/9 m` | SGR | `bold`/`dim`/`italic`/`strikethrough` | ✅ |
 | Colored & styled underlines | `CSI 4 m`, `4:3` (curly), `4:4` (dotted), `4:5` (dashed), `21` (double) | [kitty: underlines](https://sw.kovidgoyal.net/kitty/underlines/) | `Style.ToAnsi` | ✅ styles; ⬜ underline **color** (`58:2:…`) not emitted |
-| Mouse: button-event tracking | `CSI ?1002 h/l` | xterm | `enableMouse`/`disableMouse` | ✅ press/release/drag (drag motion not flagged — see gaps) |
+| Mouse: button-event tracking | `CSI ?1002 h/l` | xterm | `enableMouse`/`disableMouse` | ✅ press/release/drag (a held-button drag sets `MouseEvent.Moved`) |
 | Mouse: SGR extended coords | `CSI ?1006 h/l` | xterm SGR (1006) | `enableMouse` | ✅ |
 | Bracketed paste | `CSI ?2004 h/l` | xterm | `enableBracketedPaste` | ✅ (+ cross-read reassembly) |
 | Focus reporting | `CSI ?1004 h/l` | xterm | `enableFocusEvents` | ✅ |
@@ -36,7 +36,8 @@ All sequences live in `Mire/Protocol/ANSI.fs`; the runtime writes them in
 ## Parsed (input)
 
 All decoding lives in `Mire/Protocol/InputParser.fs`; the runtime drives it from
-`readRawBytes` → `stepPasteBuffer` → `parseBytes` in `Runtime.run`.
+`readRawBytes` → `stepPasteBuffer` → `parseAll` (which slices the buffer into per-event
+spans and runs each through `parseBytes`) in `Runtime.run`.
 
 | Protocol | Wire form | Decoder | Status |
 |---|---|---|---|
@@ -78,8 +79,8 @@ for ordinary use; listed worst-impact first.
    they'd be ignored.
 5. **Modifier bits beyond Super.** `modifiersOf` folds Super→`Meta` and ignores Hyper (16),
    real-Meta (32), Caps-Lock (64), Num-Lock (128). Fine for typical binds.
-6. **Underline color** (`SGR 58`) and clipboard **read-back** (OSC 52 query) are emit-only /
-   not implemented.
+6. **Underline color** (`SGR 58`) isn't emitted (only the underline *styles* are), and
+   clipboard **read-back** (an OSC 52 query) isn't implemented — we only write OSC 52.
 
 ## Maintenance
 
