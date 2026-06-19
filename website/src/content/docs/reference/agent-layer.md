@@ -11,6 +11,10 @@ every widget is parameterized by an `AppTheme`. The `samples/AgentShell` MVP (`j
 composes the whole layer on `AppTheme.defaultTheme` with zero theme code; read it as the
 canonical example.
 
+To put these together into a working shell, follow
+[Build an agent shell](/docs/how-to/build-an-agent-shell/). This page is the per-component
+reference.
+
 ## ChatTranscript and TranscriptBlock
 
 A transcript is a list of `TranscriptBlock`s; `ChatTranscript` renders and scrolls them.
