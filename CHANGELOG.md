@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-06-19
+
+Translucent overlays, two input/render regressions fixed, and a documented
+terminal-protocol surface. Modals now *fade* the screen behind them instead of
+blanking it, modified keys no longer double-fire, and the protocols Mire speaks
+are inventoried for contributors (`docs/PROTOCOLS.md`) and users (the new
+[Terminal support](https://github.com/HelgeSverre/mire/blob/main/website/src/content/docs/reference/terminal-support.md) reference).
+
 ### Added
 
 - **Translucent scrim (`Backdrop.scrim` / `LayoutNode.Scrim`).** A new overlay layer that *fades* the content behind it instead of occluding it: it blends every cell already painted under its rect toward a `tint` by a `strength` (0–1), preserving each glyph. Built on `Surface.Scrim` (terminal-`Default` cells resolve to a light-fg/dark-bg fallback so they dim too) and `Color.Blend` (linear RGB lerp). Because it transforms existing cells it must render *after* them — place it as a later sibling in a `LayoutNode.Overlay`.
@@ -20,6 +28,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Modified keys no longer fire twice (Kitty event types on legacy keys).** With the `CSI > 3 u` enhancement on, terminals report press/repeat/**release** event types on the *legacy* key forms too (`ESC[1;<mod>:<event>A` for arrows, `ESC[<n>;<mod>:<event>~` for editing keys), not only on `CSI u`. `InputParser` decoded the `:event` subparameter for `CSI u` but hardcoded `Press` for every other CSI key, so each release decoded as a second press and arrows/Home/End/Delete fired twice. All CSI key forms now decode the event type uniformly; the runtime drops `Release` as before.
 - **Agent demo command palette occludes the screen again.** The palette wrapped its full-screen backdrop *inside* the centering layer, which confined the backdrop to the 50×H box and let the transcript bleed around it. The backdrop is now a top-level sibling of the centered box (the `Modal.modal` shape).
 - **Selected table-row highlight now spans colored columns.** A `Table.view` selected row drew each column in its own style, so a colored cell punched a hole in the highlight (and a column foreground matching the inverse-video selection background vanished). The selected row is now drawn uniformly in the selection style via the new `Backdrop.recolor`.
+
+### Docs
+
+- **Terminal-protocol inventory.** `docs/PROTOCOLS.md` tracks every escape sequence Mire emits or parses (with code locations, support status, and known gaps — multi-event reads, mouse drag-motion, unrequested Kitty flags); a user-facing `Terminal support` reference page lists which terminal emulators implement each protocol, sourced from the Kitty protocol docs' own terminal lists.
 
 ## [0.5.0] - 2026-06-18
 

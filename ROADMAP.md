@@ -18,14 +18,14 @@ state of the code.
 
 Pre-1.0, shipped **incrementally** — the public API still moves between minors,
 so consumers pin an exact version. A release goes out by publishing a `v*`
-GitHub Release; `publish.yml` then packs + pushes to nuget.org via OIDC. Only
-the throwaway `0.0.1`/`0.0.2` are on nuget.org today and **no `v*` tag exists
-yet** — so nothing has been deliberately released. The next deliberate release
-is **0.4.0**.
+GitHub Release; `publish.yml` then packs + pushes to nuget.org via OIDC.
+**`0.4.0`, `0.5.0`, and `0.6.0` are released**; the next cycle is **0.7.0 — Input
+& protocol completeness**.
 
-> Release numbers ≠ the SPEC "phase" numbers below. The 0.4.0 release bundles the
-> completed core (SPEC v0.1–v0.3) **plus** the cross-cutting protocol work that
-> landed since; the agent layer (SPEC phase v0.4) ships as the **0.5.0** release.
+> Release numbers ≠ the SPEC "phase" numbers below. The 0.4.0 release bundled the
+> completed core (SPEC v0.1–v0.3) plus the cross-cutting protocol work; the agent
+> layer (SPEC phase v0.4) shipped as **0.5.0**; **0.6.0** added translucent
+> overlays + the documented protocol surface.
 
 ### 0.4.0 — Core framework · _next, ship soon_
 
@@ -51,18 +51,37 @@ notifications). **Gate to tag:**
 - [x] `Mire.Agent` project shipping `ChatTranscript`/`PromptBox`/`ApprovalModal`/`DiffView` (with `ToolCallView`/`ThinkingBlock`/`FileTree`/`TaskTimeline` as `TranscriptBlock` variants)
 - [x] `Mire.Demo.Agent` migrated onto `Mire.Agent` (dogfood: transcript, prompt completion/history, and modal click-routing all go through the layer)
 - [x] A runnable `agentShell` MVP sample matching SPEC's example (`samples/AgentShell`)
-- [ ] CHANGELOG `[0.5.0]` + version bump + `v0.5.0` tag — _CHANGELOG cut & version bumped; the tag/GitHub Release is the publish step_
+- [x] CHANGELOG `[0.5.0]` + version bump + `v0.5.0` tag — released to nuget.org via `publish.yml`
 
-### 0.6.0 — Polish & reach
+### 0.6.0 — Polish & reach · _released 2026-06-19_
 
 - [x] Widget gallery app (`samples/Gallery`) — a pure-framework showcase of every base widget across 7 tabbed pages (Text, Boxes, Inputs, Lists, Controls, Overlays, Media), on the default theme; `just gallery` / `--dump`
 - [x] `ImagePreview` (Kitty graphics + text fallback) and light/dark theme notifications — done; every widget in the reference table is now built
 - [x] True grapheme clusters — astral-plane / emoji-ZWJ (the second Correctness item)
-- [ ] Performance tiers _as they hurt_ — frame coalescing for streaming first (the one an agent UI feels)
 - [x] Runtime-owned / mouse-hit-testing half of focus — `Focusable` node + retained region table + `Program.withMouseRegion`; the Agent demo's modal Accept/Deny clicks route through it (its hand-mirrored hit-test is retired)
-- [x] Widget gallery app (`samples/Gallery`) — every base widget in its states across 7 tabbed pages
+- [x] Translucent overlays — `Backdrop.scrim`/`LayoutNode.Scrim` (blend cells toward a tint, preserving glyphs); `Modal.modal` now fades the screen behind it instead of blanking it
+- [x] Double-fire fix (Kitty event types decoded on the legacy CSI key forms) + command-palette backdrop fix
+- [x] Terminal-protocol inventory (`docs/PROTOCOLS.md`) + public `Terminal support` reference page
+- _(Performance tiers moved to their own cycle below — frame coalescing for streaming is the one an agent UI feels.)_
 
-### 0.7.0 — Agent layer expansion · _planned_
+### 0.7.0 — Input & protocol completeness · _next_
+
+The protocol audit (recorded in `docs/PROTOCOLS.md`) surfaced concrete input gaps. This
+cycle closes them — mostly pure, testable parser work that improves *felt* interactivity.
+
+- [ ] **Multi-event input tokenizer.** `InputParser.parseBytes` decodes a single event from a buffer and the runtime calls it once per read, so a read holding several sequences loses all but one — coalesced keystrokes (`"ab"` → one bogus `Char "ab"`), mangled back-to-back escapes, and **sluggish scroll-wheel / drag bursts** (only the first event applies). Split a raw buffer into per-event slices, return `InputEvent list`, and loop in the runtime. _Gate:_ a buffer of N concatenated sequences yields N events. (Supersedes the understated "one event per read" entry under Known gaps.)
+- [ ] **Mouse motion / drag.** Decode the SGR `0x20` motion bit in `parseMouseSgr` and add a `Moved`/`Dragging` flag to `MouseEvent` (today a drag reports as a fresh `Pressed` click). Unlocks mouse text-selection, `SplitView` drag-resize, and drag-scroll.
+- [ ] **Stretch — opt-in hover** (mode `1003`, behind `Program.withMouseMotion`) for hover highlights/tooltips; and small protocol niceties: underline color (`SGR 58`), the Kitty *associated-text* flag (16) so `CSI u` keys carry `Text`, and the Hyper/Meta/lock modifier bits.
+
+### 0.8.0 — Streaming performance · _planned_
+
+The still-open performance tiers, pulled together because they're what an agent UI feels:
+
+- [ ] Frame coalescing / render throttling for streaming (Tier 12) — pairs with the agent-layer streaming helpers.
+- [ ] Text-wrap + grapheme-width caching (Tier 7, 16) — wrap/width is recomputed every frame; cache by `(string, width)`.
+- [ ] Append-only optimization for logs/transcripts (Tier 23).
+
+### 0.9.0 — Agent layer expansion · _planned_
 
 `Mire.Agent` today is four chat widgets (`ChatTranscript`, `PromptBox`,
 `ApprovalModal`, `DiffView`) — thinner than the name promises. **Direction: expand it
@@ -238,7 +257,7 @@ Things that work "well enough" today but have a sharp edge worth remembering:
 
 - **`Box` is single-child by design.** A `Box` renders one child filling its inner rect; passing multiple children overlaps them — flow is `Stack`'s job, so nest a `Stack` (the `panel`/`statusBar` helpers do this internally).
 - **Input decoding is feature-complete for the targeted terminals.** Keyboard (Kitty `CSI u` chords + press/repeat/release event types + private-use functional codepoints — keypad/F13–F35/media), mouse (SGR 1006), bracketed paste (reassembled across reads), and focus events all decode.
-- **One input event per read.** `InputParser.parseBytes` decodes a single event from a buffer, and the runtime calls it once per read. Interactive typing is unaffected (each keystroke is its own read), but a burst of *distinct* keystrokes delivered in one `read()` (e.g. piped/scripted input) only yields the first — non-bracketed bursts aren't split into multiple events. Bracketed paste is handled separately (reassembled, not split). Low priority; surfaces mainly in headless input-feeding tests.
+- **One input event per read.** `InputParser.parseBytes` decodes a single event from a buffer, and the runtime calls it once per read, so a read holding several sequences keeps only one. Beyond piped/scripted input this also bites interactively: a **scroll-wheel or drag burst** within one frame yields a single event, making those gestures feel sluggish. Bracketed paste is handled separately (reassembled, not split). **Scheduled — 0.7.0 (multi-event tokenizer).**
 - **Wide-char / grapheme rendering.** Resolved — see Cross-cutting — Correctness above (continuation cells + UAX #29 clusters).
 - **Dead scaffolding.** `RegionId` is load-bearing (the `Mire.Layout.Focus` key _and_ the `LayoutNode.Focusable` region table). The `Region`/`RenderMode` record in `Core/Region.fs` (and its `ZIndex`/`Clip`/`RenderMode` fields) is still a forward declaration for full z-ordering — the runtime hit-tests a lighter `(RegionId * Rect)` list today, not the full `Region`. (The unused `tcgetattr`/`tcsetattr`/`ioctl` externs and the stale "For now, use Console APIs" comment in `TerminalMode` were removed.)
 - **Solution file is `Mire.slnx`** (modern XML format), not `Mire.sln`.
