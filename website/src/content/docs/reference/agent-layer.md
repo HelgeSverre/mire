@@ -11,9 +11,62 @@ every widget is parameterized by an `AppTheme`. The `samples/AgentShell` MVP (`j
 composes the whole layer on `AppTheme.defaultTheme` with zero theme code; read it as the
 canonical example.
 
-To put these together into a working shell, follow
-[Build an agent shell](/docs/how-to/build-an-agent-shell/). This page is the per-component
-reference.
+The fastest path to a working shell is the `AgentShell` builder (below); follow
+[Build an agent shell](/docs/how-to/build-an-agent-shell/) for the walkthrough. This page
+is the per-component reference.
+
+## AgentShell — the program builder
+
+`AgentShell.program config` returns a ready-made `Program<ShellModel, ShellMsg>` that
+composes the whole layer — transcript + prompt + approval modal + the `Conversation`
+model — and owns scroll/follow-tail, prompt history, key routing, a spinner tick, and an
+`Idle | Streaming | AwaitingApproval` session. You supply only *what a submission or an
+approval does*:
+
+```fsharp
+let config: ShellConfig =
+    { Theme = AppTheme.defaultTheme
+      Title = "└ mire · agent"
+      Placeholder = "type a message — or `run`"
+      OnSubmit = fun text m -> …, Cmd<ShellMsg>      // a line was submitted (user msg already appended)
+      OnApprove = fun accepted cmd m -> …, Cmd<ShellMsg> }   // an approval was resolved
+
+AgentShell.program config |> Runtime.run
+```
+
+The callbacks use the model helpers to mutate the conversation:
+
+```fsharp
+AgentShell.addUser / addAssistant / addNotice / addBlock   // append a block + follow tail
+AgentShell.startReply m            // (id, m') — begin a streaming assistant reply
+AgentShell.stream id chunk         // ShellModel -> ShellModel — append a token
+AgentShell.finishReply id          // end the stream
+AgentShell.requestApproval cmd     // raise the approval modal
+AgentShell.addTool name cmd status // (id, m') — append a tool call
+AgentShell.setTool id status meta output
+```
+
+Stream a reply by returning a `Cmd.ofAsync` that dispatches `Apply` updaters as chunks
+arrive — `Apply (AgentShell.stream id chunk)`, then `Apply (AgentShell.finishReply id)`.
+`samples/AgentShell` is built on this and dogfoods streaming + approvals.
+
+## Conversation — the message model
+
+A typed model over `TranscriptBlock`: an ordered list of entries with stable
+`MessageId`s, streaming state, and a tool-call lifecycle. Pure and testable; the app holds
+one and renders `Conversation.blocks` through `ChatTranscript`.
+
+```fsharp
+let conv = Conversation.empty |> Conversation.addUser "build it"
+let id, conv = Conversation.startAssistant conv     // an empty, streaming reply
+let conv = conv |> Conversation.appendText id "Sure" |> Conversation.finishStreaming id
+
+let id, conv = Conversation.addToolCall "shell" "dotnet build" Queued conv
+let conv = Conversation.setTool id Succeeded "1.1s" "ok" conv   // Queued → Running → Succeeded/Failed
+
+Conversation.blocks conv        // TranscriptBlock list — for ChatTranscript
+Conversation.isStreaming conv   // true while any entry streams
+```
 
 ## ChatTranscript and TranscriptBlock
 
@@ -55,7 +108,10 @@ ChatTranscript.atBottom      theme wrapWidth frame viewportH offset blocks
 ```
 
 `frame` is a spinner tick (drive it from a `Sub.Every`) so running tool calls animate.
-`renderBlock` renders one block if you compose your own layout.
+`renderBlock` renders one block if you compose your own layout, and the individual block
+renderers are also exposed as first-class, standalone widgets you can drop anywhere (not
+just in a transcript): `ChatTranscript.toolCallView`, `thinkingView`, `fileTreeView`, and
+`taskTimelineView`.
 
 ## PromptBox
 
@@ -71,10 +127,15 @@ let text, p' = PromptBox.submit p          // push to history, clear, return the
 PromptBox.historyPrev p                    // Up: draft-preserving recall
 PromptBox.historyNext p                    // Down
 
-match PromptBox.completionToken [ '/'; '@' ] p with
-| Some tok ->                              // tok.Trigger, tok.Query, tok.Start
-    PromptBox.acceptCompletion tok value p // replace the token with trigger+value+space
+// Resolve the token under the caret AND its candidates in one call — the app
+// supplies the candidate source; selection index + popup placement stay app state.
+match PromptBox.completion [ '/'; '@' ] (fun tok -> myCandidates tok.Trigger tok.Query) p with
+| Some (tok, candidates) -> // render `candidates` with Completion.view; accept a pick:
+    PromptBox.acceptCompletion tok candidates.[selected] p
 | None -> p
+
+// Or locate the token yourself with the lower-level pair:
+PromptBox.completionToken [ '/'; '@' ] p   // tok.Trigger, tok.Query, tok.Start
 
 PromptBox.render width glyphStyle textStyle cursorStyle placeholderStyle placeholder focused p
 ```

@@ -388,6 +388,26 @@ Markdown.wrap (style: MarkdownStyle) (width: int) (baseStyle: Style) (text: stri
           "Only the blocks intersecting the viewport are built, while the scrollbar reflects the true content height. The offset is your state; `ChatTranscript.toBottom`/`atBottom`/`clampOffset` make following the tail a one-liner in `update`.",
         related: [{ href: "/docs/reference/agent-layer/", label: "The agent layer" }],
       },
+      {
+        id: "agentshell",
+        title: "AgentShell",
+        summary: "A ready-made coding-agent shell Program — transcript + prompt + approvals + streaming — in a few lines.",
+        shot: "agentshell",
+        signature: `AgentShell.program
+    (config: ShellConfig)
+    : Program<ShellModel, ShellMsg>`,
+        params: [
+          { name: "Title / Placeholder", type: "string", desc: "Header title and the prompt's placeholder text." },
+          { name: "OnSubmit", type: "string -> ShellModel -> ShellModel * Cmd", desc: "What a submitted line does — echo, run a tool, or stream a reply." },
+          { name: "OnApprove", type: "bool -> string -> ShellModel -> ShellModel * Cmd", desc: "What accepting / denying a tool approval does." },
+        ],
+        details:
+          "Composes ChatTranscript + PromptBox + ApprovalModal + the Conversation model — owning scroll/follow-tail, prompt history, key routing, a spinner tick, and an Idle/Streaming/AwaitingApproval session. Stream a reply by dispatching `Apply (AgentShell.stream id chunk)` from a `Cmd.ofAsync`.",
+        related: [
+          { href: "/docs/how-to/build-an-agent-shell/", label: "Build an agent shell" },
+          { href: "/docs/reference/agent-layer/", label: "The agent layer" },
+        ],
+      },
     ],
   },
 ];

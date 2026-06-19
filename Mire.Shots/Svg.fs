@@ -149,7 +149,7 @@ module Svg =
         sb.ToString()
 
     /// Lay a node out at `(w, h)` through the real measure/render path, then export.
-    let ofNode (title: string) (w: int) (h: int) (node: LayoutNode<unit>) : string =
+    let ofNode (title: string) (w: int) (h: int) (node: LayoutNode<'msg>) : string =
         let surf = Surface(Size.Create(w, h))
         Layout.render surf (Layout.measure (Rect.FromOrigin(Size.Create(w, h))) node)
         ofSurface title surf

@@ -47,7 +47,8 @@ All decoding lives in `Mire/Protocol/InputParser.fs`; the runtime drives it from
 | Legacy editing/F-keys | `CSI n [;mods] ~`, `CSI P/Q/S` | `parseEscSequence` (`'~'`) | ✅ (F3 via `CSI R` omitted — collides with cursor-position report; works via SS3) |
 | Application cursor keys | `SS3 ESC O A/B/C/D/P–S/H/F` (DECCKM) | `parseEscSequence` (`0x4F`) | ✅ |
 | Ctrl chords / control bytes | raw `0x00–0x1F` | `parseBytes` | ✅ |
-| SGR mouse (1006) | `CSI < b ; x ; y M/m` | `parseMouseSgr` | ✅ button/wheel/mods/coords; ⬜ motion bit `0x20` not surfaced |
+| SGR mouse (1006) | `CSI < b ; x ; y M/m` | `parseMouseSgr` | ✅ button/wheel/mods/coords + motion bit `0x20` → `MouseEvent.Moved` (drag) |
+| Multi-event reads | any back-to-back sequences in one `read()` | `parseAll` (tokenizer) | ✅ split into per-event spans; the runtime loops over them |
 | Bracketed paste | `CSI 200~ … CSI 201~` | `parsePaste` + `stepPasteBuffer` | ✅ (reassembles across reads, 1 MiB cap) |
 | Focus events | `CSI I` / `CSI O` | `parseFocus` | ✅ |
 | Theme report | `CSI ?997;1 n` (dark) / `;2 n` (light) | `parseThemeReport` | ✅ |
@@ -62,11 +63,10 @@ for ordinary use; listed worst-impact first.
    sequences (a scroll/drag burst, fast typing, queued escapes) each decode. Bracketed
    pastes stay one span. (Multi-byte UTF-8 keystrokes — accents/CJK/emoji — now decode too,
    a related fix in `parseBytes`.)
-2. **Mouse motion / drag not distinguished.** With mode 1002, drag-with-button-held arrives
-   with the motion bit `0x20` set; `parseMouseSgr` masks only `&&& 0x03` / `&&& 0x40`, so a
-   drag reports as a fresh `Pressed=true` press at the new cell — indistinguishable from a
-   click. `MouseEvent` has no `Moved`/`Dragging` flag. Blocks clean mouse text-selection,
-   drag-resize, drag-scroll. **Fix:** decode `0x20`, add a motion flag to `MouseEvent`.
+2. ~~**Mouse motion / drag not distinguished.**~~ **Fixed.** `parseMouseSgr` decodes the
+   SGR `0x20` motion bit into `MouseEvent.Moved`, so a button-held drag (mode 1002) is
+   distinguishable from a fresh click — the basis for mouse text-selection, drag-resize,
+   and drag-scroll.
 3. **No hover (mode 1003).** Any-motion tracking isn't enabled, so there are no
    move-without-button events (hover highlights, hover tooltips). Deliberate scope choice
    (1003 floods input); revisit if a widget needs hover.

@@ -71,10 +71,16 @@ For modern Kitty-compatible terminals, input decoding is complete:
   `:event` sub-param (press/repeat/release), and the private-use functional codepoints
   (numeric keypad, F13–F35, media keys). Legacy `CSI`/`SS3` arrows and function keys
   decode too.
-- **Mouse** — SGR 1006 (`?1006`): position, button, wheel, and modifiers.
+- **Mouse** — SGR 1006 (`?1006`): position, button, wheel, modifiers, and the motion bit
+  (a button-held drag sets `MouseEvent.Moved`, so a drag is distinguishable from a click).
 - **Bracketed paste** (`?2004`) — reassembled across reads into one `Paste s` even when
   a large paste is split over multiple buffers.
 - **Focus** (`?1004`) — `FocusGained` / `FocusLost`.
+
+A single `read()` can carry several sequences back-to-back (a scroll/drag burst, fast
+typing, queued escapes); the parser tokenizes the buffer into per-event spans and the
+runtime processes them all, so nothing is dropped. Multi-byte UTF-8 keystrokes (accented
+letters, CJK, emoji) decode to a `Char` key too.
 
 ## Key releases
 

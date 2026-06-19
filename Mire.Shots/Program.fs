@@ -220,5 +220,38 @@ let main argv =
         File.WriteAllText(path, svg)
         printfn "  %-14s %2d x %-2d  -> %s" name w h path
 
-    printfn "Wrote %d screenshots to %s" (List.length scenes) outDir
+    // The AgentShell builder, rendered as its real composed Program view (its node is
+    // LayoutNode<ShellMsg>, so it can't live in the unit-typed `scenes` list above).
+    let shellCfg: ShellConfig =
+        { Theme = t
+          Title = "└ mire · agent shell"
+          Placeholder = "type a message — or `run`"
+          OnSubmit = fun _ m -> m, Mire.App.Cmd.none
+          OnApprove = fun _ _ m -> m, Mire.App.Cmd.none }
+
+    let shellConv =
+        let c =
+            Conversation.empty
+            |> Conversation.addUser "build the project"
+            |> Conversation.addAssistant "Sure — running the build now."
+
+        let id, c = Conversation.addToolCall "shell" "dotnet build" Running c
+        Conversation.setTool id Succeeded "1.1s" "Build succeeded." c
+
+    let shellModel: ShellModel =
+        { Conversation = shellConv
+          Prompt = PromptBox.empty
+          Approval = None
+          Offset = 0
+          Size = Size.Create(64, 16)
+          Session = Idle
+          Frame = 0
+          Theme = t }
+        |> AgentShell.followTail
+
+    let shellSvg = Svg.ofNode "AgentShell (Mire.Agent)" 64 16 (AgentShell.view shellCfg shellModel)
+    File.WriteAllText(Path.Combine(outDir, "agentshell.svg"), shellSvg)
+    printfn "  %-14s %2d x %-2d  -> %s" "agentshell" 64 16 (Path.Combine(outDir, "agentshell.svg"))
+
+    printfn "Wrote %d screenshots to %s" (List.length scenes + 1) outDir
     0

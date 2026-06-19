@@ -5,9 +5,24 @@ and chat UIs. It references `Mire` only — the base framework never knows what 
 — and every widget is parameterized by an `AppTheme`, so it carries no app-specific
 styling. Reference the package and `open Mire.Agent`.
 
-The headline composition is the **`samples/AgentShell`** MVP (`just shell`): it builds a
-working agent shell from `ChatTranscript` + `PromptBox` + `ApprovalModal` + `DiffView`
-on `AppTheme.defaultTheme` with **zero theme code**. Read it as the canonical example.
+The headline is the **`AgentShell.program`** builder — a ready-made shell `Program` that
+composes `ChatTranscript` + `PromptBox` + `ApprovalModal` + the `Conversation` model and
+owns scroll/follow-tail, prompt history, key routing, a spinner tick, and an
+`Idle | Streaming | AwaitingApproval` session; you supply only `OnSubmit`/`OnApprove`.
+The **`samples/AgentShell`** MVP (`just shell`) is built on it with **zero theme code**.
+
+```fsharp
+AgentShell.program
+    { Theme = AppTheme.defaultTheme; Title = "agent"; Placeholder = "type…"
+      OnSubmit = (fun text m -> …)      // what a submitted line does
+      OnApprove = (fun ok cmd m -> …) } // what an approval decision does
+|> Runtime.run
+```
+
+The `Conversation` model (a typed list over `TranscriptBlock` with stable ids, streaming
+helpers, and the `Queued → Running → Succeeded/Failed` tool lifecycle) is what the shell
+holds; `AgentShell.startReply`/`stream`/`finishReply`/`requestApproval`/`addTool`/`setTool`
+are the helpers your callbacks use. See the agent-layer reference for the full list.
 
 ## ChatTranscript and TranscriptBlock
 
@@ -27,7 +42,7 @@ type TranscriptBlock =
     | TaskTimeline of (string * ToolStatus) list
     | PlanBlock of (bool * string) list
 
-type ToolStatus = Running | Succeeded | Failed
+type ToolStatus = Queued | Running | Succeeded | Failed
 ```
 
 Render the whole transcript as a scrolling, **virtualized** view — only the blocks
