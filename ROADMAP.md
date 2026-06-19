@@ -62,6 +62,23 @@ notifications). **Gate to tag:**
 - [x] Runtime-owned / mouse-hit-testing half of focus — `Focusable` node + retained region table + `Program.withMouseRegion`; the Agent demo's modal Accept/Deny clicks route through it (its hand-mirrored hit-test is retired)
 - [x] Widget gallery app (`samples/Gallery`) — every base widget in its states across 7 tabbed pages
 
+### 0.7.0 — Agent layer expansion · _planned_
+
+`Mire.Agent` today is four chat widgets (`ChatTranscript`, `PromptBox`,
+`ApprovalModal`, `DiffView`) — thinner than the name promises. **Direction: expand it
+into a real agent-UI layer** (UI only — the framework never knows what an LLM is). This
+is a framework-touching cycle (App + Widgets + Agent) and earns the version bump. Slices,
+roughly in dependency order:
+
+- [ ] **Message + tool-call model** — a typed conversation model over `TranscriptBlock`: stable message ids, a tool-call lifecycle (`Pending → Running → Succeeded/Failed`, with args/result/duration), and streaming/partial state. Pure, testable.
+- [ ] **Streaming helpers** — append/stream tokens into the active assistant block and keep the tail followed (generalize `Mire.Demo.Agent`'s hand-rolled `Streaming`). Pairs with the perf "frame coalescing for streaming" item.
+- [ ] **First-class block widgets** — promote `ToolCallView` / `ThinkingBlock` / `FileTree` / `TaskTimeline` from `ChatTranscript`-only variants to composable widgets.
+- [ ] **`PromptBox` completion + history wired end-to-end** — fold the demo's slash/@-mention popup + history navigation into the widget (the pure pieces already exist: `completionToken`/`acceptCompletion`/`historyPrev`/`historyNext`).
+- [ ] **`agentShell` program builder** — the SPEC's headline: a builder that composes transcript + prompt + approvals + scroll/follow-tail + focus + key routing into a ready-made `Program`, parameterized by app callbacks (`onSubmit`, `onApprove`, …). Makes a working agent shell a few lines.
+- [ ] Session state machine (idle / streaming / awaiting-approval) as optional MVU glue, and a richer `samples/AgentShell` dogfooding all of the above.
+
+_(Naming was considered: keep `Mire.Agent` and grow into it, rather than renaming to `Mire.Chat`.)_
+
 ### 1.0.0 — later (not a near-term goal)
 
 Stay 0.x until 0.4/0.5 bake under real use. 1.0 means an API review/freeze, full
