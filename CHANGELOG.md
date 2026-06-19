@@ -12,6 +12,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- **Modified keys no longer fire twice (Kitty event types on legacy keys).** With the `CSI > 3 u` enhancement on, terminals report press/repeat/**release** event types on the *legacy* key forms too (`ESC[1;<mod>:<event>A` for arrows, `ESC[<n>;<mod>:<event>~` for editing keys), not only on `CSI u`. `InputParser` decoded the `:event` subparameter for `CSI u` but hardcoded `Press` for every other CSI key, so each release decoded as a second press and arrows/Home/End/Delete fired twice. All CSI key forms now decode the event type uniformly; the runtime drops `Release` as before.
+- **Agent demo command palette occludes the screen again.** The palette wrapped its full-screen backdrop *inside* the centering layer, which confined the backdrop to the 50×H box and let the transcript bleed around it. The backdrop is now a top-level sibling of the centered box (the `Modal.modal` shape).
 - **Selected table-row highlight now spans colored columns.** A `Table.view` selected row drew each column in its own style, so a colored cell punched a hole in the highlight (and a column foreground matching the inverse-video selection background vanished). The selected row is now drawn uniformly in the selection style via the new `Backdrop.recolor`.
 
 ## [0.5.0] - 2026-06-18

@@ -291,6 +291,29 @@ let inputTests =
 
               Expect.equal (k |> Option.map (fun k -> k.EventType)) (Some Press) "no `:event` → Press"
           }
+          // Event types must also decode on the *legacy* CSI forms (arrows, editing
+          // keys), not just `CSI u` — otherwise a release masquerades as a press and
+          // every keystroke fires twice (the runtime drops releases by EventType).
+          test "arrow release decodes as Release (ESC[1;1:3A), so the runtime drops it" {
+              let k =
+                  asKey (InputParser.parseBytes (System.Text.Encoding.ASCII.GetBytes "\x1b[1;1:3A"))
+
+              Expect.equal (k |> Option.map (fun k -> k.Key)) (Some ArrowUp) "still ArrowUp"
+              Expect.equal (k |> Option.map (fun k -> k.EventType)) (Some Release) "subparam :3 → Release"
+          }
+          test "plain arrow with no event subparam is a Press (ESC[A)" {
+              let k =
+                  asKey (InputParser.parseBytes (System.Text.Encoding.ASCII.GetBytes "\x1b[A"))
+
+              Expect.equal (k |> Option.map (fun k -> k.EventType)) (Some Press) "no `:event` → Press (fires once)"
+          }
+          test "editing-key release decodes as Release (ESC[3;1:3~ = Delete release)" {
+              let k =
+                  asKey (InputParser.parseBytes (System.Text.Encoding.ASCII.GetBytes "\x1b[3;1:3~"))
+
+              Expect.equal (k |> Option.map (fun k -> k.Key)) (Some Delete) "still Delete"
+              Expect.equal (k |> Option.map (fun k -> k.EventType)) (Some Release) "subparam :3 → Release"
+          }
           // Bracketed-paste reassembly across reads (runtime carry buffer).
           test "stepPasteBuffer carries an unfinished paste, then flushes on completion" {
               let part1 = System.Text.Encoding.ASCII.GetBytes "\x1b[200~hello "

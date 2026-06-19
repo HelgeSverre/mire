@@ -861,13 +861,6 @@ let private rect0 = Rect.Create(0, 0, 0, 0)
 let private opaque (border: Style) (content: LayoutNode<Msg>) : LayoutNode<Msg> =
     LayoutNode.Overlay(rect0, [ Backdrop.solid Style.Default; Box.box border [ content ] ])
 
-/// Center a w×h node — delegates to the framework's `Overlay.centered` (a
-/// `Positioned`/`Center` layer; it sizes + centers within the area, so the
-/// screen `size` isn't needed). The `size` param is kept so the call sites that
-/// pass `m.Size` stay unchanged.
-let private centered (w: int) (h: int) (_size: Size) (node: LayoutNode<Msg>) : LayoutNode<Msg> =
-    Mire.Widgets.Overlay.centered w h node
-
 let private header (m: Model) : LayoutNode<Msg> =
     Box.box
         Theme.borderStyle
@@ -974,7 +967,15 @@ let private palettePanel (ps: PaletteState) (m: Model) : LayoutNode<Msg> =
               Stack.sized Length.Fill (Scroll.vertical scroll (Stack.vstackOf rows))
               Stack.sized (Length.Cells 1) (Text.text " ↑↓ select · Enter run · Esc close" Theme.subtle) ]
 
-    centered 50 (visible + 6) m.Size (opaque Theme.borderStyle content)
+    // Full-screen backdrop + centered box (the `Modal.modal` shape). The backdrop must
+    // be a *sibling* of the centered box at the overlay's top level — wrapping the whole
+    // `opaque` overlay in `centered` would confine the backdrop to the 50×H box and let
+    // the transcript bleed around it.
+    LayoutNode.Overlay(
+        rect0,
+        [ Backdrop.solid Style.Default
+          Mire.Widgets.Overlay.centered 50 (visible + 6) (Box.box Theme.borderStyle [ content ]) ]
+    )
 
 let private skillPanel (ss: SkillState) (m: Model) : LayoutNode<Msg> =
     let panelW = min 76 (m.Size.Width - 6)

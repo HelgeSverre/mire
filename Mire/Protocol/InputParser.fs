@@ -128,30 +128,31 @@ module InputParser =
                         if List.length parms > i then List.item i parms else 0
 
                     let mods = modifiersOf (nth 1)
+                    // The Kitty `CSI > 3 u` mode reports event types (press/repeat/
+                    // release) on the *legacy* forms too — `ESC [ 1 ; <mod>:<event> A`
+                    // for arrows, `ESC [ <n> ; <mod>:<event> ~` for editing keys — not
+                    // just on `CSI u`. Decode it for all of them, else release events
+                    // masquerade as presses and every keystroke fires twice.
+                    let evt = kittyEventType bytes
+                    let mk m key = Some { mkKey key None m with EventType = evt; Repeat = (evt = Repeat) }
 
                     match final with
                     // Kitty key encoding: ESC [ <codepoint> ; <modifiers>[:<event>] u
                     | 'u' ->
                         match parms with
-                        | cp :: _ ->
-                            let evt = kittyEventType bytes
-
-                            Some
-                                { mkKey (keyOfCodepoint cp) None mods with
-                                    EventType = evt
-                                    Repeat = (evt = Repeat) }
+                        | cp :: _ -> mk mods (keyOfCodepoint cp)
                         | [] -> None
                     // Cursor / navigation keys; modifiers arrive as `ESC [ 1 ; <mod> <final>`.
-                    | 'A' -> Some(mkKey ArrowUp None mods)
-                    | 'B' -> Some(mkKey ArrowDown None mods)
-                    | 'C' -> Some(mkKey ArrowRight None mods)
-                    | 'D' -> Some(mkKey ArrowLeft None mods)
-                    | 'H' -> Some(mkKey Home None mods)
-                    | 'F' -> Some(mkKey End None mods)
-                    | 'Z' -> Some(mkKey Tab None { mods with Shift = true }) // backtab (Shift+Tab)
-                    | 'P' -> Some(mkKey (Function 1) None mods)
-                    | 'Q' -> Some(mkKey (Function 2) None mods)
-                    | 'S' -> Some(mkKey (Function 4) None mods) // ('R' omitted: collides with cursor-position report)
+                    | 'A' -> mk mods ArrowUp
+                    | 'B' -> mk mods ArrowDown
+                    | 'C' -> mk mods ArrowRight
+                    | 'D' -> mk mods ArrowLeft
+                    | 'H' -> mk mods Home
+                    | 'F' -> mk mods End
+                    | 'Z' -> mk { mods with Shift = true } Tab // backtab (Shift+Tab)
+                    | 'P' -> mk mods (Function 1)
+                    | 'Q' -> mk mods (Function 2)
+                    | 'S' -> mk mods (Function 4) // ('R' omitted: collides with cursor-position report)
                     // `ESC [ <n> [; <mod>] ~` — editing/function keys.
                     | '~' ->
                         let key =
@@ -170,7 +171,7 @@ module InputParser =
                             | 24 -> Some(Function 12)
                             | _ -> None
 
-                        key |> Option.map (fun k -> mkKey k None mods)
+                        key |> Option.bind (mk mods)
                     | _ -> None
             | 0x4Fuy -> // SS3: ESC O … — arrows/Home/End in *application cursor key*
                 // mode (DECCKM), and unmodified F1–F4. Terminals like
