@@ -70,7 +70,7 @@ The protocol audit (recorded in `docs/PROTOCOLS.md`) surfaced concrete input gap
 cycle closes them — mostly pure, testable parser work that improves *felt* interactivity.
 
 - [x] **Multi-event input tokenizer.** `InputParser.parseAll` splits a raw buffer into per-event byte spans and the runtime loops over them, so a read holding several sequences no longer loses all but one (`ESC[A ESC[B` → both arrows; a 3-tick wheel burst → 3 scroll events; typed `"ab"` → two `Char` events). Bracketed pastes stay one span. Also fixed: non-ASCII (multi-byte UTF-8) keystrokes — accents/CJK/emoji — now decode instead of being dropped.
-- [ ] **Mouse motion / drag.** Decode the SGR `0x20` motion bit in `parseMouseSgr` and add a `Moved`/`Dragging` flag to `MouseEvent` (today a drag reports as a fresh `Pressed` click). Unlocks mouse text-selection, `SplitView` drag-resize, and drag-scroll.
+- [x] **Mouse motion / drag.** `parseMouseSgr` decodes the SGR `0x20` motion bit into a new `MouseEvent.Moved` flag, so a drag is distinguishable from a fresh click (button-held motion under mode 1002). Unlocks mouse text-selection, `SplitView` drag-resize, and drag-scroll for apps.
 - [ ] **Stretch — opt-in hover** (mode `1003`, behind `Program.withMouseMotion`) for hover highlights/tooltips; and small protocol niceties: underline color (`SGR 58`), the Kitty *associated-text* flag (16) so `CSI u` keys carry `Text`, and the Hyper/Meta/lock modifier bits.
 
 ### 0.8.0 — Streaming performance · _planned_

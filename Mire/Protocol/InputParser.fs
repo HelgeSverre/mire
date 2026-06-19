@@ -252,7 +252,8 @@ module InputParser =
 
     /// SGR mouse (1006): `ESC [ < b ; x ; y` then `M` (press) or `m` (release).
     /// Coords are 1-based on the wire; reported 0-based. `b` bits: 0-1 = button,
-    /// 0x40 = wheel (low bits pick up/down/left/right), 0x04 shift, 0x08 alt, 0x10 ctrl.
+    /// 0x20 = motion (drag with the button held, mode 1002), 0x40 = wheel (low bits
+    /// pick up/down/left/right), 0x04 shift, 0x08 alt, 0x10 ctrl.
     let private parseMouseSgr (bytes: byte[]) : InputEvent option =
         if bytes.Length >= 6 && bytes.[2] = 0x3Cuy then
             let final = char bytes.[bytes.Length - 1]
@@ -293,7 +294,8 @@ module InputParser =
                               Y = y - 1
                               Button = button
                               Modifiers = mods
-                              Pressed = (final = 'M') }
+                              Pressed = (final = 'M')
+                              Moved = b &&& 0x20 <> 0 }
                     )
                 | _ -> None
             else

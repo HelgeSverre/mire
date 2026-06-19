@@ -243,6 +243,20 @@ let inputTests =
                    | _ -> false)
                   "0x10 bit → Ctrl"
           }
+          test "SGR mouse: a plain press is not flagged as motion" {
+              match InputParser.parseBytes (System.Text.Encoding.ASCII.GetBytes "\x1b[<0;6;4M") with
+              | Some(Mouse m) -> Expect.isFalse m.Moved "no 0x20 bit → Moved = false"
+              | other -> failtestf "expected Mouse, got %A" other
+          }
+          test "SGR mouse: a left-drag (motion bit 0x20, b=32) is Left + Moved, still a press" {
+              match InputParser.parseBytes (System.Text.Encoding.ASCII.GetBytes "\x1b[<32;6;4M") with
+              | Some(Mouse m) ->
+                  Expect.isTrue m.Moved "0x20 bit → Moved (a drag, not a fresh click)"
+                  Expect.equal m.Button MouseButton.Left "low bits 0 → Left button held"
+                  Expect.isTrue m.Pressed "M final → still a press-phase report"
+                  Expect.equal (m.X, m.Y) (5, 3) "coords still 0-based"
+              | other -> failtestf "expected Mouse, got %A" other
+          }
           test "bracketed paste extracts the text between the markers" {
               Expect.equal
                   (InputParser.parseBytes (System.Text.Encoding.ASCII.GetBytes "\x1b[200~hello world\x1b[201~"))
