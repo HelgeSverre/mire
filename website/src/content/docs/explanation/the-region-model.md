@@ -5,8 +5,8 @@ category: explanation
 order: 3
 ---
 
-Two questions every interactive UI must answer: *where does a click land?* and *where
-does a keystroke go?* In a browser the platform answers both. Mire answers them with one
+Two questions every interactive UI must answer: _where does a click land?_ and _where
+does a keystroke go?_ In a browser the platform answers both. Mire answers them with one
 small idea — a `RegionId` — split across a spatial half and a keyboard half.
 
 ## The shared name
@@ -19,14 +19,14 @@ target.
 ## The spatial half — mouse hit-testing
 
 When you wrap a subtree with `Focusable.region id child`, you are not changing the layout
-— the child still fills its assigned rect. You are *labeling* that rectangle. After each
+— the child still fills its assigned rect. You are _labeling_ that rectangle. After each
 frame is laid out, the runtime walks the measured tree and collects a table:
 `(RegionId, Rect)` for every `Focusable` node (`Layout.collectRegions`). This table is
 the screen's current map of named, clickable areas.
 
 On a mouse event, `Layout.regionAt` finds the topmost region containing the cursor
 (later-painted regions win, matching what's visually on top), and hands it to your
-`withMouseRegion` handler. You react to an *id*, not a coordinate — so when the layout
+`withMouseRegion` handler. You react to an _id_, not a coordinate — so when the layout
 changes, the hit-testing follows automatically. No geometry mirrored by hand.
 
 One deliberate gap: regions nested inside a `Scroll` are excluded. Their measured rects
@@ -37,7 +37,7 @@ regions.
 ## The keyboard half — the focus ring
 
 `Mire.Layout.Focus` is the other half: a pure, ordered ring of `RegionId`s with at most
-one current focus, plus a stack of modal *traps*. It is entirely MVU — one field in your
+one current focus, plus a stack of modal _traps_. It is entirely MVU — one field in your
 model, moved by `Focus.next`/`prev`/`focus` in `update`, queried by `Focus.isFocused` in
 `view`. No I/O, no global state.
 

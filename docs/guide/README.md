@@ -6,7 +6,7 @@ input decoding, and direct control over the terminal protocol. It targets modern
 Kitty-compatible terminals (Ghostty first) and **.NET 10**.
 
 These guides are task-oriented and grounded in the shipping code — when a guide and
-the source disagree, the source wins. For the *why* behind the design, see
+the source disagree, the source wins. For the _why_ behind the design, see
 [`SPEC.md`](../../SPEC.md); for what's built and what's next, see
 [`ROADMAP.md`](../../ROADMAP.md).
 

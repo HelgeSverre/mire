@@ -59,7 +59,7 @@ let mapInput (e: InputEvent) : Msg option =
     | _ -> None
 ```
 
-`MapInput` can't see your model, so route *which overlay/field* should handle a key in
+`MapInput` can't see your model, so route _which overlay/field_ should handle a key in
 `update` — carry the raw event (or a normalized key) in a message and decide there.
 This is why editors take `Edit of InputEvent`: the modifiers survive for word chords.
 
@@ -85,7 +85,7 @@ letters, CJK, emoji) decode to a `Char` key too.
 ## Key releases
 
 The runtime asks the terminal to report event types (`CSI > 3 u`), so every keystroke
-produces a **press *and* a release**. By default the runtime **drops releases**, so the
+produces a **press _and_ a release**. By default the runtime **drops releases**, so the
 common case stays one message per keystroke. Opt in if you track key-down/up (games,
 chords); `Repeat` always passes through:
 
@@ -97,7 +97,7 @@ program |> Program.withKeyReleases true
 ## Quit policy
 
 `Ctrl+C` ends the loop by default (restoring the terminal). Replace the policy with
-`withQuitOn` — it runs *before* `MapInput`, so a matched event is consumed as quit:
+`withQuitOn` — it runs _before_ `MapInput`, so a matched event is consumed as quit:
 
 ```fsharp
 // Make Ctrl+C a normal key; exit only via Cmd.quit from update:
@@ -129,7 +129,7 @@ Focusable.region (RegionId "deny")   (Text.text " ‹ Deny › "  theme.fgMuted)
 ```
 
 2. Install a handler. It gets the **topmost** region under the cursor (or `None`) and
-   the mouse event; returning `Some msg` consumes the event (it does *not* also reach
+   the mouse event; returning `Some msg` consumes the event (it does _not_ also reach
    `MapInput`). The default returns `None`, so apps that don't use it are unaffected and
    mouse events flow to `MapInput` as before.
 

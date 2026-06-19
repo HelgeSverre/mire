@@ -28,8 +28,7 @@ let private onSubmit (text: string) (m: ShellModel) : ShellModel * Cmd<ShellMsg>
         let id, m = AgentShell.startReply m
 
         let words =
-            (sprintf "You said: *%s*. This shell streams a canned reply, one word at a time." text)
-                .Split(' ')
+            (sprintf "You said: *%s*. This shell streams a canned reply, one word at a time." text).Split(' ')
 
         let cmd =
             Cmd.ofAsync (fun dispatch ->
@@ -91,7 +90,12 @@ let private dumpNode (label: string) (size: Size) (node: LayoutNode<ShellMsg>) =
     Layout.render surface (Layout.measure (Rect.FromOrigin size) node)
     printSurface label surface
 
-let private mkModel (size: Size) (conv: Conversation) (approval: (string * bool) option) (session: Session) : ShellModel =
+let private mkModel
+    (size: Size)
+    (conv: Conversation)
+    (approval: (string * bool) option)
+    (session: Session)
+    : ShellModel =
     { Conversation = conv
       Prompt = PromptBox.empty
       Approval = approval
@@ -109,7 +113,8 @@ let private dump () =
     let baseConv =
         let c =
             Conversation.empty
-            |> Conversation.addAssistant "Welcome to the **Mire** agent shell. Type a message — `run` triggers a tool approval."
+            |> Conversation.addAssistant
+                "Welcome to the **Mire** agent shell. Type a message — `run` triggers a tool approval."
             |> Conversation.addUser "build the project"
             |> Conversation.addAssistant "Sure — running the build."
 
@@ -125,10 +130,18 @@ let private dump () =
 
     // Mid-stream: an assistant reply still being appended (Session = Streaming).
     let streamingConv =
-        let id, c = Conversation.empty |> Conversation.addUser "explain the layout engine" |> Conversation.startAssistant
-        c |> Conversation.appendText id "The layout engine measures a tree of nodes into"
+        let id, c =
+            Conversation.empty
+            |> Conversation.addUser "explain the layout engine"
+            |> Conversation.startAssistant
 
-    dumpNode "C. agent shell (streaming a reply)" size (AgentShell.view config (mkModel size streamingConv None Streaming))
+        c
+        |> Conversation.appendText id "The layout engine measures a tree of nodes into"
+
+    dumpNode
+        "C. agent shell (streaming a reply)"
+        size
+        (AgentShell.view config (mkModel size streamingConv None Streaming))
 
 [<EntryPoint>]
 let main argv =

@@ -71,7 +71,8 @@ module AgentShell =
     let wrapWidth (m: ShellModel) = max 10 (m.Size.Width - 4)
 
     /// Rows available to the transcript viewport (screen minus header + prompt + box border).
-    let viewportRows (m: ShellModel) = max 1 (m.Size.Height - headerH - promptH - 2)
+    let viewportRows (m: ShellModel) =
+        max 1 (m.Size.Height - headerH - promptH - 2)
 
     // --- model helpers (used by the app's OnSubmit/OnApprove/Apply updaters) -----
 
@@ -79,28 +80,48 @@ module AgentShell =
     let followTail (m: ShellModel) : ShellModel =
         { m with
             Offset =
-                ChatTranscript.toBottom m.Theme (wrapWidth m) m.Frame (viewportRows m) (Conversation.blocks m.Conversation) }
+                ChatTranscript.toBottom
+                    m.Theme
+                    (wrapWidth m)
+                    m.Frame
+                    (viewportRows m)
+                    (Conversation.blocks m.Conversation) }
 
     let addUser (text: string) (m: ShellModel) =
-        { m with Conversation = Conversation.addUser text m.Conversation } |> followTail
+        { m with
+            Conversation = Conversation.addUser text m.Conversation }
+        |> followTail
 
     let addAssistant (md: string) (m: ShellModel) =
-        { m with Conversation = Conversation.addAssistant md m.Conversation } |> followTail
+        { m with
+            Conversation = Conversation.addAssistant md m.Conversation }
+        |> followTail
 
     let addNotice (tone: AppTheme.Tone) (s: string) (m: ShellModel) =
-        { m with Conversation = Conversation.addNotice tone s m.Conversation } |> followTail
+        { m with
+            Conversation = Conversation.addNotice tone s m.Conversation }
+        |> followTail
 
     let addBlock (block: TranscriptBlock) (m: ShellModel) =
-        { m with Conversation = Conversation.addBlock block m.Conversation } |> followTail
+        { m with
+            Conversation = Conversation.addBlock block m.Conversation }
+        |> followTail
 
     /// Start a streaming assistant reply; returns its id and the model (now `Streaming`).
     let startReply (m: ShellModel) : MessageId * ShellModel =
         let id, conv = Conversation.startAssistant m.Conversation
-        id, { m with Conversation = conv; Session = Streaming } |> followTail
+
+        id,
+        { m with
+            Conversation = conv
+            Session = Streaming }
+        |> followTail
 
     /// Stream a chunk into reply `id`, keeping the tail in view (curries to an `Apply`).
     let stream (id: MessageId) (chunk: string) (m: ShellModel) =
-        { m with Conversation = Conversation.appendText id chunk m.Conversation } |> followTail
+        { m with
+            Conversation = Conversation.appendText id chunk m.Conversation }
+        |> followTail
 
     /// Finish a streaming reply (back to `Idle`).
     let finishReply (id: MessageId) (m: ShellModel) =
@@ -114,7 +135,8 @@ module AgentShell =
         id, { m with Conversation = conv } |> followTail
 
     let setTool (id: MessageId) (status: ToolStatus) (meta: string) (output: string) (m: ShellModel) =
-        { m with Conversation = Conversation.setTool id status meta output m.Conversation }
+        { m with
+            Conversation = Conversation.setTool id status meta output m.Conversation }
         |> followTail
 
     /// Raise an approval prompt for `command` (Accept focused); session → `AwaitingApproval`.
@@ -130,7 +152,9 @@ module AgentShell =
           Prompt = PromptBox.empty
           Approval = None
           Offset = 0
-          Size = Mire.Protocol.TerminalMode.getTerminalSize () |> Option.defaultValue (Size.Create(80, 24))
+          Size =
+            Mire.Protocol.TerminalMode.getTerminalSize ()
+            |> Option.defaultValue (Size.Create(80, 24))
           Session = Idle
           Frame = 0
           Theme = cfg.Theme },
@@ -147,15 +171,23 @@ module AgentShell =
             match m.Approval with
             | Some _ -> m, Cmd.none // the modal swallows editing
             | None ->
-                { m with Prompt = PromptBox.applyInput e m.Prompt }, Cmd.none
+                { m with
+                    Prompt = PromptBox.applyInput e m.Prompt },
+                Cmd.none
         | HistoryPrev ->
             match m.Approval with
             | Some _ -> m, Cmd.none
-            | None -> { m with Prompt = PromptBox.historyPrev m.Prompt }, Cmd.none
+            | None ->
+                { m with
+                    Prompt = PromptBox.historyPrev m.Prompt },
+                Cmd.none
         | HistoryNext ->
             match m.Approval with
             | Some _ -> m, Cmd.none
-            | None -> { m with Prompt = PromptBox.historyNext m.Prompt }, Cmd.none
+            | None ->
+                { m with
+                    Prompt = PromptBox.historyNext m.Prompt },
+                Cmd.none
         | ToggleButton ->
             match m.Approval with
             | Some(c, f) -> { m with Approval = Some(c, not f) }, Cmd.none
@@ -163,7 +195,11 @@ module AgentShell =
         | Submit ->
             match m.Approval with
             | Some(cmd, accepted) ->
-                let m = { m with Approval = None; Session = Idle }
+                let m =
+                    { m with
+                        Approval = None
+                        Session = Idle }
+
                 cfg.OnApprove accepted cmd m
             | None ->
                 let text = (PromptBox.value m.Prompt).Trim()
@@ -177,7 +213,11 @@ module AgentShell =
         | EscKey ->
             match m.Approval with
             | Some(cmd, _) ->
-                let m = { m with Approval = None; Session = Idle }
+                let m =
+                    { m with
+                        Approval = None
+                        Session = Idle }
+
                 cfg.OnApprove false cmd m
             | None -> m, Cmd.none
 
@@ -233,7 +273,15 @@ module AgentShell =
             LayoutNode.Overlay(
                 rect0,
                 [ baseTree
-                  ApprovalModal.view theme "Permission required" "A tool wants to run:" cmd (Some "writes files") "Accept" "Deny" accepted ]
+                  ApprovalModal.view
+                      theme
+                      "Permission required"
+                      "A tool wants to run:"
+                      cmd
+                      (Some "writes files")
+                      "Accept"
+                      "Deny"
+                      accepted ]
             )
 
     let mapInput (e: InputEvent) : ShellMsg option =

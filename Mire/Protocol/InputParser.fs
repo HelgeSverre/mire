@@ -134,7 +134,12 @@ module InputParser =
                     // just on `CSI u`. Decode it for all of them, else release events
                     // masquerade as presses and every keystroke fires twice.
                     let evt = kittyEventType bytes
-                    let mk m key = Some { mkKey key None m with EventType = evt; Repeat = (evt = Repeat) }
+
+                    let mk m key =
+                        Some
+                            { mkKey key None m with
+                                EventType = evt
+                                Repeat = (evt = Repeat) }
 
                     match final with
                     // Kitty key encoding: ESC [ <codepoint> ; <modifiers>[:<event>] u
@@ -479,7 +484,11 @@ module InputParser =
         if b = 0x1Buy then
             if startsWith pasteStart rest then
                 let endIdx = indexOf pasteEnd rest pasteStart.Length
-                if endIdx >= 0 then endIdx + pasteEnd.Length else rest.Length
+
+                if endIdx >= 0 then
+                    endIdx + pasteEnd.Length
+                else
+                    rest.Length
             elif offset + 1 < len && bytes.[offset + 1] = 0x5Buy then // CSI: ESC [ …
                 let mutable i = offset + 2
                 let mutable finalAt = -1

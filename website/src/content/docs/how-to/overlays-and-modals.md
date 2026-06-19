@@ -11,7 +11,7 @@ widgets, which place themselves for you.
 
 ## A centered modal
 
-`Modal.modal` draws a centered box over a translucent scrim that *fades* the screen
+`Modal.modal` draws a centered box over a translucent scrim that _fades_ the screen
 behind it (the box itself stays opaque). Layer it over the base view, gated on your
 model — the `backdropStyle` argument (here `Style.Default`) tints the scrim; its
 `Background`, if set, is the fade target:

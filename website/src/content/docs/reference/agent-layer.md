@@ -20,8 +20,8 @@ is the per-component reference.
 `AgentShell.program config` returns a ready-made `Program<ShellModel, ShellMsg>` that
 composes the whole layer — transcript + prompt + approval modal + the `Conversation`
 model — and owns scroll/follow-tail, prompt history, key routing, a spinner tick, and an
-`Idle | Streaming | AwaitingApproval` session. You supply only *what a submission or an
-approval does*:
+`Idle | Streaming | AwaitingApproval` session. You supply only _what a submission or an
+approval does_:
 
 ```fsharp
 let config: ShellConfig =

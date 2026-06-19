@@ -22,15 +22,15 @@ type Program<'model, 'msg> =
 
 Start with `Program.create init update view`, then compose:
 
-| Builder | Purpose |
-| --- | --- |
-| `withMapInput (InputEvent -> 'msg option)` | Turn input into messages. Default: ignore everything. |
-| `withSubscriptions ('model -> Sub<'msg> list)` | External event sources. |
-| `withQuitOn (InputEvent -> bool)` | Which input ends the loop. Default: Ctrl+C. |
-| `withOnError (exn -> unit)` | Handle exceptions thrown inside the loop. |
-| `withKeyReleases bool` | Forward Kitty key release events (default off). |
-| `withThemeNotifications bool` | Report light/dark scheme changes (DEC 2031). |
-| `withMouseRegion (RegionId option -> MouseEvent -> 'msg option)` | Route mouse via the region table. |
+| Builder                                                          | Purpose                                               |
+| ---------------------------------------------------------------- | ----------------------------------------------------- |
+| `withMapInput (InputEvent -> 'msg option)`                       | Turn input into messages. Default: ignore everything. |
+| `withSubscriptions ('model -> Sub<'msg> list)`                   | External event sources.                               |
+| `withQuitOn (InputEvent -> bool)`                                | Which input ends the loop. Default: Ctrl+C.           |
+| `withOnError (exn -> unit)`                                      | Handle exceptions thrown inside the loop.             |
+| `withKeyReleases bool`                                           | Forward Kitty key release events (default off).       |
+| `withThemeNotifications bool`                                    | Report light/dark scheme changes (DEC 2031).          |
+| `withMouseRegion (RegionId option -> MouseEvent -> 'msg option)` | Route mouse via the region table.                     |
 
 ```fsharp
 Program.create init update view
@@ -41,7 +41,7 @@ Program.create init update view
 
 ## Commands
 
-`init` and `update` return a `model` *and* a `Cmd` — side effects the runtime performs.
+`init` and `update` return a `model` _and_ a `Cmd` — side effects the runtime performs.
 
 ```fsharp
 type Cmd<'msg> =
@@ -53,17 +53,17 @@ type Cmd<'msg> =
     | WriteRaw of string
 ```
 
-| Constructor | Effect |
-| --- | --- |
-| `Cmd.none` | Do nothing. |
-| `Cmd.ofMsg msg` | Enqueue a message (chain updates). |
-| `Cmd.batch [a; b]` | Run several commands. |
+| Constructor                                              | Effect                                                                                   |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `Cmd.none`                                               | Do nothing.                                                                              |
+| `Cmd.ofMsg msg`                                          | Enqueue a message (chain updates).                                                       |
+| `Cmd.batch [a; b]`                                       | Run several commands.                                                                    |
 | `Cmd.ofAsync (fun dispatch -> async { … dispatch r … })` | Run async work; dispatch results back. This is how you do I/O without blocking the loop. |
-| `Cmd.quit` | Request a clean shutdown (restores the terminal). |
-| `Cmd.writeRaw s` | Write a raw escape outside the cell diff. |
-| `Cmd.setClipboard text` | Copy via OSC 52. |
-| `Cmd.kittyImage col row cols rows pngBase64` | Display an image (Kitty graphics). |
-| `Cmd.clearImages` | Clear all placed images. |
+| `Cmd.quit`                                               | Request a clean shutdown (restores the terminal).                                        |
+| `Cmd.writeRaw s`                                         | Write a raw escape outside the cell diff.                                                |
+| `Cmd.setClipboard text`                                  | Copy via OSC 52.                                                                         |
+| `Cmd.kittyImage col row cols rows pngBase64`             | Display an image (Kitty graphics).                                                       |
+| `Cmd.clearImages`                                        | Clear all placed images.                                                                 |
 
 ```fsharp
 let update msg model =

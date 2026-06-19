@@ -94,9 +94,9 @@ Use the `Modal`/`Toast`/`Tooltip`/`Completion`/`Overlay` widgets rather than bui
 
 A `Scrim` layer (`Backdrop.scrim tint strength`) is the translucent counterpart of
 `Filled`: instead of replacing what it covers with blanks, it blends the cells already
-painted underneath toward `tint` (preserving their glyphs), so a modal can *fade* the
+painted underneath toward `tint` (preserving their glyphs), so a modal can _fade_ the
 screen behind it rather than occluding it. Because it transforms existing cells, a scrim
-must sit *after* the content it dims in the layer list. `Modal.modal` uses one — the
+must sit _after_ the content it dims in the layer list. `Modal.modal` uses one — the
 dialog box stays opaque while the rest of the screen is dimmed.
 
 ## Focusable

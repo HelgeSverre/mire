@@ -121,7 +121,9 @@ module Grapheme =
     // expensive part; ASCII keeps its allocation-free fast path and never caches).
     // Width is a pure function of the string, so the cache can't go stale. Bounded
     // so a transcript of unique non-ASCII lines can't grow it without limit.
-    let private widthCache = System.Collections.Concurrent.ConcurrentDictionary<string, int>()
+    let private widthCache =
+        System.Collections.Concurrent.ConcurrentDictionary<string, int>()
+
     let private widthCacheCap = 8192
 
     /// Test/diagnostic hook: how many distinct non-ASCII strings are memoized.

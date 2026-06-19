@@ -10,7 +10,9 @@ open Mire.Shots
 let private t = AppTheme.defaultTheme
 
 let private buf text cursor anchor : TextBuffer =
-    { Text = text; Cursor = cursor; Anchor = anchor }
+    { Text = text
+      Cursor = cursor
+      Anchor = anchor }
 
 // The custom widget from the "build your own widget" tutorial — a sparkline.
 let private sparkBars = [| "▁"; "▂"; "▃"; "▄"; "▅"; "▆"; "▇"; "█" |]
@@ -30,7 +32,7 @@ let private sparkline (style: Style) (values: float list) : LayoutNode<unit> =
                 let i = int ((v - lo) / span * float (sparkBars.Length - 1) + 0.5)
                 sparkBars.[max 0 (min (sparkBars.Length - 1) i)]
 
-        values |> List.map glyph |> String.concat "" |> fun s -> Text.text s style
+        values |> List.map glyph |> String.concat "" |> (fun s -> Text.text s style)
 
 // Each scene: file name, window title, surface (w, h), and the node to render —
 // the real widgets, laid out through the real engine, on the default brand theme.
@@ -88,7 +90,9 @@ let private scenes: (string * string * int * int * LayoutNode<unit>) list =
       46,
       6,
       (let rows =
-          [ [ "App.fs"; "modified"; "+42" ]; [ "Theme.fs"; "added"; "+10" ]; [ "Old.fs"; "deleted"; "-99" ] ]
+          [ [ "App.fs"; "modified"; "+42" ]
+            [ "Theme.fs"; "added"; "+10" ]
+            [ "Old.fs"; "deleted"; "-99" ] ]
 
        let columns: Column<string list, unit> list =
            [ Table.textColumn "file" (Length.Cells 14) t.fg (fun r -> r.[0])
@@ -119,8 +123,13 @@ let private scenes: (string * string * int * int * LayoutNode<unit>) list =
       34,
       8,
       Stack.vstack
-          [ Stack.hstack [ Toggle.checkbox t.fg true "done"; Text.text "   " t.fg; Toggle.checkbox t.fg false "todo" ]
-            Stack.hstack [ Toggle.switch t.accentStrong t.fgMuted true; Toggle.switch t.accentStrong t.fgMuted false ]
+          [ Stack.hstack
+                [ Toggle.checkbox t.fg true "done"
+                  Text.text "   " t.fg
+                  Toggle.checkbox t.fg false "todo" ]
+            Stack.hstack
+                [ Toggle.switch t.accentStrong t.fgMuted true
+                  Toggle.switch t.accentStrong t.fgMuted false ]
             Text.text "" t.fg
             ProgressBar.view 28 t.accent t.fgSubtle 0.25
             ProgressBar.view 28 t.accent t.fgSubtle 0.6
@@ -137,11 +146,7 @@ let private scenes: (string * string * int * int * LayoutNode<unit>) list =
           [ Text.text "main.fs" t.fgMuted ]
           [ Text.text "ln 1, col 1" t.fgSubtle ]
 
-      "tabs",
-      "Tabs",
-      36,
-      3,
-      Box.box t.border [ Tabs.strip t.accentStrong t.fgMuted 0 [ "Files"; "Search"; "Git" ] ]
+      "tabs", "Tabs", 36, 3, Box.box t.border [ Tabs.strip t.accentStrong t.fgMuted 0 [ "Files"; "Search"; "Git" ] ]
 
       "modal",
       "Modal",
@@ -158,7 +163,9 @@ let private scenes: (string * string * int * int * LayoutNode<unit>) list =
               [ Text.text "Apply 3 changes to the working tree?" t.fg
                 Text.text "" t.fg
                 Stack.hstack
-                    [ Badge.badge t.accentStrong " Apply "; Text.text "  " t.fg; Badge.badge t.selection " Cancel " ] ])
+                    [ Badge.badge t.accentStrong " Apply "
+                      Text.text "  " t.fg
+                      Badge.badge t.selection " Cancel " ] ])
 
       "completion",
       "Completion",
@@ -175,11 +182,7 @@ let private scenes: (string * string * int * int * LayoutNode<unit>) list =
           50
           "# Heading\n\nA paragraph with **bold**, *italic*, and `code`.\n\n- first bullet\n- second bullet\n\n> a block quote"
 
-      "imagepreview",
-      "ImagePreview",
-      22,
-      8,
-      ImagePreview.render 20 7 t.border t.fgMuted "logo.png" (Some(640, 480))
+      "imagepreview", "ImagePreview", 22, 8, ImagePreview.render 20 7 t.border t.fgMuted "logo.png" (Some(640, 480))
 
       "sparkline",
       "Sparkline (custom widget)",
@@ -188,8 +191,12 @@ let private scenes: (string * string * int * int * LayoutNode<unit>) list =
       Box.panel
           "metrics"
           t.border
-          [ Stack.hstack [ Text.text "cpu " t.fgMuted; sparkline t.accent [ 2.0; 4.0; 3.0; 6.0; 5.0; 8.0; 7.0; 9.0; 6.0; 4.0 ] ]
-            Stack.hstack [ Text.text "mem " t.fgMuted; sparkline t.success [ 5.0; 5.0; 6.0; 6.0; 7.0; 7.0; 8.0; 8.0; 9.0; 9.0 ] ] ]
+          [ Stack.hstack
+                [ Text.text "cpu " t.fgMuted
+                  sparkline t.accent [ 2.0; 4.0; 3.0; 6.0; 5.0; 8.0; 7.0; 9.0; 6.0; 4.0 ] ]
+            Stack.hstack
+                [ Text.text "mem " t.fgMuted
+                  sparkline t.success [ 5.0; 5.0; 6.0; 6.0; 7.0; 7.0; 8.0; 8.0; 9.0; 9.0 ] ] ]
 
       "transcript",
       "ChatTranscript (Mire.Agent)",
@@ -210,7 +217,10 @@ let private scenes: (string * string * int * int * LayoutNode<unit>) list =
 [<EntryPoint>]
 let main argv =
     let outDir =
-        if argv.Length > 0 then argv.[0] else "website/src/generated/shots"
+        if argv.Length > 0 then
+            argv.[0]
+        else
+            "website/src/generated/shots"
 
     Directory.CreateDirectory outDir |> ignore
 
@@ -249,7 +259,9 @@ let main argv =
           Theme = t }
         |> AgentShell.followTail
 
-    let shellSvg = Svg.ofNode "AgentShell (Mire.Agent)" 64 16 (AgentShell.view shellCfg shellModel)
+    let shellSvg =
+        Svg.ofNode "AgentShell (Mire.Agent)" 64 16 (AgentShell.view shellCfg shellModel)
+
     File.WriteAllText(Path.Combine(outDir, "agentshell.svg"), shellSvg)
     printfn "  %-14s %2d x %-2d  -> %s" "agentshell" 64 16 (Path.Combine(outDir, "agentshell.svg"))
 

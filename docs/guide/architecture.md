@@ -26,7 +26,7 @@ read input → decode to InputEvent → MapInput → 'msg
 model → view tree → layout → surface → diff → terminal
 ```
 
-There is no browser. Mire *is* the browser: it owns layout, scroll state, focus
+There is no browser. Mire _is_ the browser: it owns layout, scroll state, focus
 routing, input normalization, and terminal-protocol control.
 
 ## Building a Program
@@ -34,15 +34,15 @@ routing, input normalization, and terminal-protocol control.
 Start with `Program.create init update view`, then compose opt-in behavior with
 the `with*` builders (each returns a new `Program`):
 
-| Builder | Purpose |
-| --- | --- |
-| `withMapInput (InputEvent -> 'msg option)` | Turn input into messages. Default: ignore everything. |
-| `withSubscriptions ('model -> Sub<'msg> list)` | External event sources (timers, resize). |
-| `withQuitOn (InputEvent -> bool)` | Which input ends the loop. Default: Ctrl+C. Set `fun _ -> false` to quit only via `Cmd.quit`. |
-| `withOnError (exn -> unit)` | Handle exceptions thrown inside the loop. |
-| `withKeyReleases bool` | Forward Kitty key *release* events (default off — see [Input](input.md)). |
-| `withThemeNotifications bool` | Ask the terminal to report light/dark scheme changes (DEC 2031). |
-| `withMouseRegion (RegionId option -> MouseEvent -> 'msg option)` | Route mouse events via the retained region table (see [Input](input.md#mouse-hit-testing)). |
+| Builder                                                          | Purpose                                                                                       |
+| ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `withMapInput (InputEvent -> 'msg option)`                       | Turn input into messages. Default: ignore everything.                                         |
+| `withSubscriptions ('model -> Sub<'msg> list)`                   | External event sources (timers, resize).                                                      |
+| `withQuitOn (InputEvent -> bool)`                                | Which input ends the loop. Default: Ctrl+C. Set `fun _ -> false` to quit only via `Cmd.quit`. |
+| `withOnError (exn -> unit)`                                      | Handle exceptions thrown inside the loop.                                                     |
+| `withKeyReleases bool`                                           | Forward Kitty key _release_ events (default off — see [Input](input.md)).                     |
+| `withThemeNotifications bool`                                    | Ask the terminal to report light/dark scheme changes (DEC 2031).                              |
+| `withMouseRegion (RegionId option -> MouseEvent -> 'msg option)` | Route mouse events via the retained region table (see [Input](input.md#mouse-hit-testing)).   |
 
 ```fsharp
 Program.create init update view
@@ -53,7 +53,7 @@ Program.create init update view
 
 ## Commands — `Cmd<'msg>`
 
-`init` and `update` return a `model` *and* a `Cmd` — work for the runtime to perform,
+`init` and `update` return a `model` _and_ a `Cmd` — work for the runtime to perform,
 side effects kept out of your pure functions.
 
 ```fsharp
@@ -111,7 +111,7 @@ You never draw to the terminal directly. `view` returns a `LayoutNode<'msg>` tre
 the runtime measures it onto a fresh `Surface` (a `Width × Height` grid of `Cell`s),
 then `Diff.compute` finds the minimal set of changed cell runs between this frame and
 the last, and writes only those — bracketed in synchronized output (`?2026`) so the
-frame appears atomically. This is why a Mire view is a *pure description*: rebuild the
+frame appears atomically. This is why a Mire view is a _pure description_: rebuild the
 whole tree every frame and let the diff make updates cheap.
 
 Keep `view` free of side effects and `update` free of I/O (push I/O into `Cmd.ofAsync`).

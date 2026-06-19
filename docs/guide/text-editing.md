@@ -23,7 +23,7 @@ TextBuffer.Empty
 TextBuffer.Of "initial text"   // caret at the end
 ```
 
-It's char-indexed (a fine approximation for editing; the *renderer* is grapheme-aware).
+It's char-indexed (a fine approximation for editing; the _renderer_ is grapheme-aware).
 The ops are pure and return new buffers:
 
 ```fsharp
@@ -51,7 +51,7 @@ TextBuffer.clearSelection b
 
 ## TextEdit — actions and the keymap
 
-`TextEdit` decouples editing *actions* from keystrokes, so bindings are conventional and
+`TextEdit` decouples editing _actions_ from keystrokes, so bindings are conventional and
 overridable rather than baked in:
 
 ```fsharp
@@ -100,7 +100,7 @@ TextArea.renderWrapped width height textStyle cursorStyle focused buffer  // sof
 
 `Input` scrolls horizontally to keep the cursor visible; `TextArea.render` scrolls both
 axes; `TextArea.renderWrapped` word-wraps each logical line to `width` and scrolls/selects
-over the resulting *visual* rows. Pick wrap vs. scroll per call site. The pure wrapper
+over the resulting _visual_ rows. Pick wrap vs. scroll per call site. The pure wrapper
 `TextArea.wrapLine width line` is also exposed (it partitions a line into visual segments,
 breaking at spaces and hard-breaking over-long words) if you need it directly.
 

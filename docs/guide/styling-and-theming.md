@@ -44,7 +44,7 @@ let s =
 let link = Style.text.WithLink "https://example.com"   // clickable in capable terminals
 ```
 
-`Style.ToAnsi()` turns a style into its SGR sequence; the `Link` is *not* an SGR
+`Style.ToAnsi()` turns a style into its SGR sequence; the `Link` is _not_ an SGR
 attribute — the `Diff` writer brackets a linked run in OSC 8 open/close instead, and
 because `Link` is part of the record, structural equality automatically splits diff runs
 at link boundaries. (See [Terminal protocol](terminal-protocol.md).)
@@ -66,7 +66,7 @@ swappable set through a larger app.
 
 ## AppTheme — a swappable style set
 
-`AppTheme` is a record of the styles an app needs in one place, so you pass *one* value
+`AppTheme` is a record of the styles an app needs in one place, so you pass _one_ value
 around instead of dozens of loose `Style`s:
 
 ```fsharp
@@ -102,7 +102,7 @@ with `{ defaultTheme with accent = … }`) and thread it instead. Combined with
 
 ### Functional tones
 
-For toasts, notices, and status cells, map a semantic *tone* to a style:
+For toasts, notices, and status cells, map a semantic _tone_ to a style:
 
 ```fsharp
 type AppTheme.Tone = Success | Warning | Danger | Info | Neutral

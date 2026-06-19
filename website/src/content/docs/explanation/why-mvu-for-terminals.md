@@ -60,7 +60,7 @@ owns things a browser would otherwise provide:
   wrapped in synchronized output.
 
 The payoff is the same as Elm's: a UI you can reason about, test without the platform, and
-extend without fear of redraw bugs. The difference is that here, Mire *is* the platform.
+extend without fear of redraw bugs. The difference is that here, Mire _is_ the platform.
 
 ## Related
 

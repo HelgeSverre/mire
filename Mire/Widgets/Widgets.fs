@@ -223,8 +223,10 @@ module Backdrop =
         | LayoutNode.Filled(r, _) -> LayoutNode.Filled(r, style)
         | LayoutNode.Scrim _ -> node // a scrim has no glyphs/colours of its own to restyle
         | LayoutNode.Box(r, _, ch) -> LayoutNode.Box(r, style, ch |> List.map (recolor style))
-        | LayoutNode.Stack(r, d, ch) -> LayoutNode.Stack(r, d, ch |> List.map (fun c -> { c with Child = recolor style c.Child }))
-        | LayoutNode.Dock(r, ch) -> LayoutNode.Dock(r, ch |> List.map (fun c -> { c with Child = recolor style c.Child }))
+        | LayoutNode.Stack(r, d, ch) ->
+            LayoutNode.Stack(r, d, ch |> List.map (fun c -> { c with Child = recolor style c.Child }))
+        | LayoutNode.Dock(r, ch) ->
+            LayoutNode.Dock(r, ch |> List.map (fun c -> { c with Child = recolor style c.Child }))
         | LayoutNode.Scroll(r, st, c) -> LayoutNode.Scroll(r, st, recolor style c)
         | LayoutNode.Overlay(r, ch) -> LayoutNode.Overlay(r, ch |> List.map (recolor style))
         | LayoutNode.Positioned(r, p, w, h, c) -> LayoutNode.Positioned(r, p, w, h, recolor style c)

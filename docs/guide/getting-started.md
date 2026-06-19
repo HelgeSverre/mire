@@ -5,7 +5,7 @@
 - The **.NET 10 SDK** (`dotnet --version` reports `10.x`).
 - A **modern, Kitty-compatible terminal** — Ghostty, Kitty, or WezTerm. Mire uses
   truecolor, the alternate screen, the Kitty keyboard protocol, mouse tracking, and
-  bracketed paste. It is *not* a `System.Console` drop-in and has no 16-color or
+  bracketed paste. It is _not_ a `System.Console` drop-in and has no 16-color or
   legacy-console fallback.
 
 ## Install

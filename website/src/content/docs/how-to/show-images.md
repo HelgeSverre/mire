@@ -35,7 +35,7 @@ let update msg m =
     | Hide -> m, Cmd.clearImages
 ```
 
-The payload is chunked at 4096 base64 bytes per the protocol. The image is an *overlay*
+The payload is chunked at 4096 base64 bytes per the protocol. The image is an _overlay_
 on top of the cell grid, so re-issue it after a frame that repaints its region.
 
 ## The pattern

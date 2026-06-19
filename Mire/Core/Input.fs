@@ -55,15 +55,17 @@ type MouseButton =
     | UnknownButton of int
 
 type MouseEvent =
-    { X: int
-      Y: int
-      Button: MouseButton
-      Modifiers: KeyModifiers
-      Pressed: bool
-      /// True when this is a motion report (the SGR `0x20` motion bit) rather than a
-      /// fresh press/release — i.e. the pointer moved. With button tracking (mode
-      /// 1002) this is a drag of `Button`; it lets an app tell a drag from a click.
-      Moved: bool }
+    {
+        X: int
+        Y: int
+        Button: MouseButton
+        Modifiers: KeyModifiers
+        Pressed: bool
+        /// True when this is a motion report (the SGR `0x20` motion bit) rather than a
+        /// fresh press/release — i.e. the pointer moved. With button tracking (mode
+        /// 1002) this is a drag of `Button`; it lets an app tell a drag from a click.
+        Moved: bool
+    }
 
 /// The terminal's reported light/dark color scheme (DEC mode 2031 / DSR 996).
 type ColorScheme =

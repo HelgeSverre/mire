@@ -68,7 +68,12 @@ let graphemeTests =
               let w1 = Grapheme.stringWidth s
               let w2 = Grapheme.stringWidth s // served from the cache
               Expect.equal w1 w2 "cached call agrees with the first"
-              Expect.equal w1 (Grapheme.clusters s |> List.sumBy Grapheme.clusterWidth) "memoized width equals the direct measure"
+
+              Expect.equal
+                  w1
+                  (Grapheme.clusters s |> List.sumBy Grapheme.clusterWidth)
+                  "memoized width equals the direct measure"
+
               Expect.isTrue (Grapheme.widthCacheContains s) "the non-ASCII string was memoized"
           }
           test "stringWidth ASCII stays on the fast path (never cached)" {
@@ -389,7 +394,8 @@ let inputTests =
               Expect.equal (evs |> List.map keyOf) [ Some ArrowUp; Some ArrowDown ] "both arrows survive"
           }
           test "parseAll: a scroll-wheel burst yields every event (not just the first)" {
-              let evs = InputParser.parseAll (System.Text.Encoding.ASCII.GetBytes "\x1b[<64;1;1M\x1b[<64;1;2M\x1b[<64;1;3M")
+              let evs =
+                  InputParser.parseAll (System.Text.Encoding.ASCII.GetBytes "\x1b[<64;1;1M\x1b[<64;1;2M\x1b[<64;1;3M")
 
               let wheels =
                   evs
@@ -397,10 +403,14 @@ let inputTests =
                       | Mouse m -> Some(m.Button, m.Y)
                       | _ -> None)
 
-              Expect.equal wheels [ (ScrollUp, 0); (ScrollUp, 1); (ScrollUp, 2) ] "all three wheel events decode in order"
+              Expect.equal
+                  wheels
+                  [ (ScrollUp, 0); (ScrollUp, 1); (ScrollUp, 2) ]
+                  "all three wheel events decode in order"
           }
           test "parseAll: a complete bracketed paste followed by a keystroke is two events" {
-              let evs = InputParser.parseAll (System.Text.Encoding.ASCII.GetBytes "\x1b[200~hi\x1b[201~\x1b[A")
+              let evs =
+                  InputParser.parseAll (System.Text.Encoding.ASCII.GetBytes "\x1b[200~hi\x1b[201~\x1b[A")
 
               Expect.equal evs.Length 2 "the paste isn't split, and the trailing arrow is kept"
               Expect.equal evs.[0] (Paste "hi") "first event is the whole paste"
@@ -592,14 +602,37 @@ let diffTests =
               Expect.equal s.[1, 0].Grapheme "" "the trailing column is a continuation"
           }
           test "Color.Blend: midpoint toward black halves each channel; endpoints are exact" {
-              Expect.equal (Color.Blend(Color.Rgb(200uy, 100uy, 50uy), Color.Black, 0.5)) (Color.Rgb(100uy, 50uy, 25uy)) "t=0.5 is the midpoint"
-              Expect.equal (Color.Blend(Color.Rgb(200uy, 100uy, 50uy), Color.Black, 0.0)) (Color.Rgb(200uy, 100uy, 50uy)) "t=0 returns the source"
-              Expect.equal (Color.Blend(Color.Rgb(200uy, 100uy, 50uy), Color.Black, 1.0)) Color.Black "t=1 returns the target"
-              Expect.equal (Color.Blend(Color.Default, Color.Black, 0.5)) Color.Default "Default has no RGB to mix, so it passes through"
+              Expect.equal
+                  (Color.Blend(Color.Rgb(200uy, 100uy, 50uy), Color.Black, 0.5))
+                  (Color.Rgb(100uy, 50uy, 25uy))
+                  "t=0.5 is the midpoint"
+
+              Expect.equal
+                  (Color.Blend(Color.Rgb(200uy, 100uy, 50uy), Color.Black, 0.0))
+                  (Color.Rgb(200uy, 100uy, 50uy))
+                  "t=0 returns the source"
+
+              Expect.equal
+                  (Color.Blend(Color.Rgb(200uy, 100uy, 50uy), Color.Black, 1.0))
+                  Color.Black
+                  "t=1 returns the target"
+
+              Expect.equal
+                  (Color.Blend(Color.Default, Color.Black, 0.5))
+                  Color.Default
+                  "Default has no RGB to mix, so it passes through"
           }
           test "Surface.Scrim: fades a cell's colours toward the tint but keeps its glyph" {
               let s = Surface(Size.Create(2, 1))
-              s.Write(0, 0, "x", Style.Default.WithForeground(Color.Rgb(200uy, 200uy, 200uy)).WithBackground(Color.Rgb(40uy, 40uy, 40uy)))
+
+              s.Write(
+                  0,
+                  0,
+                  "x",
+                  Style.Default
+                      .WithForeground(Color.Rgb(200uy, 200uy, 200uy))
+                      .WithBackground(Color.Rgb(40uy, 40uy, 40uy))
+              )
               // dim the whole row 50% toward black
               s.Scrim(Rect.Create(0, 0, 2, 1), Color.Black, 0.5, Color.Rgb(200uy, 200uy, 200uy), Color.Black)
               Expect.equal s.[0, 0].Grapheme "x" "the glyph is preserved — the scrim only restyles"
@@ -610,7 +643,11 @@ let diffTests =
               let s = Surface(Size.Create(1, 1))
               s.Write(0, 0, "y", Style.Default) // fg/bg both Default
               s.Scrim(Rect.Create(0, 0, 1, 1), Color.Black, 0.5, Color.Rgb(200uy, 200uy, 200uy), Color.Black)
-              Expect.equal s.[0, 0].Style.Foreground (Some(Color.Rgb(100uy, 100uy, 100uy))) "Default fg → fallback 200, then halved toward black"
+
+              Expect.equal
+                  s.[0, 0].Style.Foreground
+                  (Some(Color.Rgb(100uy, 100uy, 100uy)))
+                  "Default fg → fallback 200, then halved toward black"
           } ]
 
 // Layout -------------------------------------------------------------------
@@ -811,8 +848,16 @@ let widgetTests =
               let accent = Color.Rgb(0x1Auy, 0x9Auy, 0x7Euy)
 
               let columns: Mire.Widgets.Column<string list, unit> list =
-                  [ Mire.Widgets.Table.textColumn "a" (Length.Cells 6) (Style.Default.WithForeground Color.White) (fun (r: string list) -> r.[0])
-                    Mire.Widgets.Table.textColumn "b" (Length.Cells 6) (Style.Default.WithForeground accent) (fun (r: string list) -> r.[1]) ]
+                  [ Mire.Widgets.Table.textColumn
+                        "a"
+                        (Length.Cells 6)
+                        (Style.Default.WithForeground Color.White)
+                        (fun (r: string list) -> r.[0])
+                    Mire.Widgets.Table.textColumn
+                        "b"
+                        (Length.Cells 6)
+                        (Style.Default.WithForeground accent)
+                        (fun (r: string list) -> r.[1]) ]
 
               let node: LayoutNode<unit> =
                   Mire.Widgets.Table.view 1 Style.Default sel 0 (fun i -> i = 0) columns [ [ "x"; "+42" ] ]
@@ -821,7 +866,12 @@ let widgetTests =
               Layout.measure (Rect.Create(0, 0, 12, 2)) node |> Layout.render surf
               // row 0 is the body (row index 1 on the surface, after the header row)
               Expect.equal surf.[0, 1].Style.Background (Some selBg) "first column carries the highlight bg"
-              Expect.equal surf.[6, 1].Style.Background (Some selBg) "the colored second column carries it too (no hole)"
+
+              Expect.equal
+                  surf.[6, 1].Style.Background
+                  (Some selBg)
+                  "the colored second column carries it too (no hole)"
+
               Expect.equal surf.[6, 1].Style.Foreground (Some selFg) "colored cell adopts the readable selection fg"
           }
           test "ListView highlights the selected row full-width, others not" {
@@ -849,7 +899,10 @@ let widgetTests =
 
               // A base tree with a recognizable background, so the scrim's fade is observable.
               let baseBg = Color.Rgb(80uy, 80uy, 80uy)
-              let baseTree: LayoutNode<unit> = Mire.Widgets.Backdrop.solid (Style.Default.WithBackground baseBg)
+
+              let baseTree: LayoutNode<unit> =
+                  Mire.Widgets.Backdrop.solid (Style.Default.WithBackground baseBg)
+
               let composed = LayoutNode.Overlay(Rect.Create(0, 0, 0, 0), [ baseTree; m ])
 
               let surf = Surface(Size.Create(20, 10))
@@ -857,11 +910,19 @@ let widgetTests =
 
               // Outside the box the base is *faded* toward the tint — not occluded, not full-strength.
               let faded = Color.Blend(baseBg, backdropBg, Mire.Widgets.Modal.scrimStrength)
-              Expect.equal surf.[0, 0].Style.Background (Some faded) "the corner outside the box is the base, faded toward the tint"
+
+              Expect.equal
+                  surf.[0, 0].Style.Background
+                  (Some faded)
+                  "the corner outside the box is the base, faded toward the tint"
+
               Expect.notEqual surf.[0, 0].Style.Background (Some baseBg) "...so it is dimmed, not left at full strength"
 
               // The box itself stays opaque: a text-free interior cell carries the backdrop fill.
-              Expect.equal surf.[11, 5].Style.Background (Some backdropBg) "box interior is filled opaquely with the backdrop style"
+              Expect.equal
+                  surf.[11, 5].Style.Background
+                  (Some backdropBg)
+                  "box interior is filled opaquely with the backdrop style"
 
               Expect.notEqual surf.[5, 2].Grapheme " " "centered corner (5,2) is a border glyph, not blank"
           }
@@ -2221,8 +2282,12 @@ let chatTranscriptTests =
               Expect.isFalse (whole.Contains "msg00") "the first message has scrolled off the top"
           }
           test "blockHeight is memoized and agrees with a direct measure" {
-              let b = AssistantMd "a unique paragraph used only by the height-memo test, wraps a bit"
-              let direct = Layout.contentExtent Direction.Vertical (ChatTranscript.renderBlock theme w 0 b)
+              let b =
+                  AssistantMd "a unique paragraph used only by the height-memo test, wraps a bit"
+
+              let direct =
+                  Layout.contentExtent Direction.Vertical (ChatTranscript.renderBlock theme w 0 b)
+
               let h1 = ChatTranscript.blockHeight theme w 0 b
               let h2 = ChatTranscript.blockHeight theme w 0 b // cache hit
               Expect.equal h1 direct "memoized height equals the layout's own contentExtent"
@@ -2230,7 +2295,9 @@ let chatTranscriptTests =
               Expect.isTrue (ChatTranscript.heightCacheContains w b) "the (width, block) height was memoized"
           }
           test "first-class block widgets render standalone (outside a transcript)" {
-              let node: LayoutNode<unit> = ChatTranscript.toolCallView theme 0 "shell" "ls" Succeeded "0.1s" "done"
+              let node: LayoutNode<unit> =
+                  ChatTranscript.toolCallView theme 0 "shell" "ls" Succeeded "0.1s" "done"
+
               let s = Surface(Size.Create(40, 5))
               Layout.measure (Rect.Create(0, 0, 40, 5)) node |> Layout.render s
               let whole = String.concat "\n" [ for y in 0..4 -> rowText s y ]
@@ -2262,10 +2329,16 @@ let conversationTests =
           test "appendText on a non-text id is a no-op" {
               let id, c = Conversation.empty |> Conversation.addToolCall "shell" "ls" Running
               let c2 = Conversation.appendText id "x" c
-              Expect.equal (Conversation.blocks c2) (Conversation.blocks c) "appending text to a tool call changes nothing"
+
+              Expect.equal
+                  (Conversation.blocks c2)
+                  (Conversation.blocks c)
+                  "appending text to a tool call changes nothing"
           }
           test "tool lifecycle: addToolCall (Queued) → setTool Running → Succeeded with output" {
-              let id, c = Conversation.empty |> Conversation.addToolCall "shell" "cargo build" Queued
+              let id, c =
+                  Conversation.empty |> Conversation.addToolCall "shell" "cargo build" Queued
+
               Expect.equal (Conversation.blocks c) [ ToolCall("shell", "cargo build", Queued, "", "") ] "starts Queued"
               let c = Conversation.setTool id Running "" "" c
               let c = Conversation.setTool id Succeeded "1.1s" "ok" c
@@ -2304,17 +2377,29 @@ let agentShellTests =
     testList
         "AgentShell"
         [ test "submitting a line appends the user message, then runs OnSubmit" {
-              let m = { m0 with Prompt = PromptBox.ofString "hello" } |> upd Submit
+              let m =
+                  { m0 with
+                      Prompt = PromptBox.ofString "hello" }
+                  |> upd Submit
+
               Expect.equal (blocks m) [ UserMsg "hello"; AssistantMd "re: hello" ] "user turn + app's reply, in order"
               Expect.equal (PromptBox.value m.Prompt) "" "the prompt is cleared on submit"
           }
           test "submitting `run` raises an approval (session → AwaitingApproval)" {
-              let m = { m0 with Prompt = PromptBox.ofString "run" } |> upd Submit
+              let m =
+                  { m0 with
+                      Prompt = PromptBox.ofString "run" }
+                  |> upd Submit
+
               Expect.equal m.Approval (Some("danger", true)) "OnSubmit requested an approval (Accept focused)"
               Expect.equal m.Session AwaitingApproval "session reflects the pending approval"
           }
           test "an empty submit is a no-op" {
-              let m = { m0 with Prompt = PromptBox.ofString "   " } |> upd Submit
+              let m =
+                  { m0 with
+                      Prompt = PromptBox.ofString "   " }
+                  |> upd Submit
+
               Expect.isEmpty (blocks m) "blank input adds nothing"
           }
           test "ToggleButton flips the focused approval button" {
@@ -2322,19 +2407,43 @@ let agentShellTests =
               Expect.equal m.Approval (Some("x", false)) "Accept→Deny focus"
           }
           test "accepting an approval clears it (session → Idle) and runs OnApprove" {
-              let m = upd Submit { m0 with Approval = Some("x", true); Session = AwaitingApproval }
+              let m =
+                  upd
+                      Submit
+                      { m0 with
+                          Approval = Some("x", true)
+                          Session = AwaitingApproval }
+
               Expect.equal m.Approval None "approval resolved"
               Expect.equal m.Session Idle "back to idle"
               Expect.equal (blocks m) [ AssistantMd "accepted" ] "OnApprove(true) ran"
           }
           test "Esc denies the approval through OnApprove" {
-              let m = upd EscKey { m0 with Approval = Some("x", true); Session = AwaitingApproval }
+              let m =
+                  upd
+                      EscKey
+                      { m0 with
+                          Approval = Some("x", true)
+                          Session = AwaitingApproval }
+
               Expect.equal m.Approval None "approval dismissed"
               Expect.equal (blocks m) [ Notice(Mire.Widgets.AppTheme.Warning, "denied") ] "OnApprove(false) ran"
           }
           test "the modal swallows editing while open" {
               let before = { m0 with Approval = Some("x", true) }
-              let after = upd (Edit(Key { Key = Char "z"; Text = Some "z"; Modifiers = KeyModifiers.None; Repeat = false; EventType = Press })) before
+
+              let after =
+                  upd
+                      (Edit(
+                          Key
+                              { Key = Char "z"
+                                Text = Some "z"
+                                Modifiers = KeyModifiers.None
+                                Repeat = false
+                                EventType = Press }
+                      ))
+                      before
+
               Expect.equal (PromptBox.value after.Prompt) "" "keystrokes don't reach the prompt under the modal"
           }
           test "streaming helpers: startReply (Streaming) → stream → finishReply (Idle)" {
@@ -2347,12 +2456,48 @@ let agentShellTests =
           }
           test "mapInput routes the shell's keys" {
               // ShellMsg carries a function case (Apply) so it has no equality — match instead.
-              let key k = Key { Key = k; Text = None; Modifiers = KeyModifiers.None; Repeat = false; EventType = Press }
-              let is f e = Expect.isTrue (match AgentShell.mapInput (key e) with Some m -> f m | None -> false)
-              is (function Submit -> true | _ -> false) Enter "Enter → Submit"
-              is (function EscKey -> true | _ -> false) Escape "Escape → EscKey"
-              is (function HistoryPrev -> true | _ -> false) ArrowUp "Up → history prev"
-              is (function HistoryNext -> true | _ -> false) ArrowDown "Down → history next"
+              let key k =
+                  Key
+                      { Key = k
+                        Text = None
+                        Modifiers = KeyModifiers.None
+                        Repeat = false
+                        EventType = Press }
+
+              let is f e =
+                  Expect.isTrue (
+                      match AgentShell.mapInput (key e) with
+                      | Some m -> f m
+                      | None -> false
+                  )
+
+              is
+                  (function
+                  | Submit -> true
+                  | _ -> false)
+                  Enter
+                  "Enter → Submit"
+
+              is
+                  (function
+                  | EscKey -> true
+                  | _ -> false)
+                  Escape
+                  "Escape → EscKey"
+
+              is
+                  (function
+                  | HistoryPrev -> true
+                  | _ -> false)
+                  ArrowUp
+                  "Up → history prev"
+
+              is
+                  (function
+                  | HistoryNext -> true
+                  | _ -> false)
+                  ArrowDown
+                  "Down → history next"
           } ]
 
 // Mire.Agent PromptBox (history + completion token) -------------------------
@@ -2444,7 +2589,9 @@ let promptBoxTests =
               | None -> failtest "expected an active completion"
           }
           test "completion is None when the source yields no candidates" {
-              Expect.isNone (PromptBox.completion [ '/' ] (fun _ -> []) (PromptBox.ofString "/zzz")) "no candidates → no popup"
+              Expect.isNone
+                  (PromptBox.completion [ '/' ] (fun _ -> []) (PromptBox.ofString "/zzz"))
+                  "no candidates → no popup"
           }
           test "completion is None when there's no trigger token under the caret" {
               Expect.isNone
@@ -2582,7 +2729,10 @@ module SampleWidgets =
                     let i = int (t * float (bars.Length - 1) + 0.5)
                     bars.[max 0 (min (bars.Length - 1) i)]
 
-            values |> List.map glyph |> String.concat "" |> fun s -> Mire.Widgets.Text.text s style
+            values
+            |> List.map glyph
+            |> String.concat ""
+            |> fun s -> Mire.Widgets.Text.text s style
 
 let customWidgetTests =
     let rowText (s: Surface) (y: int) =
@@ -2599,8 +2749,7 @@ let customWidgetTests =
               Expect.equal (rowText surf 0) "▁▂▃▄▅▆▇█" "ascending values render ascending bars"
           }
           test "sparkline draws the min as the lowest bar and the max as the highest" {
-              let node: LayoutNode<unit> =
-                  SampleWidgets.sparkline Style.Default [ 3.0; 9.0; 3.0 ]
+              let node: LayoutNode<unit> = SampleWidgets.sparkline Style.Default [ 3.0; 9.0; 3.0 ]
 
               let surf = Surface(Size.Create(3, 1))
               Layout.measure (Rect.Create(0, 0, 3, 1)) node |> Layout.render surf

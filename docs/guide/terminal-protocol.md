@@ -65,7 +65,7 @@ on every terminal:
 ImagePreview.render width height borderStyle captionStyle "logo.png" (Some (640, 480))
 ```
 
-On Kitty/Ghostty you overlay the *real* pixels with a command — Mire never decodes
+On Kitty/Ghostty you overlay the _real_ pixels with a command — Mire never decodes
 images, so you supply already-base64-encoded PNG bytes:
 
 ```fsharp
@@ -74,7 +74,7 @@ images, so you supply already-base64-encoded PNG bytes:
 | Hide      -> model, Cmd.clearImages
 ```
 
-The payload is chunked at 4096 base64 bytes per the protocol. The image is an *overlay*
+The payload is chunked at 4096 base64 bytes per the protocol. The image is an _overlay_
 on top of the cell grid — re-issue it after a frame that repaints its region. Pattern:
 render `ImagePreview` as the reserved cell region (the fallback that shows on
 unsupported terminals), and on supported terminals issue `Cmd.kittyImage` positioned at
@@ -85,7 +85,7 @@ them.
 
 ## Grapheme widths
 
-The cell grid is monospace, so display *width* matters. `Mire.Core.Grapheme` measures
+The cell grid is monospace, so display _width_ matters. `Mire.Core.Grapheme` measures
 it correctly:
 
 - `Grapheme.stringWidth s` — the column count of a string, measured by **grapheme
@@ -95,7 +95,7 @@ it correctly:
 - `Grapheme.clusters s` / `Grapheme.clusterWidth cluster` — the pieces, if you need them.
 
 You rarely call these directly — `Surface.Write` iterates clusters, so a wide glyph
-occupies two columns with an empty *continuation* cell in its trailing column (so the
+occupies two columns with an empty _continuation_ cell in its trailing column (so the
 diff repaints it cleanly when narrower content replaces it), and an astral emoji lands
 in a single cell instead of split surrogate halves. Layout uses `stringWidth` to size
 `Text`. If you build custom drawing, measure with `Grapheme`, not `String.length`.

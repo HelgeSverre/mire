@@ -51,7 +51,7 @@ A `Mouse` event carries position, button, and modifiers. The wheel comes through
     | _ -> None
 ```
 
-For *clicking* a specific piece of UI, don't compute rectangles by hand — tag the
+For _clicking_ a specific piece of UI, don't compute rectangles by hand — tag the
 clickable region and let the runtime hit-test it. See
 [Mouse and focus](/docs/how-to/mouse-and-focus/).
 
@@ -65,7 +65,7 @@ Bracketed paste is reassembled across reads into one event, even for large paste
 
 ## Decide where a key goes
 
-`MapInput` can't see your model, so route *which* part of the UI handles a key inside
+`MapInput` can't see your model, so route _which_ part of the UI handles a key inside
 `update` — carry the raw event (or a normalized key) in a message and branch on your
 state there:
 
@@ -86,7 +86,7 @@ let update msg m =
 
 ## Change the quit key
 
-`Ctrl+C` quits by default (and restores the terminal). The quit policy runs *before*
+`Ctrl+C` quits by default (and restores the terminal). The quit policy runs _before_
 `MapInput`, so a matched event is consumed as quit:
 
 ```fsharp
@@ -97,7 +97,7 @@ program |> Program.withQuitOn (fun _ -> false)
 ## Get key releases
 
 The runtime asks the terminal to report event types, so every keystroke is a press
-*and* a release. Releases are dropped by default (one message per keystroke). Opt in if
+_and_ a release. Releases are dropped by default (one message per keystroke). Opt in if
 you track key-down/up; `ke.EventType` is then `Press | Repeat | Release`:
 
 ```fsharp

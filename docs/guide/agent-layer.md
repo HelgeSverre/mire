@@ -70,7 +70,7 @@ layout; `render` returns a bare (non-scrolling) vstack.
 ## PromptBox
 
 `PromptBox` is the agent prompt: a `TextBuffer`/`TextEdit` editor plus a submit-history
-ring and slash/@-mention completion-token detection. The candidate *source* (your
+ring and slash/@-mention completion-token detection. The candidate _source_ (your
 commands, your files) stays app-owned.
 
 ```fsharp
@@ -109,7 +109,7 @@ The buttons are tagged with `Focusable` regions so clicks route through the runt
 region table — match `ApprovalModal.acceptRegion` / `ApprovalModal.denyRegion` in your
 `withMouseRegion` handler ([Input → mouse hit-testing](input.md#mouse-hit-testing)).
 `ApprovalModal.buttonHit` is also available if you'd rather hand-test coordinates. The
-accept/deny *behavior* stays in your `update`.
+accept/deny _behavior_ stays in your `update`.
 
 ## DiffView
 

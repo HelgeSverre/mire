@@ -22,7 +22,7 @@ Focusable.region (RegionId "deny")   (Text.text " ‹ Deny › "  theme.fgMuted)
 ```
 
 2. Install `withMouseRegion`. It gets the hit `RegionId` (or `None`) and the mouse
-   event; returning `Some msg` consumes the event (it does *not* also reach `MapInput`):
+   event; returning `Some msg` consumes the event (it does _not_ also reach `MapInput`):
 
 ```fsharp
 let onMouseRegion (region: RegionId option) (me: MouseEvent) : Msg option =

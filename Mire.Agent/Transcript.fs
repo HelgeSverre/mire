@@ -132,7 +132,10 @@ module ChatTranscript =
 
     /// A workspace file-tree card (static paths).
     let fileTreeView (theme: AppTheme) (paths: string list) : LayoutNode<'msg> =
-        card theme.border (Text.text "workspace" theme.fgSubtle :: (paths |> List.map (fun p -> Text.text p theme.fgMuted)))
+        card
+            theme.border
+            (Text.text "workspace" theme.fgSubtle
+             :: (paths |> List.map (fun p -> Text.text p theme.fgMuted)))
 
     /// A task-timeline card — each task with its status glyph/colour (spinner while running).
     let taskTimelineView (theme: AppTheme) (frame: int) (items: (string * ToolStatus) list) : LayoutNode<'msg> =
@@ -259,7 +262,8 @@ module ChatTranscript =
         match heightCache.TryGetValue key with
         | true, h -> h
         | _ ->
-            let h = Layout.contentExtent Direction.Vertical (renderBlock theme wrapWidth frame b)
+            let h =
+                Layout.contentExtent Direction.Vertical (renderBlock theme wrapWidth frame b)
 
             if heightCache.Count < heightCacheCap then
                 heightCache.[key] <- h

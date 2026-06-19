@@ -105,7 +105,7 @@ clamping helpers — see [Widgets](widgets.md#scrolling).
 ## Overlay and Positioned — layering
 
 `Overlay` z-stacks layers in list order (later paints on top); a `Filled`/`Backdrop.solid`
-layer occludes what's beneath it, while a `Scrim` (`Backdrop.scrim tint strength`) *fades*
+layer occludes what's beneath it, while a `Scrim` (`Backdrop.scrim tint strength`) _fades_
 it — blending the cells underneath toward a tint, the way `Modal.modal` dims the screen
 behind a still-opaque dialog. `Positioned` sizes a child and places it at one of nine
 `Placement` points within the area — the basis for modals, toasts, and popups:

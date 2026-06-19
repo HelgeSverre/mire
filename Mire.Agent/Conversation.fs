@@ -32,7 +32,8 @@ module Conversation =
     let entries (c: Conversation) = c.Entries
 
     /// The blocks in order — feed this to `ChatTranscript.view`/`render`.
-    let blocks (c: Conversation) : TranscriptBlock list = c.Entries |> List.map (fun e -> e.Block)
+    let blocks (c: Conversation) : TranscriptBlock list =
+        c.Entries |> List.map (fun e -> e.Block)
 
     let isEmpty (c: Conversation) = List.isEmpty c.Entries
 
@@ -41,7 +42,11 @@ module Conversation =
         let id = c.NextId
 
         id,
-        { Entries = c.Entries @ [ { Id = id; Block = block; Streaming = false } ]
+        { Entries =
+            c.Entries
+            @ [ { Id = id
+                  Block = block
+                  Streaming = false } ]
           NextId = id + 1 }
 
     /// Append a block, discarding the id (when you won't update the entry later).
@@ -65,7 +70,11 @@ module Conversation =
         let id = c.NextId
 
         id,
-        { Entries = c.Entries @ [ { Id = id; Block = AssistantMd ""; Streaming = true } ]
+        { Entries =
+            c.Entries
+            @ [ { Id = id
+                  Block = AssistantMd ""
+                  Streaming = true } ]
           NextId = id + 1 }
 
     /// Append a token/chunk to a text entry (assistant/user/thinking). No-op if the id
@@ -75,7 +84,9 @@ module Conversation =
         c
         |> mapEntry id (fun e ->
             match e.Block with
-            | AssistantMd s -> { e with Block = AssistantMd(s + chunk) }
+            | AssistantMd s ->
+                { e with
+                    Block = AssistantMd(s + chunk) }
             | UserMsg s -> { e with Block = UserMsg(s + chunk) }
             | Thinking s -> { e with Block = Thinking(s + chunk) }
             | _ -> e)
@@ -97,15 +108,11 @@ module Conversation =
 
     /// Transition a tool call's status (and set its meta/output). No-op if the id isn't
     /// a `ToolCall`. Keeps the original name/command.
-    let setTool
-        (id: MessageId)
-        (status: ToolStatus)
-        (meta: string)
-        (output: string)
-        (c: Conversation)
-        : Conversation =
+    let setTool (id: MessageId) (status: ToolStatus) (meta: string) (output: string) (c: Conversation) : Conversation =
         c
         |> mapEntry id (fun e ->
             match e.Block with
-            | ToolCall(name, cmd, _, _, _) -> { e with Block = ToolCall(name, cmd, status, meta, output) }
+            | ToolCall(name, cmd, _, _, _) ->
+                { e with
+                    Block = ToolCall(name, cmd, status, meta, output) }
             | _ -> e)

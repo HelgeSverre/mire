@@ -115,21 +115,21 @@ A `justfile` wraps the common commands: `just build`, `just test`, `just gallery
 
 The framework is one assembly, layered by folder; the folder order is the dependency order, enforced by the `<Compile>` order in `Mire/Mire.fsproj`.
 
-| Folder (namespace) | What it holds |
-| ------------------ | ------------- |
-| **Core**     | Pure value types: `Point`, `Size`, `Rect`, `Color`, `Style`, `Cell`, `Grapheme`, `TextBuffer`, input events. |
-| **Protocol** | `ANSI` sequences, raw-mode setup, and the byte → `InputEvent` parser. |
-| **Renderer** | `Surface` (the cell grid + draw primitives) and `Diff`. |
-| **Layout**   | The `LayoutNode` tree, `measure` / `render`, and the keyboard `Focus` ring. |
-| **Widgets**  | The widget library and `AppTheme`. |
-| **App**      | `Cmd`, `Sub`, `Program`, and `Runtime.run`. |
+| Folder (namespace) | What it holds                                                                                                |
+| ------------------ | ------------------------------------------------------------------------------------------------------------ |
+| **Core**           | Pure value types: `Point`, `Size`, `Rect`, `Color`, `Style`, `Cell`, `Grapheme`, `TextBuffer`, input events. |
+| **Protocol**       | `ANSI` sequences, raw-mode setup, and the byte → `InputEvent` parser.                                        |
+| **Renderer**       | `Surface` (the cell grid + draw primitives) and `Diff`.                                                      |
+| **Layout**         | The `LayoutNode` tree, `measure` / `render`, and the keyboard `Focus` ring.                                  |
+| **Widgets**        | The widget library and `AppTheme`.                                                                           |
+| **App**            | `Cmd`, `Sub`, `Program`, and `Runtime.run`.                                                                  |
 
 Alongside it: three `Mire.Demo.*` apps, two `samples/`, and an Expecto test project.
 
 ## Roadmap and design
 
 - [`ROADMAP.md`](https://github.com/HelgeSverre/mire/blob/main/ROADMAP.md) — the plan of record: a widget/node status table and the phased plan.
-- [`SPEC.md`](https://github.com/HelgeSverre/mire/blob/main/SPEC.md) — the design exploration and the rationale. Read it for the *why*; read the code for *what's built*.
+- [`SPEC.md`](https://github.com/HelgeSverre/mire/blob/main/SPEC.md) — the design exploration and the rationale. Read it for the _why_; read the code for _what's built_.
 
 ## License
 

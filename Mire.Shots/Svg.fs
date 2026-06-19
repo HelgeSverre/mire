@@ -68,7 +68,14 @@ module Svg =
         )
 
         // window chrome
-        ap (sprintf "<rect x=\"0\" y=\"0\" width=\"%.0f\" height=\"%.0f\" rx=\"8\" fill=\"%s\" stroke=\"#292929\"/>" svgW svgH defaultBg)
+        ap (
+            sprintf
+                "<rect x=\"0\" y=\"0\" width=\"%.0f\" height=\"%.0f\" rx=\"8\" fill=\"%s\" stroke=\"#292929\"/>"
+                svgW
+                svgH
+                defaultBg
+        )
+
         ap (sprintf "<line x1=\"0\" y1=\"%.0f\" x2=\"%.0f\" y2=\"%.0f\" stroke=\"#292929\"/>" barH svgW barH)
         ap "<circle cx=\"18\" cy=\"15\" r=\"4\" fill=\"#3a3a3a\"/>"
         ap "<circle cx=\"34\" cy=\"15\" r=\"4\" fill=\"#3a3a3a\"/>"
@@ -125,10 +132,14 @@ module Svg =
                     let opacity = if dim then " opacity=\"0.62\"" else ""
 
                     let deco =
-                        if underline && strike then " text-decoration=\"underline line-through\""
-                        elif underline then " text-decoration=\"underline\""
-                        elif strike then " text-decoration=\"line-through\""
-                        else ""
+                        if underline && strike then
+                            " text-decoration=\"underline line-through\""
+                        elif underline then
+                            " text-decoration=\"underline\""
+                        elif strike then
+                            " text-decoration=\"line-through\""
+                        else
+                            ""
 
                     ap (
                         sprintf

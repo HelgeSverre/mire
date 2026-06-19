@@ -82,15 +82,15 @@ stream stays smooth.
 
 `OnSubmit`/`OnApprove` (and any `Apply` updater) mutate the conversation with:
 
-| Helper | Effect |
-| --- | --- |
-| `addUser` / `addAssistant` / `addNotice` / `addBlock` | append a block, follow the tail |
-| `startReply` → `(id, m)` | begin a streaming assistant reply |
-| `stream id chunk` | append a token to a streaming reply |
-| `finishReply id` | end the stream (→ `Idle`) |
-| `requestApproval cmd` | raise the approval modal (→ `AwaitingApproval`) |
-| `addTool name cmd status` → `(id, m)` | append a tool call |
-| `setTool id status meta output` | transition a tool call (`Queued → Running → Succeeded/Failed`) |
+| Helper                                                | Effect                                                         |
+| ----------------------------------------------------- | -------------------------------------------------------------- |
+| `addUser` / `addAssistant` / `addNotice` / `addBlock` | append a block, follow the tail                                |
+| `startReply` → `(id, m)`                              | begin a streaming assistant reply                              |
+| `stream id chunk`                                     | append a token to a streaming reply                            |
+| `finishReply id`                                      | end the stream (→ `Idle`)                                      |
+| `requestApproval cmd`                                 | raise the approval modal (→ `AwaitingApproval`)                |
+| `addTool name cmd status` → `(id, m)`                 | append a tool call                                             |
+| `setTool id status meta output`                       | transition a tool call (`Queued → Running → Succeeded/Failed`) |
 
 ## By hand: composing the pieces yourself
 

@@ -33,9 +33,9 @@ doesn't get that feature; nothing breaks.
 
 ### Kitty keyboard protocol
 
-Mire pushes progressive-enhancement flags **1 + 2** (`CSI > 3 u`): *disambiguate escape
-codes* (so e.g. `Esc`, `Ctrl+key`, and the arrows are unambiguous) and *report event
-types* (key press / repeat / release). Without it you still get keys via the legacy
+Mire pushes progressive-enhancement flags **1 + 2** (`CSI > 3 u`): _disambiguate escape
+codes_ (so e.g. `Esc`, `Ctrl+key`, and the arrows are unambiguous) and _report event
+types_ (key press / repeat / release). Without it you still get keys via the legacy
 encodings; with it, input is unambiguous and key-release events become available
 (`Program.withKeyReleases`).
 
