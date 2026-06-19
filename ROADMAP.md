@@ -19,13 +19,16 @@ state of the code.
 Pre-1.0, shipped **incrementally** — the public API still moves between minors,
 so consumers pin an exact version. A release goes out by publishing a `v*`
 GitHub Release; `publish.yml` then packs + pushes to nuget.org via OIDC.
-**`0.4.0`, `0.5.0`, and `0.6.0` are released**; the next cycle is **0.7.0 — Input
-& protocol completeness**.
+**`0.4.0` through `0.7.0` are released.** `0.7.0` bundled three cycles — input &
+protocol completeness, streaming performance, and the agent-layer expansion. The
+next planned cycle is **1.0 hardening** (API review/freeze; see below).
 
 > Release numbers ≠ the SPEC "phase" numbers below. The 0.4.0 release bundled the
 > completed core (SPEC v0.1–v0.3) plus the cross-cutting protocol work; the agent
 > layer (SPEC phase v0.4) shipped as **0.5.0**; **0.6.0** added translucent
-> overlays + the documented protocol surface.
+> overlays + the documented protocol surface; **0.7.0** delivered the input/perf/
+> agent-layer cycles (multi-event input, mouse drag, streaming caches, the
+> `Conversation` model + `AgentShell` builder).
 
 ### 0.4.0 — Core framework · _next, ship soon_
 

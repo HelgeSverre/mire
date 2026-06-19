@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-06-19
+
+The agent layer grows into its name, plus input/protocol completeness and
+streaming performance. `Mire.Agent` gains a typed `Conversation` model and an
+`AgentShell.program` builder that composes a working coding-agent shell in a few
+lines; the input parser decodes multiple events per read (no more dropped
+scroll/drag bursts) and mouse drags; and the transcript renders only what's
+on-screen for cheap streaming.
+
 ### Added
 
 - **Agent-layer expansion — `Mire.Agent` is now a real agent-UI layer.**
