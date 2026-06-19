@@ -205,11 +205,39 @@ module ChatTranscript =
 
     // --- scroll math + follow-tail (the offset stays app-owned MVU state) ------
 
-    /// Each block's rendered row height — the exact `contentExtent` the layout uses,
-    /// so scroll clamping matches what's drawn. O(n): measures every block.
+    // A block's rendered height depends only on (wrapWidth, block) — not on the
+    // theme (colours don't change row counts) nor the `frame` tick (the spinner glyph
+    // is one cell). So it's safe to memoize, which turns the per-frame transcript
+    // measure from "re-wrap every block" into a cache lookup — the append-only /
+    // wrap-caching win for long, streaming transcripts. Bounded so unique lines can't
+    // grow it without limit.
+    let private heightCache =
+        System.Collections.Concurrent.ConcurrentDictionary<struct (int * TranscriptBlock), int>()
+
+    let private heightCacheCap = 8192
+
+    /// Test/diagnostic hook: how many (wrapWidth, block) heights are memoized.
+    let heightCacheSize () = heightCache.Count
+
+    /// One block's rendered row height — the exact `contentExtent` the layout uses,
+    /// so scroll clamping matches what's drawn. Memoized by (wrapWidth, block).
+    let blockHeight (theme: AppTheme) (wrapWidth: int) (frame: int) (b: TranscriptBlock) : int =
+        let key = struct (wrapWidth, b)
+
+        match heightCache.TryGetValue key with
+        | true, h -> h
+        | _ ->
+            let h = Layout.contentExtent Direction.Vertical (renderBlock theme wrapWidth frame b)
+
+            if heightCache.Count < heightCacheCap then
+                heightCache.[key] <- h
+
+            h
+
+    /// Each block's rendered row height. O(n) lookups via the memo, so an unchanged
+    /// block isn't re-wrapped every frame.
     let blockHeights (theme: AppTheme) (wrapWidth: int) (frame: int) (blocks: TranscriptBlock list) : int list =
-        blocks
-        |> List.map (fun b -> Layout.contentExtent Direction.Vertical (renderBlock theme wrapWidth frame b))
+        blocks |> List.map (blockHeight theme wrapWidth frame)
 
     /// Total transcript height in rows.
     let contentHeight (theme: AppTheme) (wrapWidth: int) (frame: int) (blocks: TranscriptBlock list) : int =
@@ -257,9 +285,11 @@ module ChatTranscript =
         (thumbStyle: Style)
         (blocks: TranscriptBlock list)
         : LayoutNode<'msg> =
-        let nodes = blocks |> List.map (renderBlock theme wrapWidth frame) |> List.toArray
-
-        let heights = nodes |> Array.map (Layout.contentExtent Direction.Vertical)
+        // Measure every block from the memo (cheap) — but only *render* the blocks
+        // that intersect the viewport, so a long transcript costs O(visible), not
+        // O(all), of the expensive wrap/build work each frame.
+        let blocksArr = List.toArray blocks
+        let heights = blocksArr |> Array.map (blockHeight theme wrapWidth frame)
 
         let contentH = Array.sum heights
         let clamped = ScrollView.clampOffset viewportH contentH offset
@@ -276,7 +306,7 @@ module ChatTranscript =
         let visBot = clamped + viewportH
 
         let visible =
-            [ for i in 0 .. nodes.Length - 1 do
+            [ for i in 0 .. blocksArr.Length - 1 do
                   if tops.[i] + heights.[i] > clamped && tops.[i] < visBot then
                       yield i ]
 
@@ -288,7 +318,7 @@ module ChatTranscript =
             | first :: _ ->
                 let windowContent =
                     visible
-                    |> List.map (fun i -> Stack.sized Length.Content nodes.[i])
+                    |> List.map (fun i -> Stack.sized Length.Content (renderBlock theme wrapWidth frame blocksArr.[i]))
                     |> Stack.vstackOf
                 // local offset = how far the first visible block is scrolled off the top
                 Scroll.vertical (clamped - tops.[first]) windowContent

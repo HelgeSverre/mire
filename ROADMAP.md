@@ -73,13 +73,13 @@ cycle closes them — mostly pure, testable parser work that improves *felt* int
 - [x] **Mouse motion / drag.** `parseMouseSgr` decodes the SGR `0x20` motion bit into a new `MouseEvent.Moved` flag, so a drag is distinguishable from a fresh click (button-held motion under mode 1002). Unlocks mouse text-selection, `SplitView` drag-resize, and drag-scroll for apps.
 - [ ] **Stretch — opt-in hover** (mode `1003`, behind `Program.withMouseMotion`) for hover highlights/tooltips; and small protocol niceties: underline color (`SGR 58`), the Kitty *associated-text* flag (16) so `CSI u` keys carry `Text`, and the Hyper/Meta/lock modifier bits.
 
-### 0.8.0 — Streaming performance · _planned_
+### 0.8.0 — Streaming performance · _done_
 
 The still-open performance tiers, pulled together because they're what an agent UI feels:
 
-- [ ] Frame coalescing / render throttling for streaming (Tier 12) — pairs with the agent-layer streaming helpers.
-- [ ] Text-wrap + grapheme-width caching (Tier 7, 16) — wrap/width is recomputed every frame; cache by `(string, width)`.
-- [ ] Append-only optimization for logs/transcripts (Tier 23).
+- [x] Frame coalescing / render throttling for streaming (Tier 12) — the runtime drains the whole message queue per loop iteration and renders **once**, throttled to ~30 FPS, so a streaming burst of N token messages costs N cheap `Update`s and a single render (rendering is decoupled from message rate). Documented in `Runtime.run`.
+- [x] Text-wrap + grapheme-width caching (Tier 7, 16) — `Grapheme.stringWidth` memoizes the non-ASCII (segmentation) path (ASCII keeps its allocation-free fast path); `ChatTranscript.blockHeight` memoizes a block's wrapped row height by `(wrapWidth, block)`. Both bounded.
+- [x] Append-only optimization for logs/transcripts (Tier 23) — `ChatTranscript.view` now measures every block from the height memo but only **renders** the blocks intersecting the viewport (was: render all to measure, discard off-screen), so a long, growing transcript costs O(visible) wrap/build work per frame, not O(all).
 
 ### 0.9.0 — Agent layer expansion · _planned_
 
@@ -225,10 +225,10 @@ Recommended order — each step names its extraction source in the demo:
 From `SPEC.md`'s optimization tiers. Do these _when they hurt_, not before.
 
 - [x] Tier 1–2: surface diffing + run-based output (baseline, done)
-- [ ] Frame coalescing / render throttling for streaming (Tier 12) — important for agent UIs
+- [x] Frame coalescing / render throttling for streaming (Tier 12) — the runtime drains the message queue per frame and renders once at ~30 FPS (0.8.0)
 - [x] Virtualized tables & transcript blocks (Tier 5–6) — `Table.view` windows its rows; `ChatTranscript.view` builds only the visible blocks
-- [ ] Text-wrap + grapheme-width caching (Tier 7, 16)
-- [ ] Append-only optimization for logs/transcripts (Tier 23)
+- [x] Text-wrap + grapheme-width caching (Tier 7, 16) — memoized `stringWidth` (non-ASCII) + `ChatTranscript.blockHeight` (0.8.0)
+- [x] Append-only optimization for logs/transcripts (Tier 23) — `ChatTranscript.view` renders only viewport-intersecting blocks, measuring the rest from the height memo (0.8.0)
 - [ ] Dirty-region / partial composition (Tier 3, 20) — only for large/remote surfaces
 
 ### Cross-cutting — Correctness ✅

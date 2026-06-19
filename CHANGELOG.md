@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- **Streaming-performance caches.** `Grapheme.stringWidth` memoizes its non-ASCII (UAX #29 segmentation) path (ASCII keeps the allocation-free fast path); `Mire.Agent.ChatTranscript.blockHeight` memoizes a block's wrapped row height by `(wrapWidth, block)`; and `ChatTranscript.view` now renders only the viewport-intersecting blocks while measuring the rest from that memo — so a long, streaming transcript costs O(visible) wrap/build work per frame instead of O(all). Both caches are bounded. (Frame coalescing — drain-the-queue, render once per ~30 FPS frame — was already structural; it's now documented in `Runtime.run`.)
 - **Mouse drag/motion (`MouseEvent.Moved`).** `parseMouseSgr` now decodes the SGR `0x20` motion bit into a new `Moved` flag on `MouseEvent`, so a drag (button-held motion, mode 1002) is distinguishable from a fresh click — the basis for mouse text-selection, drag-resize, and drag-scroll.
 - **Multi-event input decoding (`InputParser.parseAll`).** A single `read()` can return several input sequences back-to-back — a scroll-wheel or drag burst, fast typing, or queued escape sequences. `parseBytes` decodes only the first; the runtime now tokenizes the buffer into per-event byte spans (`parseAll`) and processes each in order, so bursts no longer collapse to one event (e.g. `ESC[A ESC[B` → both arrows; a 3-tick wheel burst → 3 scroll events). Bracketed pastes stay intact (decoded as a single span).
 

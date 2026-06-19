@@ -308,7 +308,12 @@ module Runtime =
                                     | Some msg -> sendMsg msg
                                     | None -> ()
 
-                    // Process messages
+                    // Process messages. The whole queue is drained per loop
+                    // iteration and the frame renders *once* afterwards (below),
+                    // throttled to ~30 FPS — so a streaming burst of N messages (e.g.
+                    // token chunks from a `Cmd.ofAsync`) costs N cheap `Update`s and a
+                    // single render, never N renders. That's the frame-coalescing
+                    // guarantee for streaming; rendering is decoupled from message rate.
                     let mutable hasMsgs = true
 
                     while hasMsgs do

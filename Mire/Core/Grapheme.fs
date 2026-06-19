@@ -117,8 +117,19 @@ module Grapheme =
             elif has 0xFE0E then 1
             else scalarWidth first
 
+    // Bounded memo for the *non-ASCII* width path (UAX #29 segmentation is the
+    // expensive part; ASCII keeps its allocation-free fast path and never caches).
+    // Width is a pure function of the string, so the cache can't go stale. Bounded
+    // so a transcript of unique non-ASCII lines can't grow it without limit.
+    let private widthCache = System.Collections.Concurrent.ConcurrentDictionary<string, int>()
+    let private widthCacheCap = 8192
+
+    /// Test/diagnostic hook: how many distinct non-ASCII strings are memoized.
+    let widthCacheSize () = widthCache.Count
+
     /// Total display width of a string, measured by grapheme cluster. Falls back to
-    /// the length for pure-ASCII text (the common case), which avoids segmentation.
+    /// the length for pure-ASCII text (the common case), which avoids segmentation;
+    /// non-ASCII widths are memoized (bounded) since segmentation is the hot cost.
     let stringWidth (s: string) : int =
         let mutable ascii = true
 
@@ -129,4 +140,13 @@ module Grapheme =
         if ascii then
             s.Length
         else
-            clusters s |> List.sumBy clusterWidth
+            match widthCache.TryGetValue s with
+            | true, w -> w
+            | _ ->
+                let w = clusters s |> List.sumBy clusterWidth
+                // Stop inserting past the cap (a simple bound; correctness is
+                // unaffected — uncached strings just recompute).
+                if widthCache.Count < widthCacheCap then
+                    widthCache.[s] <- w
+
+                w

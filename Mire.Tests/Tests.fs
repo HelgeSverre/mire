@@ -63,6 +63,20 @@ let graphemeTests =
               // a text selector must NOT narrow an inherently-wide CJK ideograph
               Expect.equal (Grapheme.clusterWidth "世︎") 2 "CJK + VS15 stays width 2 (wide base wins)"
           }
+          test "stringWidth memoizes the non-ASCII path (correct + cached)" {
+              let s = "世界★Ω一二三" // unique non-ASCII string
+              let before = Grapheme.widthCacheSize ()
+              let w1 = Grapheme.stringWidth s
+              let w2 = Grapheme.stringWidth s // served from the cache
+              Expect.equal w1 w2 "cached call agrees with the first"
+              Expect.equal w1 (Grapheme.clusters s |> List.sumBy Grapheme.clusterWidth) "memoized width equals the direct measure"
+              Expect.isTrue (Grapheme.widthCacheSize () > before) "the non-ASCII string was memoized"
+          }
+          test "stringWidth ASCII stays on the fast path (never cached)" {
+              let before = Grapheme.widthCacheSize ()
+              Grapheme.stringWidth "plain ascii label" |> ignore
+              Expect.equal (Grapheme.widthCacheSize ()) before "ASCII text doesn't touch the cache"
+          }
           test "base + combining mark is one cell" {
               Expect.equal (Grapheme.stringWidth "é") 1 "é (e + combining acute) is one cell"
           } ]
@@ -2206,6 +2220,16 @@ let chatTranscriptTests =
               let whole = String.concat "\n" [ for y in 0 .. vp - 1 -> rowText s y ]
               Expect.stringContains whole "msg19" "following the tail shows the newest message"
               Expect.isFalse (whole.Contains "msg00") "the first message has scrolled off the top"
+          }
+          test "blockHeight is memoized and agrees with a direct measure" {
+              let b = AssistantMd "a paragraph that wraps across a couple of rows here"
+              let direct = Layout.contentExtent Direction.Vertical (ChatTranscript.renderBlock theme w 0 b)
+              let before = ChatTranscript.heightCacheSize ()
+              let h1 = ChatTranscript.blockHeight theme w 0 b
+              let h2 = ChatTranscript.blockHeight theme w 0 b // cache hit
+              Expect.equal h1 direct "memoized height equals the layout's own contentExtent"
+              Expect.equal h2 h1 "second lookup agrees"
+              Expect.isTrue (ChatTranscript.heightCacheSize () > before) "the (width, block) height was memoized"
           } ]
 
 // Mire.Agent PromptBox (history + completion token) -------------------------
