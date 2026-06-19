@@ -12,6 +12,26 @@ let private t = AppTheme.defaultTheme
 let private buf text cursor anchor : TextBuffer =
     { Text = text; Cursor = cursor; Anchor = anchor }
 
+// The custom widget from the "build your own widget" tutorial — a sparkline.
+let private sparkBars = [| "▁"; "▂"; "▃"; "▄"; "▅"; "▆"; "▇"; "█" |]
+
+let private sparkline (style: Style) (values: float list) : LayoutNode<unit> =
+    match values with
+    | [] -> Text.text " " style
+    | _ ->
+        let lo = List.min values
+        let hi = List.max values
+        let span = hi - lo
+
+        let glyph v =
+            if span <= 0.0 then
+                sparkBars.[sparkBars.Length / 2]
+            else
+                let i = int ((v - lo) / span * float (sparkBars.Length - 1) + 0.5)
+                sparkBars.[max 0 (min (sparkBars.Length - 1) i)]
+
+        values |> List.map glyph |> String.concat "" |> fun s -> Text.text s style
+
 // Each scene: file name, window title, surface (w, h), and the node to render —
 // the real widgets, laid out through the real engine, on the default brand theme.
 let private scenes: (string * string * int * int * LayoutNode<unit>) list =
@@ -160,6 +180,16 @@ let private scenes: (string * string * int * int * LayoutNode<unit>) list =
       22,
       8,
       ImagePreview.render 20 7 t.border t.fgMuted "logo.png" (Some(640, 480))
+
+      "sparkline",
+      "Sparkline (custom widget)",
+      28,
+      5,
+      Box.panel
+          "metrics"
+          t.border
+          [ Stack.hstack [ Text.text "cpu " t.fgMuted; sparkline t.accent [ 2.0; 4.0; 3.0; 6.0; 5.0; 8.0; 7.0; 9.0; 6.0; 4.0 ] ]
+            Stack.hstack [ Text.text "mem " t.fgMuted; sparkline t.success [ 5.0; 5.0; 6.0; 6.0; 7.0; 7.0; 8.0; 8.0; 9.0; 9.0 ] ] ]
 
       "transcript",
       "ChatTranscript (Mire.Agent)",

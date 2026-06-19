@@ -63,7 +63,7 @@ let mapInput (e: InputEvent) : Msg option =
 
 [<EntryPoint>]
 let main _ =
-    Program.mkProgram init update view
+    Program.create init update view
     |> Program.withMapInput mapInput
     |> Runtime.run
 

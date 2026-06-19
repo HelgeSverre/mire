@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- **`Program.mkProgram` is now `Program.create`** — a clearer, action-first name that reads `Program.create init update view`. `Program.mkProgram` stays as a source-compatible alias, so existing code keeps working.
+
+### Fixed
+
+- **Selected table-row highlight now spans colored columns.** A `Table.view` selected row drew each column in its own style, so a colored cell punched a hole in the highlight (and a column foreground matching the inverse-video selection background vanished). The selected row is now drawn uniformly in the selection style via the new `Backdrop.recolor`.
+
 ## [0.5.0] - 2026-06-18
 
 The agent layer plus a round of framework completeness: text selection & soft-wrap,

@@ -31,7 +31,7 @@ routing, input normalization, and terminal-protocol control.
 
 ## Building a Program
 
-Start with `Program.mkProgram init update view`, then compose opt-in behavior with
+Start with `Program.create init update view`, then compose opt-in behavior with
 the `with*` builders (each returns a new `Program`):
 
 | Builder | Purpose |
@@ -45,7 +45,7 @@ the `with*` builders (each returns a new `Program`):
 | `withMouseRegion (RegionId option -> MouseEvent -> 'msg option)` | Route mouse events via the retained region table (see [Input](input.md#mouse-hit-testing)). |
 
 ```fsharp
-Program.mkProgram init update view
+Program.create init update view
 |> Program.withMapInput mapInput
 |> Program.withSubscriptions subscriptions
 |> Runtime.run

@@ -102,7 +102,10 @@ type Program<'model, 'msg> =
     }
 
 module Program =
-    let mkProgram
+    /// Create a program from the three core functions. Compose the optional behavior
+    /// (input, subscriptions, quit policy, …) with the `with*` builders, then hand it
+    /// to `Runtime.run`.
+    let create
         (init: unit -> 'model * Cmd<'msg>)
         (update: 'msg -> 'model -> 'model * Cmd<'msg>)
         (view: 'model -> LayoutNode<'msg>)
@@ -121,6 +124,10 @@ module Program =
           KeyReleases = false
           ThemeNotifications = false
           OnMouseRegion = fun _ _ -> None }
+
+    /// Former name of `create`, kept as an alias for source compatibility. Prefer
+    /// `Program.create`.
+    let mkProgram = create
 
     let withMapInput (f: InputEvent -> 'msg option) (program: Program<'model, 'msg>) = { program with MapInput = f }
 

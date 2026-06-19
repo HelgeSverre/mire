@@ -38,7 +38,7 @@ let update Increment model = model + 1, Cmd.none
 let view model = Text.text (sprintf "count: %d" model) Style.text
 let mapInput _ = Some Increment   // InputEvent -> 'msg option; here every key counts
 
-Program.mkProgram init update view
+Program.create init update view
 |> Program.withMapInput mapInput
 |> Runtime.run
 ```

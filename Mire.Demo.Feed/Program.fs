@@ -899,7 +899,7 @@ let main argv =
         runDump ()
         0
     else
-        Program.mkProgram init update view
+        Program.create init update view
         |> Program.withMapInput mapInput
         |> Program.withSubscriptions subscriptions
         |> Runtime.run

@@ -1866,7 +1866,7 @@ let cmdQuitTests =
           }
           test "QuitOn is a default-but-overridable policy (Ctrl+C by default)" {
               let prog =
-                  Program.mkProgram (fun () -> 0, Cmd.none) (fun (_: int) (m: int) -> m, Cmd.none) (fun _ ->
+                  Program.create (fun () -> 0, Cmd.none) (fun (_: int) (m: int) -> m, Cmd.none) (fun _ ->
                       LayoutNode.Empty)
 
               let key (c: string) (ctrl: bool) : InputEvent =
@@ -2290,6 +2290,68 @@ let selectionTests =
               Expect.isTrue surf.[0, 0].Style.Background.IsNone "line 0: 'a' not selected"
           } ]
 
+// Custom widget (the "build your own widget" tutorial) — a sparkline. Verifies the
+// exact code the tutorial documents renders the glyphs it claims.
+module SampleWidgets =
+    open Mire.Core
+
+    /// Eight block heights, low to high.
+    let private bars = [| "▁"; "▂"; "▃"; "▄"; "▅"; "▆"; "▇"; "█" |]
+
+    /// A one-line bar chart of `values`, drawn in `style`. A pure function of its
+    /// inputs that returns a `LayoutNode` — that's all a widget is.
+    let sparkline (style: Style) (values: float list) : LayoutNode<'msg> =
+        match values with
+        | [] -> Mire.Widgets.Text.text " " style
+        | _ ->
+            let lo = List.min values
+            let hi = List.max values
+            let span = hi - lo
+
+            let glyph v =
+                if span <= 0.0 then
+                    bars.[bars.Length / 2] // flat series → mid bar
+                else
+                    let t = (v - lo) / span // 0.0 .. 1.0
+                    let i = int (t * float (bars.Length - 1) + 0.5)
+                    bars.[max 0 (min (bars.Length - 1) i)]
+
+            values |> List.map glyph |> String.concat "" |> fun s -> Mire.Widgets.Text.text s style
+
+let customWidgetTests =
+    let rowText (s: Surface) (y: int) =
+        String.concat "" [ for x in 0 .. s.Size.Width - 1 -> s.[x, y].Grapheme ]
+
+    testList
+        "CustomWidget"
+        [ test "sparkline maps the range low→high onto the eight bar glyphs" {
+              let node: LayoutNode<unit> =
+                  SampleWidgets.sparkline Style.Default [ 1.0; 2.0; 3.0; 4.0; 5.0; 6.0; 7.0; 8.0 ]
+
+              let surf = Surface(Size.Create(8, 1))
+              Layout.measure (Rect.Create(0, 0, 8, 1)) node |> Layout.render surf
+              Expect.equal (rowText surf 0) "▁▂▃▄▅▆▇█" "ascending values render ascending bars"
+          }
+          test "sparkline draws the min as the lowest bar and the max as the highest" {
+              let node: LayoutNode<unit> =
+                  SampleWidgets.sparkline Style.Default [ 3.0; 9.0; 3.0 ]
+
+              let surf = Surface(Size.Create(3, 1))
+              Layout.measure (Rect.Create(0, 0, 3, 1)) node |> Layout.render surf
+              Expect.equal (rowText surf 0) "▁█▁" "min→▁, max→█"
+          }
+          test "sparkline handles empty and flat series safely" {
+              let empty: LayoutNode<unit> = SampleWidgets.sparkline Style.Default []
+              let s1 = Surface(Size.Create(4, 1))
+              Layout.measure (Rect.Create(0, 0, 4, 1)) empty |> Layout.render s1
+              Expect.equal (rowText s1 0) "    " "empty series renders a blank"
+
+              let flat: LayoutNode<unit> = SampleWidgets.sparkline Style.Default [ 5.0; 5.0; 5.0 ]
+              let s2 = Surface(Size.Create(3, 1))
+              Layout.measure (Rect.Create(0, 0, 3, 1)) flat |> Layout.render s2
+              Expect.equal (rowText s2 0) "▅▅▅" "a flat series renders a mid bar (no divide-by-zero)"
+          } ]
+
 [<Tests>]
 let all =
     testList
@@ -2320,4 +2382,5 @@ let all =
           chatTranscriptTests
           promptBoxTests
           selectionTests
+          customWidgetTests
           cmdQuitTests ]
