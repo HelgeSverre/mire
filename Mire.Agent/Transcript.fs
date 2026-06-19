@@ -4,8 +4,11 @@ open Mire.Core
 open Mire.Layout
 open Mire.Widgets
 
-/// Status of a tool call. (Named to avoid clashing with FSharp.Core's `Ok`.)
+/// Status of a tool call, in lifecycle order. (Named to avoid clashing with
+/// FSharp.Core's `Ok` and `DiffView`'s `HunkStatus.Pending`.) `Queued` = awaiting
+/// approval / not yet started.
 type ToolStatus =
+    | Queued
     | Running
     | Succeeded
     | Failed
@@ -39,12 +42,14 @@ module ChatTranscript =
     /// The glyph for a tool status at the given spinner tick.
     let statusGlyph (frame: int) (s: ToolStatus) =
         match s with
+        | Queued -> "○"
         | Running -> Spinner.frameOf Spinner.braille frame
         | Succeeded -> "✓"
         | Failed -> "✗"
 
     let statusStyle (theme: AppTheme) (s: ToolStatus) =
         match s with
+        | Queued -> theme.fgSubtle
         | Running -> theme.fgMuted
         | Succeeded -> theme.success
         | Failed -> theme.danger
@@ -101,6 +106,7 @@ module ChatTranscript =
         | ToolCall(name, cmd, status, meta, output) ->
             let statusText =
                 match status with
+                | Queued -> "○ queued"
                 | Running -> sprintf "%s running…" (statusGlyph frame Running)
                 | Succeeded -> sprintf "✓ %s" meta
                 | Failed -> sprintf "✗ %s" meta

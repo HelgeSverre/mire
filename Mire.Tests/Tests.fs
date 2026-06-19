@@ -2232,6 +2232,43 @@ let chatTranscriptTests =
               Expect.isTrue (ChatTranscript.heightCacheSize () > before) "the (width, block) height was memoized"
           } ]
 
+// Mire.Agent Conversation (message model + streaming + tool lifecycle) ------
+
+let conversationTests =
+    testList
+        "Conversation"
+        [ test "add assigns increasing ids and preserves order" {
+              let id0, c = Conversation.empty |> Conversation.add (UserMsg "hi")
+              let id1, c = c |> Conversation.add (AssistantMd "hello")
+              Expect.equal (id0, id1) (0, 1) "ids increase from 0"
+              Expect.equal (Conversation.blocks c) [ UserMsg "hi"; AssistantMd "hello" ] "blocks in insertion order"
+          }
+          test "streaming: startAssistant → appendText accumulates → finishStreaming clears the flag" {
+              let id, c = Conversation.empty |> Conversation.startAssistant
+              Expect.isTrue (Conversation.isStreaming c) "a started assistant message is streaming"
+              let c = c |> Conversation.appendText id "Hel" |> Conversation.appendText id "lo"
+              Expect.equal (Conversation.blocks c) [ AssistantMd "Hello" ] "chunks accumulate into the entry"
+              Expect.isTrue (Conversation.isStreaming c) "still streaming until finished"
+              let c = Conversation.finishStreaming id c
+              Expect.isFalse (Conversation.isStreaming c) "finishStreaming stops it"
+          }
+          test "appendText on a non-text id is a no-op" {
+              let id, c = Conversation.empty |> Conversation.addToolCall "shell" "ls" Running
+              let c2 = Conversation.appendText id "x" c
+              Expect.equal (Conversation.blocks c2) (Conversation.blocks c) "appending text to a tool call changes nothing"
+          }
+          test "tool lifecycle: addToolCall (Queued) → setTool Running → Succeeded with output" {
+              let id, c = Conversation.empty |> Conversation.addToolCall "shell" "cargo build" Queued
+              Expect.equal (Conversation.blocks c) [ ToolCall("shell", "cargo build", Queued, "", "") ] "starts Queued"
+              let c = Conversation.setTool id Running "" "" c
+              let c = Conversation.setTool id Succeeded "1.1s" "ok" c
+
+              Expect.equal
+                  (Conversation.blocks c)
+                  [ ToolCall("shell", "cargo build", Succeeded, "1.1s", "ok") ]
+                  "transitions to Succeeded, keeping name/command, setting meta/output"
+          } ]
+
 // Mire.Agent PromptBox (history + completion token) -------------------------
 
 let promptBoxTests =
@@ -2505,6 +2542,7 @@ let all =
           feedTests
           diffViewTests
           chatTranscriptTests
+          conversationTests
           promptBoxTests
           selectionTests
           customWidgetTests

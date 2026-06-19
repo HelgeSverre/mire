@@ -13,6 +13,7 @@
 
   <ItemGroup>
     <Compile Include="Transcript.fs" />
+    <Compile Include="Conversation.fs" />
     <Compile Include="PromptBox.fs" />
     <Compile Include="ApprovalModal.fs" />
     <Compile Include="DiffView.fs" />
