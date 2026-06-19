@@ -127,6 +127,10 @@ module Grapheme =
     /// Test/diagnostic hook: how many distinct non-ASCII strings are memoized.
     let widthCacheSize () = widthCache.Count
 
+    /// Test hook: is `s` in the width cache? (Race-free under parallel tests, unlike
+    /// observing `widthCacheSize` deltas against a shared global cache.)
+    let widthCacheContains (s: string) = widthCache.ContainsKey s
+
     /// Total display width of a string, measured by grapheme cluster. Falls back to
     /// the length for pure-ASCII text (the common case), which avoids segmentation;
     /// non-ASCII widths are memoized (bounded) since segmentation is the hot cost.

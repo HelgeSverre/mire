@@ -246,6 +246,11 @@ module ChatTranscript =
     /// Test/diagnostic hook: how many (wrapWidth, block) heights are memoized.
     let heightCacheSize () = heightCache.Count
 
+    /// Test hook: is `(wrapWidth, block)` memoized? Race-free under parallel tests
+    /// (unlike observing `heightCacheSize` deltas against a shared global cache).
+    let heightCacheContains (wrapWidth: int) (block: TranscriptBlock) =
+        heightCache.ContainsKey(struct (wrapWidth, block))
+
     /// One block's rendered row height — the exact `contentExtent` the layout uses,
     /// so scroll clamping matches what's drawn. Memoized by (wrapWidth, block).
     let blockHeight (theme: AppTheme) (wrapWidth: int) (frame: int) (b: TranscriptBlock) : int =
