@@ -232,7 +232,7 @@ let private mentionFiles =
       "README.md"
       "ROADMAP.md"
       "SPEC.md"
-      "DEMO-TODOS.md" ]
+      "CHANGELOG.md" ]
 
 let private mentionMatches (q: string) =
     let ql = q.ToLowerInvariant()

@@ -265,14 +265,14 @@ module Dummy =
                 [ PlanBlock
                       [ true, "HTML prototype"
                         true, "Shift+Tab decode"
-                        false, "AgentDemo project"
-                        false, "DEMO-TODOS.md"
+                        false, "agent layer"
+                        false, "CHANGELOG.md"
                         false, "docs" ] ]
         | "turn" ->
             AppendBlocks
                 [ Thinking "Plan: read the file, make the edit, rebuild, then summarize."
                   ToolCall("edit", "Program.fs", Succeeded, "+8 -2", "")
-                  AssistantMd "Done — added the **@mention** popup and rebuilt. See `Program.fs` and @DEMO-TODOS.md." ]
+                  AssistantMd "Done — added the **@mention** popup and rebuilt. See `Program.fs` and @CHANGELOG.md." ]
         | "usage"
         | "cost" ->
             AppendBlocks

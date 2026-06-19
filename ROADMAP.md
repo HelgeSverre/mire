@@ -200,8 +200,8 @@ Optional layer above `Mire.App`; the base framework must not depend on it.
 every component at the app level (transcript, tool-call / thinking / diff /
 table cards, prompt, palette, skill explorer, an MCP-manager overlay, toasts,
 approval modal). Extract each into `Mire.Agent`, then migrate the demo onto the
-extracted widget as the proof. `DEMO-TODOS.md` tracks the demo-side gaps;
-`prototype/agent-harness.html` (Alpine.js, brand-faithful) is the visual target.
+extracted widget as the proof. (Shipped in 0.5.0–0.7.0; the demo now routes its
+transcript/prompt/approval through `Mire.Agent`.)
 
 Recommended order — each step names its extraction source in the demo:
 
@@ -262,8 +262,8 @@ every push/PR; NuGet packaging with OIDC trusted publishing on `v*` releases.
 Things that work "well enough" today but have a sharp edge worth remembering:
 
 - **`Box` is single-child by design.** A `Box` renders one child filling its inner rect; passing multiple children overlaps them — flow is `Stack`'s job, so nest a `Stack` (the `panel`/`statusBar` helpers do this internally).
-- **Input decoding is feature-complete for the targeted terminals.** Keyboard (Kitty `CSI u` chords + press/repeat/release event types + private-use functional codepoints — keypad/F13–F35/media), mouse (SGR 1006), bracketed paste (reassembled across reads), and focus events all decode.
-- **Mouse motion / drag isn't distinguished** (next 0.7.0 slice). With mode 1002 a drag-with-button arrives with the SGR motion bit `0x20` set, but `parseMouseSgr` masks only the button/wheel bits, so a drag reports as a fresh `Pressed` click and `MouseEvent` has no `Moved` flag — blocking clean mouse text-selection / drag-resize / drag-scroll. (The earlier "one input event per read" gap is **fixed** — `InputParser.parseAll` now tokenizes a buffer into multiple events.)
+- **Input decoding is feature-complete for the targeted terminals.** Keyboard (Kitty `CSI u` chords + press/repeat/release event types + private-use functional codepoints — keypad/F13–F35/media), mouse (SGR 1006, incl. the drag-motion bit → `MouseEvent.Moved`), bracketed paste (reassembled across reads), and focus events all decode; `InputParser.parseAll` splits a buffer holding several sequences into per-event spans, and multi-byte UTF-8 keystrokes decode to a `Char`.
+- **Remaining input stretch items** (deferred, not bugs). No opt-in hover (mode 1003); the Kitty keyboard *alternate-keys* / *all-as-escape* / *associated-text* flags (4/8/16) aren't requested, so `CSI u` keys carry no `Text` (entry uses the legacy byte path); modifier bits beyond Super (Hyper/Caps/Num lock) and underline color (`SGR 58`) aren't decoded/emitted. See `docs/PROTOCOLS.md`.
 - **Wide-char / grapheme rendering.** Resolved — see Cross-cutting — Correctness above (continuation cells + UAX #29 clusters).
 - **Dead scaffolding.** `RegionId` is load-bearing (the `Mire.Layout.Focus` key _and_ the `LayoutNode.Focusable` region table). The `Region`/`RenderMode` record in `Core/Region.fs` (and its `ZIndex`/`Clip`/`RenderMode` fields) is still a forward declaration for full z-ordering — the runtime hit-tests a lighter `(RegionId * Rect)` list today, not the full `Region`. (The unused `tcgetattr`/`tcsetattr`/`ioctl` externs and the stale "For now, use Console APIs" comment in `TerminalMode` were removed.)
 - **Solution file is `Mire.slnx`** (modern XML format), not `Mire.sln`.
@@ -272,8 +272,9 @@ Things that work "well enough" today but have a sharp edge worth remembering:
 
 ## How to use this file
 
-1. Pick the next unchecked item — "What's next" at the top is the recommended
-   order.
+1. Pick the next unchecked item. Releases 0.4.0–0.7.0 have shipped; what remains is
+   the deferred stretch/perf items above and the **1.0 hardening** pass (API
+   review/freeze) — see the Release plan.
 2. Implement it; verify with `dotnet build Mire.slnx`, `dotnet run --project
 Mire.Tests`, and, for layout/render changes, `dotnet run --project
 Mire.Demo.Agent -- --dump`.
