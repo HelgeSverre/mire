@@ -17,6 +17,7 @@
     <Compile Include="PromptBox.fs" />
     <Compile Include="ApprovalModal.fs" />
     <Compile Include="DiffView.fs" />
+    <Compile Include="AgentShell.fs" />
   </ItemGroup>
 
   <ItemGroup>

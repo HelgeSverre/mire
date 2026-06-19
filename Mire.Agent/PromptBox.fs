@@ -153,6 +153,25 @@ module PromptBox =
         else
             None
 
+    /// The active completion, fully resolved: the token under the caret paired with
+    /// the candidate list the app's `source` returns for it — or `None` when there's
+    /// no trigger token or the source yields nothing. This folds the demo's
+    /// "find the token, then ask for candidates" glue into one call; the app supplies
+    /// the candidate `source` (its commands/files) and owns the popup's selected
+    /// index + placement (like `ListView`, key handling stays MVU-side). Accept a pick
+    /// with `acceptCompletion tok value`.
+    let completion
+        (triggers: char list)
+        (source: CompletionToken -> string list)
+        (p: PromptBox)
+        : (CompletionToken * string list) option =
+        match completionToken triggers p with
+        | Some tok ->
+            match source tok with
+            | [] -> None
+            | candidates -> Some(tok, candidates)
+        | None -> None
+
     /// Replace the token (from `tok.Start` to the caret) with `trigger + replacement`
     /// and a trailing space, leaving the caret after it — accepting a completion pick.
     let acceptCompletion (tok: CompletionToken) (replacement: string) (p: PromptBox) : PromptBox =

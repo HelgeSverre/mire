@@ -86,6 +86,62 @@ module ChatTranscript =
         | "error" -> theme.danger
         | _ -> theme.fg
 
+    // --- first-class block widgets ------------------------------------------
+    // The same renderings `renderBlock` produces, exposed as standalone widgets so
+    // they compose outside a transcript too (in a panel, a sidebar, an overlay).
+
+    /// A tool call: a bordered card with a `name · command` header, a right-aligned
+    /// status (spinner while `Running`), and any output lines below.
+    let toolCallView
+        (theme: AppTheme)
+        (frame: int)
+        (name: string)
+        (cmd: string)
+        (status: ToolStatus)
+        (meta: string)
+        (output: string)
+        : LayoutNode<'msg> =
+        let statusText =
+            match status with
+            | Queued -> "○ queued"
+            | Running -> sprintf "%s running…" (statusGlyph frame Running)
+            | Succeeded -> sprintf "✓ %s" meta
+            | Failed -> sprintf "✗ %s" meta
+
+        let header =
+            headerRow
+                (Text.text (sprintf "%s · %s" name cmd) theme.fgMuted)
+                (Text.text statusText (statusStyle theme status))
+
+        let outLines =
+            if output = "" then
+                []
+            else
+                output.Split('\n')
+                |> Array.toList
+                |> List.map (fun l -> Text.text l theme.fgSubtle)
+
+        card theme.border (header :: outLines)
+
+    /// A "thinking" card — italic, wrapped markdown.
+    let thinkingView (theme: AppTheme) (wrapWidth: int) (text: string) : LayoutNode<'msg> =
+        card
+            theme.border
+            [ Text.text "thinking" theme.fgSubtle
+              Markdown.wrap theme.markdown (wrapWidth - 2) (theme.fg.WithItalic(true)) text ]
+
+    /// A workspace file-tree card (static paths).
+    let fileTreeView (theme: AppTheme) (paths: string list) : LayoutNode<'msg> =
+        card theme.border (Text.text "workspace" theme.fgSubtle :: (paths |> List.map (fun p -> Text.text p theme.fgMuted)))
+
+    /// A task-timeline card — each task with its status glyph/colour (spinner while running).
+    let taskTimelineView (theme: AppTheme) (frame: int) (items: (string * ToolStatus) list) : LayoutNode<'msg> =
+        card
+            theme.border
+            (Text.text "tasks" theme.fgSubtle
+             :: (items
+                 |> List.map (fun (n, s) -> Text.text (sprintf " %s %s" (statusGlyph frame s) n) (statusStyle theme s))))
+
     /// Render one block to a Content-sized node. `wrapWidth` is the transcript
     /// inner width; `frame` drives the running-tool spinner.
     let renderBlock (theme: AppTheme) (wrapWidth: int) (frame: int) (block: TranscriptBlock) : LayoutNode<'msg> =
@@ -98,33 +154,8 @@ module ChatTranscript =
             Stack.vstack
                 [ Text.text "◆ assistant" theme.fgSubtle
                   Markdown.render theme.markdown wrapWidth s ]
-        | Thinking s ->
-            card
-                theme.border
-                [ Text.text "thinking" theme.fgSubtle
-                  Markdown.wrap theme.markdown (wrapWidth - 2) (theme.fg.WithItalic(true)) s ]
-        | ToolCall(name, cmd, status, meta, output) ->
-            let statusText =
-                match status with
-                | Queued -> "○ queued"
-                | Running -> sprintf "%s running…" (statusGlyph frame Running)
-                | Succeeded -> sprintf "✓ %s" meta
-                | Failed -> sprintf "✗ %s" meta
-
-            let header =
-                headerRow
-                    (Text.text (sprintf "%s · %s" name cmd) theme.fgMuted)
-                    (Text.text statusText (statusStyle theme status))
-
-            let outLines =
-                if output = "" then
-                    []
-                else
-                    output.Split('\n')
-                    |> Array.toList
-                    |> List.map (fun l -> Text.text l theme.fgSubtle)
-
-            card theme.border (header :: outLines)
+        | Thinking s -> thinkingView theme wrapWidth s
+        | ToolCall(name, cmd, status, meta, output) -> toolCallView theme frame name cmd status meta output
         | DiffBlock(file, lines) ->
             let body =
                 lines
@@ -179,18 +210,8 @@ module ChatTranscript =
                 toneStyle
                 [ Text.text "notice" toneStyle
                   Markdown.wrap theme.markdown (wrapWidth - 2) theme.fgMuted s ]
-        | FileTree paths ->
-            card
-                theme.border
-                (Text.text "workspace" theme.fgSubtle
-                 :: (paths |> List.map (fun p -> Text.text p theme.fgMuted)))
-        | TaskTimeline items ->
-            card
-                theme.border
-                (Text.text "tasks" theme.fgSubtle
-                 :: (items
-                     |> List.map (fun (n, s) ->
-                         Text.text (sprintf " %s %s" (statusGlyph frame s) n) (statusStyle theme s))))
+        | FileTree paths -> fileTreeView theme paths
+        | TaskTimeline items -> taskTimelineView theme frame items
         | PlanBlock steps ->
             card
                 theme.border

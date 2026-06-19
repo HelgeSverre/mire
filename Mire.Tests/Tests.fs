@@ -2230,6 +2230,15 @@ let chatTranscriptTests =
               Expect.equal h1 direct "memoized height equals the layout's own contentExtent"
               Expect.equal h2 h1 "second lookup agrees"
               Expect.isTrue (ChatTranscript.heightCacheSize () > before) "the (width, block) height was memoized"
+          }
+          test "first-class block widgets render standalone (outside a transcript)" {
+              let node: LayoutNode<unit> = ChatTranscript.toolCallView theme 0 "shell" "ls" Succeeded "0.1s" "done"
+              let s = Surface(Size.Create(40, 5))
+              Layout.measure (Rect.Create(0, 0, 40, 5)) node |> Layout.render s
+              let whole = String.concat "\n" [ for y in 0..4 -> rowText s y ]
+              Expect.stringContains whole "shell · ls" "the tool-call widget composes on its own"
+              Expect.stringContains whole "✓" "and shows its succeeded status"
+              Expect.stringContains whole "done" "and its output"
           } ]
 
 // Mire.Agent Conversation (message model + streaming + tool lifecycle) ------
@@ -2267,6 +2276,85 @@ let conversationTests =
                   (Conversation.blocks c)
                   [ ToolCall("shell", "cargo build", Succeeded, "1.1s", "ok") ]
                   "transitions to Succeeded, keeping name/command, setting meta/output"
+          } ]
+
+// Mire.Agent AgentShell (the program builder's pure update + helpers) -------
+
+let agentShellTests =
+    let cfg: ShellConfig =
+        { Theme = Mire.Widgets.AppTheme.defaultTheme
+          Title = "t"
+          Placeholder = "p"
+          OnSubmit =
+            fun text m ->
+                if text = "run" then
+                    AgentShell.requestApproval "danger" m, Cmd.none
+                else
+                    AgentShell.addAssistant ("re: " + text) m, Cmd.none
+          OnApprove =
+            fun ok _cmd m ->
+                (if ok then
+                     AgentShell.addAssistant "accepted" m
+                 else
+                     AgentShell.addNotice Mire.Widgets.AppTheme.Warning "denied" m),
+                Cmd.none }
+
+    let upd msg m = AgentShell.update cfg msg m |> fst
+    let m0 = fst (AgentShell.init cfg ())
+    let blocks (m: ShellModel) = Conversation.blocks m.Conversation
+
+    testList
+        "AgentShell"
+        [ test "submitting a line appends the user message, then runs OnSubmit" {
+              let m = { m0 with Prompt = PromptBox.ofString "hello" } |> upd Submit
+              Expect.equal (blocks m) [ UserMsg "hello"; AssistantMd "re: hello" ] "user turn + app's reply, in order"
+              Expect.equal (PromptBox.value m.Prompt) "" "the prompt is cleared on submit"
+          }
+          test "submitting `run` raises an approval (session → AwaitingApproval)" {
+              let m = { m0 with Prompt = PromptBox.ofString "run" } |> upd Submit
+              Expect.equal m.Approval (Some("danger", true)) "OnSubmit requested an approval (Accept focused)"
+              Expect.equal m.Session AwaitingApproval "session reflects the pending approval"
+          }
+          test "an empty submit is a no-op" {
+              let m = { m0 with Prompt = PromptBox.ofString "   " } |> upd Submit
+              Expect.isEmpty (blocks m) "blank input adds nothing"
+          }
+          test "ToggleButton flips the focused approval button" {
+              let m = upd ToggleButton { m0 with Approval = Some("x", true) }
+              Expect.equal m.Approval (Some("x", false)) "Accept→Deny focus"
+          }
+          test "accepting an approval clears it (session → Idle) and runs OnApprove" {
+              let m = upd Submit { m0 with Approval = Some("x", true); Session = AwaitingApproval }
+              Expect.equal m.Approval None "approval resolved"
+              Expect.equal m.Session Idle "back to idle"
+              Expect.equal (blocks m) [ AssistantMd "accepted" ] "OnApprove(true) ran"
+          }
+          test "Esc denies the approval through OnApprove" {
+              let m = upd EscKey { m0 with Approval = Some("x", true); Session = AwaitingApproval }
+              Expect.equal m.Approval None "approval dismissed"
+              Expect.equal (blocks m) [ Notice(Mire.Widgets.AppTheme.Warning, "denied") ] "OnApprove(false) ran"
+          }
+          test "the modal swallows editing while open" {
+              let before = { m0 with Approval = Some("x", true) }
+              let after = upd (Edit(Key { Key = Char "z"; Text = Some "z"; Modifiers = KeyModifiers.None; Repeat = false; EventType = Press })) before
+              Expect.equal (PromptBox.value after.Prompt) "" "keystrokes don't reach the prompt under the modal"
+          }
+          test "streaming helpers: startReply (Streaming) → stream → finishReply (Idle)" {
+              let id, m = AgentShell.startReply m0
+              Expect.equal m.Session Streaming "startReply enters the streaming phase"
+              let m = AgentShell.stream id "Hel" m |> AgentShell.stream id "lo"
+              Expect.equal (blocks m) [ AssistantMd "Hello" ] "chunks accumulate into the reply"
+              let m = AgentShell.finishReply id m
+              Expect.equal m.Session Idle "finishReply returns to idle"
+          }
+          test "mapInput routes the shell's keys" {
+              // ShellMsg carries a function case (Apply) so it has no equality — match instead.
+              let key k = Key { Key = k; Text = None; Modifiers = KeyModifiers.None; Repeat = false; EventType = Press }
+              let is f e = Expect.isTrue (match AgentShell.mapInput (key e) with Some m -> f m | None -> false)
+              is (function Submit -> true | _ -> false) Enter "Enter → Submit"
+              is (function EscKey -> true | _ -> false) Escape "Escape → EscKey"
+              is (function HistoryPrev -> true | _ -> false) ArrowUp "Up → history prev"
+              is (function HistoryNext -> true | _ -> false) ArrowDown "Down → history next"
           } ]
 
 // Mire.Agent PromptBox (history + completion token) -------------------------
@@ -2346,6 +2434,24 @@ let promptBoxTests =
               let p2 = PromptBox.acceptCompletion tok "Mire/Layout/Layout.fs" p
               Expect.equal (PromptBox.value p2) "see @Mire/Layout/Layout.fs " "token replaced, trailing space added"
               Expect.equal p2.Buffer.Cursor (PromptBox.value p2).Length "caret after the inserted mention"
+          }
+          test "completion resolves the token and its candidates from the app source" {
+              let source (tok: CompletionToken) =
+                  [ "alpha"; "beta"; "gamma" ] |> List.filter (fun c -> c.StartsWith tok.Query)
+
+              match PromptBox.completion [ '/' ] source (PromptBox.ofString "/be") with
+              | Some(tok, candidates) ->
+                  Expect.equal tok.Query "be" "the token under the caret is found"
+                  Expect.equal candidates [ "beta" ] "the source is queried and filtered for the popup"
+              | None -> failtest "expected an active completion"
+          }
+          test "completion is None when the source yields no candidates" {
+              Expect.isNone (PromptBox.completion [ '/' ] (fun _ -> []) (PromptBox.ofString "/zzz")) "no candidates → no popup"
+          }
+          test "completion is None when there's no trigger token under the caret" {
+              Expect.isNone
+                  (PromptBox.completion [ '/'; '@' ] (fun _ -> [ "x" ]) (PromptBox.ofString "plain text"))
+                  "no trigger → no popup, source not consulted for a pick"
           } ]
 
 // Text selection (TextBuffer anchor + TextEdit) -----------------------------
@@ -2543,6 +2649,7 @@ let all =
           diffViewTests
           chatTranscriptTests
           conversationTests
+          agentShellTests
           promptBoxTests
           selectionTests
           customWidgetTests

@@ -81,20 +81,17 @@ The still-open performance tiers, pulled together because they're what an agent 
 - [x] Text-wrap + grapheme-width caching (Tier 7, 16) — `Grapheme.stringWidth` memoizes the non-ASCII (segmentation) path (ASCII keeps its allocation-free fast path); `ChatTranscript.blockHeight` memoizes a block's wrapped row height by `(wrapWidth, block)`. Both bounded.
 - [x] Append-only optimization for logs/transcripts (Tier 23) — `ChatTranscript.view` now measures every block from the height memo but only **renders** the blocks intersecting the viewport (was: render all to measure, discard off-screen), so a long, growing transcript costs O(visible) wrap/build work per frame, not O(all).
 
-### 0.9.0 — Agent layer expansion · _planned_
+### 0.9.0 — Agent layer expansion · _done_
 
-`Mire.Agent` today is four chat widgets (`ChatTranscript`, `PromptBox`,
-`ApprovalModal`, `DiffView`) — thinner than the name promises. **Direction: expand it
-into a real agent-UI layer** (UI only — the framework never knows what an LLM is). This
-is a framework-touching cycle (App + Widgets + Agent) and earns the version bump. Slices,
-roughly in dependency order:
+`Mire.Agent` grew from four chat widgets into a real agent-UI layer (UI only — the
+framework never knows what an LLM is). Slices, in dependency order:
 
-- [ ] **Message + tool-call model** — a typed conversation model over `TranscriptBlock`: stable message ids, a tool-call lifecycle (`Pending → Running → Succeeded/Failed`, with args/result/duration), and streaming/partial state. Pure, testable.
-- [ ] **Streaming helpers** — append/stream tokens into the active assistant block and keep the tail followed (generalize `Mire.Demo.Agent`'s hand-rolled `Streaming`). Pairs with the perf "frame coalescing for streaming" item.
-- [ ] **First-class block widgets** — promote `ToolCallView` / `ThinkingBlock` / `FileTree` / `TaskTimeline` from `ChatTranscript`-only variants to composable widgets.
-- [ ] **`PromptBox` completion + history wired end-to-end** — fold the demo's slash/@-mention popup + history navigation into the widget (the pure pieces already exist: `completionToken`/`acceptCompletion`/`historyPrev`/`historyNext`).
-- [ ] **`agentShell` program builder** — the SPEC's headline: a builder that composes transcript + prompt + approvals + scroll/follow-tail + focus + key routing into a ready-made `Program`, parameterized by app callbacks (`onSubmit`, `onApprove`, …). Makes a working agent shell a few lines.
-- [ ] Session state machine (idle / streaming / awaiting-approval) as optional MVU glue, and a richer `samples/AgentShell` dogfooding all of the above.
+- [x] **Message + tool-call model** — `Mire.Agent.Conversation`: an ordered list of identified entries (stable `MessageId`) over `TranscriptBlock`, with a tool-call lifecycle (`Queued → Running → Succeeded/Failed`, via `addToolCall`/`setTool`) and streaming/partial state. Pure, tested.
+- [x] **Streaming helpers** — `Conversation.startAssistant`/`appendText`/`finishStreaming`/`isStreaming` append/stream tokens into the active assistant message; `AgentShell.startReply`/`stream`/`finishReply` wrap them with follow-tail. Pairs with the 0.8.0 frame-coalescing loop.
+- [x] **First-class block widgets** — `ChatTranscript.toolCallView`/`thinkingView`/`fileTreeView`/`taskTimelineView` are now standalone, composable widgets (renderBlock delegates to them); usable outside a transcript.
+- [x] **`PromptBox` completion + history wired end-to-end** — `PromptBox.completion triggers source` resolves the token under the caret *and* its candidate list in one call (history nav already shipped: `historyPrev`/`historyNext`). Selection index + popup placement stay app-owned MVU state, like `ListView`.
+- [x] **`AgentShell` program builder** — `AgentShell.program config` composes transcript + prompt + approvals + scroll/follow-tail + key routing + a spinner tick into a ready-made `Program<ShellModel, ShellMsg>`, parameterized by `OnSubmit`/`OnApprove` callbacks (+ model helpers `addUser`/`startReply`/`stream`/`requestApproval`/`addTool`/`setTool`). A working shell is a few lines.
+- [x] Session state machine (`Idle`/`Streaming`/`AwaitingApproval`) lives in `ShellModel.Session`; `samples/AgentShell` is rewritten on the builder and dogfoods streaming + approvals (`-- --dump` shows all three states).
 
 _(Naming was considered: keep `Mire.Agent` and grow into it, rather than renaming to `Mire.Chat`.)_
 
@@ -161,14 +158,16 @@ agent widgets are the (not-yet-created) `Mire.Agent` layer.
 | `Markdown`                        | ✅     | `Widgets.Markdown.render style width src` — line-oriented (NOT CommonMark): ATX headings, `>` quotes, `-`/`*`/ordered bullets, `---` rules, fenced code (light highlighting), inline emphasis/links; styled by a `MarkdownStyle` (optional `@mention`). Extracted from the AgentDemo.              |
 | `ImagePreview`                    | ✅     | `ImagePreview.render` draws the portable text fallback (bordered, captioned box with pixel dimensions) that lands in the cell grid on every terminal; on Kitty/Ghostty an app overlays the real pixels with `Cmd.kittyImage` (built on `Cmd.writeRaw` + `ANSI.kittyImage`, chunked per the protocol) positioned at the box. The framework never decodes images.                                                              |
 
-### Agent widgets — `Mire.Agent` (project not yet created)
+### Agent widgets — `Mire.Agent`
 
 | Widget           | Status | Notes                                                                 |
 | ---------------- | ------ | --------------------------------------------------------------------- |
-| `ChatTranscript` | ✅     | `ChatTranscript.{render,renderBlock}` over a `TranscriptBlock` list, styled by `AppTheme`. _Virtualization/follow-tail still app-side (the app owns the `ScrollView`)._ |
-| `PromptBox`      | ✅     | `PromptBox` over `TextBuffer`/`TextEdit` + `render` (block cursor, placeholder). _Slash/@mention completion + history still app-side._ |
-| `ToolCallView`   | ✅     | A `TranscriptBlock.ToolCall` (name + cmd + status glyph/spinner + output) rendered by `ChatTranscript`. _Collapsing is app-side._ |
-| `ThinkingBlock`  | ✅     | A `TranscriptBlock.Thinking` card rendered by `ChatTranscript`.       |
+| `Conversation`   | ✅     | Typed message model over `TranscriptBlock` — stable `MessageId`s, streaming (`startAssistant`/`appendText`/`finishStreaming`), tool lifecycle (`addToolCall`/`setTool`, `Queued→Running→Succeeded/Failed`). Pure; `blocks` bridges to `ChatTranscript`. |
+| `AgentShell`     | ✅     | `AgentShell.program config` — the ready-made shell `Program` (transcript + prompt + approvals + scroll/follow-tail + key routing + spinner + `Idle/Streaming/AwaitingApproval` session), parameterized by `OnSubmit`/`OnApprove`. `samples/AgentShell` is built on it. |
+| `ChatTranscript` | ✅     | `ChatTranscript.{view,render,renderBlock}` over a `TranscriptBlock` list, styled by `AppTheme`. `view` is virtualized + follow-tail (only viewport-intersecting blocks render; heights memoized). Block renderers (`toolCallView`/`thinkingView`/`fileTreeView`/`taskTimelineView`) are first-class standalone widgets. |
+| `PromptBox`      | ✅     | `PromptBox` over `TextBuffer`/`TextEdit` + `render`; submit-history (`historyPrev`/`historyNext`) and completion (`completion triggers source` resolves token + candidates) folded in. Popup selection/placement stays app-side MVU. |
+| `ToolCallView`   | ✅     | `ChatTranscript.toolCallView` — standalone (name + cmd + status glyph/spinner + output); also a `TranscriptBlock.ToolCall`. _Collapsing is app-side._ |
+| `ThinkingBlock`  | ✅     | `ChatTranscript.thinkingView` — standalone; also a `TranscriptBlock.Thinking` card.       |
 | `DiffView`       | ✅     | `DiffView.render` — a reviewable diff (`DiffHunk` list) in `Unified` **or** `Split` mode with per-hunk accept/reject markers (`HunkStatus`) + selection. Pure (app owns hunks/selection/status); `splitColumns`/`statusMark` are tested. The `agentShell` sample drives it interactively (`diff` command). (Unified is also a `TranscriptBlock.DiffBlock` in `ChatTranscript`.) |
 | `FileTree`       | ✅     | A `TranscriptBlock.FileTree` card via `ChatTranscript` (static paths). |
 | `TaskTimeline`   | ✅     | A `TranscriptBlock.TaskTimeline` card via `ChatTranscript`.           |
