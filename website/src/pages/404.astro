@@ -1,0 +1,17 @@
+---
+import Base from "../layouts/Base.astro";
+import Mark from "../components/Mark.astro";
+---
+
+<Base title="Not found" description="That page doesn't exist.">
+  <div class="notfound">
+    <Mark class="notfound__mark" label="Mire" />
+    <h1>404</h1>
+    <p>That page scrolled off the screen. Nothing was rendered here.</p>
+    <div class="btn-row" style="justify-content:center">
+      <a class="btn btn--primary" href="/">Home</a>
+      <a class="btn" href="/docs/">Documentation</a>
+      <a class="btn" href="/docs/reference/widgets/">Widgets</a>
+    </div>
+  </div>
+</Base>

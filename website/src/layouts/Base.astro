@@ -16,6 +16,8 @@ const fullTitle = title === "Mire" ? title : `${title} — Mire`;
 const desc =
   description ??
   "A retained-mode F# TUI runtime: Elmish for the terminal, with cell-diffed rendering, region-based layout, and raw input decoding.";
+const canonical = new URL(Astro.url.pathname, Astro.site).href;
+const ogImage = new URL("/og.png", Astro.site).href;
 ---
 
 <!doctype html>
@@ -27,10 +29,15 @@ const desc =
     <meta name="description" content={desc} />
     <meta name="theme-color" content="#1A8870" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="canonical" href={canonical} />
+    <link rel="sitemap" href="/sitemap-index.xml" />
     <meta property="og:title" content={fullTitle} />
     <meta property="og:description" content={desc} />
     <meta property="og:type" content="website" />
-    <meta name="twitter:card" content="summary" />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogImage} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content={ogImage} />
     {/* No-FOUC theme init: apply the saved choice before first paint. */}
     <script is:inline>
       (() => {
@@ -48,5 +55,37 @@ const desc =
       <slot />
     </main>
     <Footer />
+
+    {/* Copy-to-clipboard buttons on code blocks. */}
+    <script is:inline>
+      (() => {
+        for (const pre of document.querySelectorAll("pre.astro-code")) {
+          if (pre.closest(".code-wrap")) continue;
+          const code = pre.querySelector("code") || pre;
+          const text = code.innerText;
+          const wrap = document.createElement("div");
+          wrap.className = "code-wrap";
+          pre.parentNode.insertBefore(wrap, pre);
+          wrap.appendChild(pre);
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "copy-btn";
+          btn.setAttribute("aria-label", "Copy code");
+          btn.textContent = "copy";
+          btn.addEventListener("click", async () => {
+            try {
+              await navigator.clipboard.writeText(text);
+              btn.textContent = "copied";
+              btn.classList.add("is-copied");
+              setTimeout(() => {
+                btn.textContent = "copy";
+                btn.classList.remove("is-copied");
+              }, 1200);
+            } catch {}
+          });
+          wrap.appendChild(btn);
+        }
+      })();
+    </script>
   </body>
 </html>

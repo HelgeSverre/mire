@@ -1,7 +1,8 @@
 ---
 import { Code } from "astro:components";
 import Base from "../../../../layouts/Base.astro";
-import Sidebar from "../../../../components/Sidebar.astro";
+import WidgetSidebar from "../../../../components/WidgetSidebar.astro";
+import Toc from "../../../../components/Toc.astro";
 import { ALL_WIDGETS, widgetById } from "../../../../widgets-data";
 import { mireLight, mireDark } from "../../../../shiki-themes";
 
@@ -23,11 +24,19 @@ const shots = import.meta.glob("../../../../generated/shots/*.svg", {
 const svg = w.shot ? shots[`../../../../generated/shots/${w.shot}.svg`] : undefined;
 
 const codeThemes = { light: mireLight, dark: mireDark };
+
+const headings = [
+  { depth: 2, slug: "signature", text: "Signature" },
+  { depth: 2, slug: "parameters", text: "Parameters" },
+  ...(w.details ? [{ depth: 2, slug: "notes", text: "Notes" }] : []),
+  ...(w.example ? [{ depth: 2, slug: "example", text: "Example" }] : []),
+  ...(w.related && w.related.length > 0 ? [{ depth: 2, slug: "related", text: "Related" }] : []),
+];
 ---
 
 <Base title={`${w.title} — Widgets`} description={w.summary}>
   <div class="docs">
-    <Sidebar currentId="reference/widgets" />
+    <WidgetSidebar currentId={w.id} />
     <article class="docs__main">
       <p class="docs__kicker">
         <a href="/docs/reference/widgets/" style="color:inherit">Widgets</a> / {w.title}
@@ -116,5 +125,6 @@ const codeThemes = { light: mireLight, dark: mireDark };
         )}
       </nav>
     </article>
+    <Toc headings={headings} />
   </div>
 </Base>

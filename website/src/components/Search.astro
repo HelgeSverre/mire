@@ -1,0 +1,100 @@
+---
+// Site search. The index is built by Pagefind at the end of `pnpm build` (into
+// /pagefind/), and queried here via its JS API in a ⌘K modal. In dev (no index)
+// it degrades to a hint. data-pagefind-ignore keeps the modal out of the index.
+---
+
+<button class="search-btn" type="button" data-search-open aria-label="Search (Ctrl or Cmd + K)">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <circle cx="11" cy="11" r="7"></circle>
+    <path d="m21 21-4.3-4.3"></path>
+  </svg>
+  <span class="search-btn__label">Search</span>
+  <kbd class="search-btn__kbd">⌘K</kbd>
+</button>
+
+<div class="search-modal" id="search-modal" hidden data-pagefind-ignore>
+  <div class="search-panel" role="dialog" aria-modal="true" aria-label="Search">
+    <div class="search-field">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"></circle>
+        <path d="m21 21-4.3-4.3"></path>
+      </svg>
+      <input id="search-input" type="search" placeholder="Search the docs…" autocomplete="off" spellcheck="false" />
+      <kbd>esc</kbd>
+    </div>
+    <div class="search-results" id="search-results"></div>
+  </div>
+</div>
+
+<script is:inline>
+  (() => {
+    const modal = document.getElementById("search-modal");
+    const input = document.getElementById("search-input");
+    const results = document.getElementById("search-results");
+    if (!modal || !input || !results) return;
+    let pf = null;
+    let loading = false;
+
+    const load = async () => {
+      if (pf || loading) return;
+      loading = true;
+      try {
+        pf = await import("/pagefind/pagefind.js");
+        if (pf.init) await pf.init();
+      } catch {
+        results.innerHTML = '<p class="search-empty">Search is available on the built site.</p>';
+      }
+      loading = false;
+    };
+    const open = () => {
+      modal.hidden = false;
+      document.documentElement.style.overflow = "hidden";
+      input.focus();
+      load();
+    };
+    const close = () => {
+      modal.hidden = true;
+      document.documentElement.style.overflow = "";
+      input.value = "";
+      results.innerHTML = "";
+    };
+
+    document.querySelectorAll("[data-search-open]").forEach((b) => b.addEventListener("click", open));
+    document.addEventListener("keydown", (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        modal.hidden ? open() : close();
+      } else if (e.key === "Escape" && !modal.hidden) {
+        close();
+      }
+    });
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal) close();
+    });
+
+    const esc = (s) => (s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    let t;
+    input.addEventListener("input", () => {
+      clearTimeout(t);
+      t = setTimeout(async () => {
+        const q = input.value.trim();
+        if (!q || !pf) {
+          results.innerHTML = "";
+          return;
+        }
+        const search = await pf.search(q);
+        const top = await Promise.all(search.results.slice(0, 8).map((r) => r.data()));
+        results.innerHTML =
+          top
+            .map(
+              (d) =>
+                `<a class="search-result" href="${d.url}"><span class="search-result__title">${esc(
+                  (d.meta && d.meta.title) || d.url,
+                )}</span><span class="search-result__excerpt">${d.excerpt}</span></a>`,
+            )
+            .join("") || '<p class="search-empty">No results.</p>';
+      }, 140);
+    });
+  })();
+</script>

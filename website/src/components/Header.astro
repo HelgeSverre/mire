@@ -1,20 +1,23 @@
 ---
 import Mark from "./Mark.astro";
 import ThemeToggle from "./ThemeToggle.astro";
+import Search from "./Search.astro";
 
 const { pathname } = Astro.url;
-const isDocs = pathname.startsWith("/docs");
+const isWidgets = pathname.startsWith("/docs/reference/widgets");
+const isDocs = pathname.startsWith("/docs") && !isWidgets;
 ---
 
-<header class="site-header">
+<header class="site-header" data-pagefind-ignore>
   <div class="site-header__inner">
     <a href="/" class="wordmark" aria-label="Mire home">
       <Mark class="wordmark__mark" />
       <span>mire</span>
     </a>
+    <Search />
     <nav class="site-nav" aria-label="Primary">
       <a href="/docs/" aria-current={isDocs ? "true" : undefined}>Docs</a>
-      <a href="/docs/reference/widgets/">Widgets</a>
+      <a href="/docs/reference/widgets/" aria-current={isWidgets ? "true" : undefined}>Widgets</a>
       <a href="https://github.com/HelgeSverre/mire">GitHub</a>
       <a href="https://www.nuget.org/packages/Mire">NuGet</a>
       <ThemeToggle />

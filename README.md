@@ -1,177 +1,135 @@
 # Mire
 
-A small, composable F# runtime for building **modern terminal UIs** — coding agents, chat interfaces, log/diff viewers, command palettes, dashboards. Think Elmish/TEA, but with the terminal as the platform: cell-diffed rendering, region-based layout, raw input decoding, and direct control over the terminal protocol.
+> Elmish for the terminal — build modern TUIs in F# with cell-diffed rendering, region-based layout, and raw input decoding.
 
-<!-- Links in this file are absolute so they resolve on the NuGet listing page too. -->
+Mire is a small, composable runtime for terminal UIs: coding agents, chat interfaces, log and diff viewers, command palettes, dashboards. You write `update` and `view`; Mire owns the loop, the layout, the input, and the terminal protocol.
 
-Mire is **opinionated about its target**. It assumes a modern, Kitty-compatible terminal (Ghostty first) and uses truecolor, the alternate screen, the Kitty keyboard protocol, bracketed paste, mouse tracking, OSC 8 hyperlinks, and synchronized output. There is intentionally no support for legacy consoles, 16-color fallbacks, or "works over every SSH/tmux setup ever."
+It targets **modern, Kitty-compatible terminals** (Ghostty first) and **.NET 10**. There is no 16-color fallback and no legacy-console support — that is a deliberate choice, not a gap.
 
-> **Status: 0.5.0 — core framework + the agent layer.** The runtime, rendering pipeline, layout engine, and a complete base-widget library (virtualized lists & tables, a fuzzy command palette, cursor-anchored completion, single- and multi-line text editing with selection and soft-wrap, split views, tooltips, progress bars, spinners, tabs, toggles, markdown, overlay positioning + modals, toasts, a scrollview, a keyboard focus manager, an image-preview widget, plus separators/badges/key-hints). Full keyboard/mouse/paste/focus input decoding, true grapheme-cluster widths, OSC 8 links, OSC 52 clipboard, Kitty graphics, light/dark theme notifications, and runtime mouse hit-testing → focus. The agent-domain layer (**`Mire.Agent`**) now ships `ChatTranscript`, `PromptBox` (history + completion), `ApprovalModal`, and `DiffView`, composed by the `samples/AgentShell` MVP. New to Mire? Start with the **[user guide](docs/guide/README.md)**.
+<!-- Links are absolute so they resolve on the NuGet listing too. -->
 
-## Installation
+**Status: 0.5.0** — the core framework and the optional agent layer, published on NuGet. Pre-1.0, so pin an exact version. See [what's included](#whats-included).
 
-Mire ships as a single [NuGet](https://www.nuget.org/packages/Mire) package targeting `net10.0`:
+## Install
 
 ```sh
 dotnet add package Mire
 ```
 
-Or as a `<PackageReference>` in your `.fsproj`:
-
 ```xml
 <PackageReference Include="Mire" Version="0.5.0" />
 ```
 
-> `0.5.0` is the current release on nuget.org, published via the tagged-release
-> workflow. (Pin an exact version — the API still moves between minors, pre-1.0.)
+## A taste
 
-A minimal app — wire an Elmish `Program` and hand it to `Runtime.run` (see `Mire.Demo.Agent` for a complete one):
+A counter, start to finish:
 
 ```fsharp
-open Mire.Widgets
-open Mire.App
+open Mire.Core      // InputEvent, Key
+open Mire.Widgets   // Text, Stack, Style
+open Mire.App       // Cmd, Program, Runtime
 
-type Msg = Increment
+type Msg = Increment | Decrement
 
 let init () = 0, Cmd.none
-let update Increment model = model + 1, Cmd.none
+
+let update msg model =
+    match msg with
+    | Increment -> model + 1, Cmd.none
+    | Decrement -> model - 1, Cmd.none
+
 let view model = Text.text (sprintf "count: %d" model) Style.text
-let mapInput _ = Some Increment   // InputEvent -> 'msg option; here every key counts
+
+let mapInput e =
+    match e with
+    | Key ke ->
+        match ke.Key with
+        | ArrowUp -> Some Increment
+        | ArrowDown -> Some Decrement
+        | _ -> None
+    | _ -> None
 
 Program.create init update view
 |> Program.withMapInput mapInput
 |> Runtime.run
 ```
 
-> **Pre-1.0:** the public API still moves between minor versions — pin an exact version. Mire targets modern Kitty-compatible terminals only (see below); it is not a `System.Console` drop-in.
+That's the whole shape — a model, an `update`, a `view`, and a `mapInput`. Everything else builds on it.
 
-## Quick start
+## How it works
 
-Requires the **.NET 10 SDK** (`dotnet --version` should report `10.x`).
-
-A `justfile` wraps the common commands (`just build`, `just test`, `just run`, `just dump`, `just format`); the raw `dotnet` invocations:
-
-```sh
-# Build everything
-dotnet build Mire.slnx
-
-# Demos — each takes over the alternate screen; Ctrl+C quits
-dotnet run --project Mire.Demo.Agent        # an agent-shell testbed (not wired to an LLM)
-dotnet run --project Mire.Demo.Feed         # a multi-feed RSS reader
-dotnet run --project Mire.Demo.Spreadsheet  # an A1 grid + formula engine
-dotnet run --project samples/AgentShell     # the Mire.Agent MVP — a minimal agent shell
-dotnet run --project samples/Gallery        # the widget gallery — every widget in its states
-
-# Verify layout headlessly — prints sample layouts as text, no raw mode
-dotnet run --project Mire.Demo.Agent -- --dump
-dotnet run --project Mire.Demo.Feed -- --dump
-dotnet run --project samples/Gallery -- --dump
-
-# Run the test suite (Expecto)
-dotnet run --project Mire.Tests
-```
-
-- **Mire.Demo.Agent** (agent shell): the comprehensive/canonical showcase demo. Type a command and press Enter — try `markdown`, `stream:long`, `tool:run`, `diff`, `permission`, or `help`. `Ctrl+P` command palette, `Ctrl+O` skill explorer, `Shift+Tab` switches mode, `Esc` closes overlays. A `Dummy` module supplies canned responses; what's real vs. faked is in [`DEMO-TODOS.md`](https://github.com/HelgeSverre/mire/blob/main/DEMO-TODOS.md), and [`prototype/agent-harness.html`](https://github.com/HelgeSverre/mire/blob/main/prototype/agent-harness.html) is a visual design reference.
-- **Mire.Demo.Feed** (RSS reader): a managed feed list merged into one newest-first stream, two panes + a per-feed filter, async loading. The first app migrated to the framework's `Focus` manager.
-- **Mire.Demo.Spreadsheet** (spreadsheet): a 26×100 A1 grid with in-cell editing (`TextBuffer` + `Input`), formula references, and a small engine (`=B2*C2`, `=SUM(A1:A3)`, …).
-
-## The model
-
-Mire follows The Elm Architecture, adapted for terminal realities. You describe your app as a `Program`:
-
-```fsharp
-type Program<'model, 'msg> =
-    { Init:          unit -> 'model * Cmd<'msg>
-      Update:        'msg -> 'model -> 'model * Cmd<'msg>
-      View:          'model -> LayoutNode<'msg>
-      MapInput:      InputEvent -> 'msg option
-      Subscriptions: 'model -> Sub<'msg> list }
-```
-
-`Runtime.run` (in `Mire.App`) drives the loop at ~30 FPS: read input → decode to an `InputEvent` → `MapInput` to a message → `Update` the model → build the `View` → lay it out onto a `Surface` → diff against the previous frame → write only the changed cell runs to the terminal.
+Mire follows The Elm Architecture, adapted for the terminal. Each frame, `Runtime.run` does:
 
 ```
-model → view tree → layout → surface → diff → terminal
+read input → decode → map to a message → update the model
+           → build the view → lay it out → diff against the last frame
+           → write only the cells that changed
 ```
 
-The difference from web UI: there is no browser. Mire _is_ the browser — it owns layout, scroll state, focus routing, input normalization, and terminal protocol control as first-class concerns.
+The `view` is a pure description of the screen. You rebuild the whole tree every frame; the diff makes that cheap. There is no browser — Mire owns layout, scroll state, focus, input decoding, and terminal-protocol control as first-class concerns.
 
-## Architecture
+## What's included
 
-Five projects (`Mire.slnx`): the framework, three demo exes, and the test project.
+**Layout** — `Stack`, `Dock`, `Box`, `Scroll`, `Overlay`, and 9-point `Positioned`, with cell / fraction / content / fill sizing.
 
-| Project                   | Depends on | What it holds                                                                              |
-| ------------------------- | ---------- | ------------------------------------------------------------------------------------------ |
-| **Mire**                  | —          | The framework, one assembly layered by folder (below).                                     |
-| **Mire.Demo.Agent**       | Mire       | Agent-shell testbed (`Exe`); the comprehensive/canonical showcase demo, agent-domain UI built at the app level, not in the framework. |
-| **Mire.Demo.Feed**        | Mire       | Multi-feed RSS reader (`Exe`); first adopter of the `Focus` manager.                       |
-| **Mire.Demo.Spreadsheet** | Mire       | A1 grid + formula engine (`Exe`).                                                          |
-| **Mire.Tests**            | Mire       | [Expecto](https://github.com/haf/expecto) tests for the pure functions.        |
+**Widgets** — virtualized `ListView` and `Table`, a fuzzy `CommandPalette`, `Completion`, `Modal`, `Toast`, `Tooltip`, `ScrollView`, `Tabs`, `Toggle`, `ProgressBar`, `Spinner`, `SplitView`, `StatusBar`, `Markdown`, `ImagePreview`, and `Separator` / `Badge` / `KeyHint`.
 
-The framework is a single assembly organized by folder; the folder order is the layering, enforced by the `<Compile>` order in `Mire/Mire.fsproj`. Each folder is also its namespace, so you still `open Mire.Layout`, `open Mire.Widgets`, etc.
+**Text editing** — a pure `TextBuffer` (cursor, selection, word/line motions) and an overridable `TextEdit` keymap, rendered by single-line `Input` and soft-wrapping `TextArea`.
 
-| Folder (namespace) | Depends on                       | What it holds                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| ------------------ | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Mire/Core**      | —                                | Pure value types: `Point`, `Size`, `Rect`, `Color`, `Style`, `Cell`, `Region`/`RegionId`, `Grapheme`, `TextBuffer`, and input events. All structs / immutable records.                                                                                                                                                                                                                                                                                           |
-| **Mire/Protocol**  | Core                             | `ANSI` escape sequence strings; `TerminalMode` (raw mode setup via `stty` + libc `poll`/`read`); `InputParser` (raw bytes → `InputEvent`).                                                                                                                                                                                                                                                                                                                       |
-| **Mire/Renderer**  | Core, Protocol                   | `Surface` (a `Width × Height` grid of `Cell`s with drawing primitives) and `Diff` (computes minimal `DiffRun`s between two surfaces and writes them out).                                                                                                                                                                                                                                                                                                        |
-| **Mire/Layout**    | Core, Renderer                   | `LayoutNode<'msg>` tree (`Dock`, `Stack`, `Box`, `Text`, `Filled`, `Scroll`, `Overlay`, `Positioned`) + `measure`/`render`, and `Focus` (a pure keyboard focus ring + modal trap).                                                                                                                                                                                                                                                                               |
-| **Mire/Widgets**   | Core, Layout                     | Convenience widgets: `Text`, `Box`/`Panel`, `StatusBar`, `Stack`/`Dock`/`Spacer`/`Backdrop` helpers, virtualized `ListView` and `Table`, `Input` (single-line over `TextBuffer`), `TextArea` (multi-line), `Overlay`/`Modal`, `Toast`, `ScrollView`, `CommandPalette`, `Completion`, `SplitView`, `Tooltip`, `Spinner`, `ProgressBar`, `Tabs`, `Toggle`, `Separator`/`Badge`/`KeyHint`, `Markdown` (with `MarkdownStyle`), and `AppTheme` (swappable style set). |
-| **Mire/App**       | Core, Protocol, Renderer, Layout | The runtime: `Cmd<'msg>`, `Sub<'msg>`, `Program<'model,'msg>`, `Program` builders, and `Runtime.run`.                                                                                                                                                                                                                                                                                                                                                            |
+**Input** — the Kitty keyboard protocol (chords, press/repeat/release, keypad/F-keys), SGR mouse, bracketed paste, focus events, and light/dark theme notifications — all decoded for you.
 
-The layering is deliberate: **Core** is pure types, **Protocol** is terminal I/O, **Renderer** turns a virtual screen into a terminal diff, **Layout** turns a node tree into positioned draw calls, and **App** ties it together with an Elmish loop. The widget layer sits on Layout; an (optional) agent-domain layer would sit on top in the design — the base framework should never need to know what an LLM is. It's one assembly today because the whole framework is ~3.5k lines; the folder seams (and `<Compile>` order) keep the layering honest without six `.fsproj` files of ceremony.
+**Rendering** — truecolor, synchronized output, true grapheme-cluster widths (astral, emoji-ZWJ, flags), OSC 8 links, OSC 52 clipboard, and the Kitty graphics protocol.
 
-## What modern-terminal support means here
-
-`Mire.Protocol.ANSI` and the runtime's setup/teardown opt into:
-
-- Alternate screen (`?1049h`) and synchronized output (`?2026h`)
-- Truecolor foreground/background (`38;2` / `48;2`)
-- Kitty keyboard protocol with event-type reporting (`>3u`) — modifier chords plus press/repeat/release (releases are dropped unless an app opts in via `Program.withKeyReleases`)
-- Mouse tracking (`?1002` / `?1006`) and focus events (`?1004`)
-- Bracketed paste (`?2004`), reassembled across reads
-- Underline styles beyond single (double, curly, dotted, dashed)
-- OSC 8 hyperlinks — `Style.WithLink url` makes a run clickable (the `Diff` writer brackets it); `Markdown` links carry their real URL
-- OSC 52 clipboard — `Cmd.setClipboard text` copies to the system clipboard
-
-## Current status
-
-This repo is a working foundation — the 0.4.0 core widget layer. What works today:
-
-- ✅ Core value types, color/style → ANSI, cell model, grapheme-cluster-aware widths
-- ✅ Raw-mode terminal setup; byte-level input decoding — keys (incl. Kitty `CSI u` chords + press/repeat/release event types + legacy fallbacks), **mouse (SGR 1006), bracketed paste (reassembled across reads), and focus events**
-- ✅ OSC 8 hyperlinks (`Style.WithLink`, emitted by `Diff`) and OSC 52 clipboard (`Cmd.setClipboard`)
-- ✅ `Surface` drawing primitives + frame-to-frame `Diff`, bracketed in synchronized output (`?2026`)
-- ✅ Layout: `Dock`, `Stack`, `Box`, `Filled`, `Scroll`, `Overlay`, and `Positioned` (9-point placement) — `measure`/`render` with `Cells`/`Fraction`/`Content`/`Fill` sizing
-- ✅ Elmish `Runtime.run` (commands, subscriptions, resize, `Cmd.quit`) + the `Program` builder API
-- ✅ Widgets: virtualized `ListView` + `Table` (sticky header, windowed rows, single/multi-select), `CommandPalette` (fuzzy), `Completion` (cursor-anchored), `Input` (over `TextBuffer`), `Modal` + `Overlay` positioning, `Toast`, `ScrollView` (with scrollbar), `StatusBar`, `Separator`/`Badge`/`KeyHint`, `Backdrop`, flex `Spacer`
-- ✅ A keyboard **`Focus` manager** — a tab-order ring + a modal focus-trap stack, dogfooded in `Mire.Demo.Feed`
-- ✅ Headless `--dump` mode and the Expecto suite
-- ✅ **`AppTheme`** record — a swappable theme set; **`AppTheme.defaultTheme` is the Mire brand** (emerald accent, neutral hierarchy, inverse-video selection), built from `Mire.Brand.Palette`. The `Style.*` primitives and `Markdown.defaultStyle` are brand-sourced too, so the default look is on-brand with no per-app theme code
-
-Added since 0.4.0 (the 0.5.0 release):
-
-- ✅ Text **selection** across the editing stack (`TextBuffer` anchor + `TextEdit` shift-select/select-all) and `TextArea` **soft-wrap**
-- ✅ True **grapheme clusters** — astral scalars, emoji-ZWJ sequences, regional-indicator flags, VS15/VS16 presentation
-- ✅ **`ImagePreview`** widget + the **Kitty graphics** protocol (`Cmd.kittyImage`); **light/dark theme notifications** (`withThemeNotifications`); Kitty private-use functional keys
-- ✅ Runtime-owned **mouse hit-testing → focus** — a `Focusable` node + retained region table + `Program.withMouseRegion`
-- ✅ The agent layer **`Mire.Agent`** — `ChatTranscript` (virtualized + follow-tail), `PromptBox` (history + slash/@-mention completion), `ApprovalModal`, `DiffView` — composed by `samples/AgentShell`, with a `samples/Gallery` showcase of every base widget
-
-Not yet (described in `SPEC.md` as the target):
-
-- ⏳ Performance tiers — frame coalescing for streaming, caching — _done as they hurt, not before_ (see [`ROADMAP.md`](https://github.com/HelgeSverre/mire/blob/main/ROADMAP.md))
+**Agent layer** (`Mire.Agent`, optional) — `ChatTranscript`, `PromptBox` (history + completion), `ApprovalModal`, and `DiffView` for building coding-agent and chat UIs.
 
 ## Documentation
 
-The **[user guide](https://github.com/HelgeSverre/mire/blob/main/docs/guide/README.md)** (in `docs/guide/`) is the place to start — task-oriented and grounded in the shipping code:
+The [user guide](https://github.com/HelgeSverre/mire/blob/main/docs/guide/README.md) is the place to start:
 
-- [Getting started](https://github.com/HelgeSverre/mire/blob/main/docs/guide/getting-started.md) · [Architecture](https://github.com/HelgeSverre/mire/blob/main/docs/guide/architecture.md) · [Layout](https://github.com/HelgeSverre/mire/blob/main/docs/guide/layout.md) · [Widgets](https://github.com/HelgeSverre/mire/blob/main/docs/guide/widgets.md)
-- [Styling & theming](https://github.com/HelgeSverre/mire/blob/main/docs/guide/styling-and-theming.md) · [Input](https://github.com/HelgeSverre/mire/blob/main/docs/guide/input.md) · [Text editing](https://github.com/HelgeSverre/mire/blob/main/docs/guide/text-editing.md) · [Terminal protocol](https://github.com/HelgeSverre/mire/blob/main/docs/guide/terminal-protocol.md) · [The agent layer](https://github.com/HelgeSverre/mire/blob/main/docs/guide/agent-layer.md)
+[Getting started](https://github.com/HelgeSverre/mire/blob/main/docs/guide/getting-started.md) ·
+[Architecture](https://github.com/HelgeSverre/mire/blob/main/docs/guide/architecture.md) ·
+[Layout](https://github.com/HelgeSverre/mire/blob/main/docs/guide/layout.md) ·
+[Widgets](https://github.com/HelgeSverre/mire/blob/main/docs/guide/widgets.md) ·
+[Styling](https://github.com/HelgeSverre/mire/blob/main/docs/guide/styling-and-theming.md) ·
+[Input](https://github.com/HelgeSverre/mire/blob/main/docs/guide/input.md) ·
+[Text editing](https://github.com/HelgeSverre/mire/blob/main/docs/guide/text-editing.md) ·
+[Agent layer](https://github.com/HelgeSverre/mire/blob/main/docs/guide/agent-layer.md)
 
-## Roadmap & design document
+A full documentation site (Astro) lives in [`website/`](https://github.com/HelgeSverre/mire/tree/main/website).
 
-- [`ROADMAP.md`](https://github.com/HelgeSverre/mire/blob/main/ROADMAP.md) is the plan of record: a widget/node reference table with status, and the phased plan (v0.1–v0.5) with checkboxes. Start here to see what's next.
-- [`SPEC.md`](https://github.com/HelgeSverre/mire/blob/main/SPEC.md) is the full design exploration — the rationale, the region model, the layout primitives, the widget and agent component catalogs, and the API shape Mire is aiming for. Read it for the _why_ and the intended destination; read the code for _what's built_.
+## Demos and samples
+
+Each takes over the alternate screen; **Ctrl+C** quits. Add `-- --dump` to render a screen as text instead.
+
+```sh
+dotnet run --project samples/Gallery        # every widget in its states
+dotnet run --project samples/AgentShell     # a minimal agent shell
+dotnet run --project Mire.Demo.Agent        # the comprehensive showcase
+dotnet run --project Mire.Demo.Feed         # an RSS reader
+dotnet run --project Mire.Demo.Spreadsheet  # an A1 grid + formula engine
+```
+
+A `justfile` wraps the common commands: `just build`, `just test`, `just gallery`, `just shell`.
+
+## Project layout
+
+The framework is one assembly, layered by folder; the folder order is the dependency order, enforced by the `<Compile>` order in `Mire/Mire.fsproj`.
+
+| Folder (namespace) | What it holds |
+| ------------------ | ------------- |
+| **Core**     | Pure value types: `Point`, `Size`, `Rect`, `Color`, `Style`, `Cell`, `Grapheme`, `TextBuffer`, input events. |
+| **Protocol** | `ANSI` sequences, raw-mode setup, and the byte → `InputEvent` parser. |
+| **Renderer** | `Surface` (the cell grid + draw primitives) and `Diff`. |
+| **Layout**   | The `LayoutNode` tree, `measure` / `render`, and the keyboard `Focus` ring. |
+| **Widgets**  | The widget library and `AppTheme`. |
+| **App**      | `Cmd`, `Sub`, `Program`, and `Runtime.run`. |
+
+Alongside it: three `Mire.Demo.*` apps, two `samples/`, and an Expecto test project.
+
+## Roadmap and design
+
+- [`ROADMAP.md`](https://github.com/HelgeSverre/mire/blob/main/ROADMAP.md) — the plan of record: a widget/node status table and the phased plan.
+- [`SPEC.md`](https://github.com/HelgeSverre/mire/blob/main/SPEC.md) — the design exploration and the rationale. Read it for the *why*; read the code for *what's built*.
 
 ## License
 

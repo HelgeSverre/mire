@@ -6,13 +6,15 @@ interface Props {
 }
 const { currentId } = Astro.props;
 const groups = await docsByCategory();
+// The group holding the current page (so it's the one expanded by default).
+const activeCategory = groups.find((g) => g.items.some((d) => d.id === currentId))?.category;
 ---
 
-<nav class="sidebar" aria-label="Documentation">
+<nav class="sidebar" aria-label="Documentation" data-pagefind-ignore>
   {
     groups.map((group) => (
-      <div class="sidebar__group">
-        <p class="sidebar__title">{group.label}</p>
+      <details class="sidebar__group" open={!activeCategory || group.category === activeCategory}>
+        <summary class="sidebar__title">{group.label}</summary>
         <ul>
           {group.items.map((doc) => (
             <li>
@@ -22,7 +24,7 @@ const groups = await docsByCategory();
             </li>
           ))}
         </ul>
-      </div>
+      </details>
     ))
   }
 </nav>
