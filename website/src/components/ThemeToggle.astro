@@ -1,30 +1,58 @@
 ---
-// A light/dark toggle. The no-FOUC init lives in Base.astro's <head>; this only
-// flips the data-theme attribute and persists the choice.
+// Light/dark toggle. Both Lucide icons (sun + moon) are rendered; CSS shows the one
+// matching the resolved theme (the same resolution the rest of the site uses). The
+// no-FOUC init lives in Base.astro's <head>; this only flips data-theme + persists.
 ---
 
 <button class="theme-toggle" type="button" aria-label="Toggle color theme" data-theme-toggle>
-  <span aria-hidden="true" data-theme-icon></span>
+  {/* shown in light mode — click to go dark */}
+  <svg
+    class="icon-moon"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>
+  </svg>
+  {/* shown in dark mode — click to go light */}
+  <svg
+    class="icon-sun"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <circle cx="12" cy="12" r="4"></circle>
+    <path d="M12 2v2"></path>
+    <path d="M12 20v2"></path>
+    <path d="m4.93 4.93 1.41 1.41"></path>
+    <path d="m17.66 17.66 1.41 1.41"></path>
+    <path d="M2 12h2"></path>
+    <path d="M20 12h2"></path>
+    <path d="m6.34 17.66-1.41 1.41"></path>
+    <path d="m19.07 4.93-1.41 1.41"></path>
+  </svg>
 </button>
 
 <script is:inline>
   (() => {
     const btn = document.querySelector("[data-theme-toggle]");
-    const icon = document.querySelector("[data-theme-icon]");
     const root = document.documentElement;
     const sysDark = () => window.matchMedia("(prefers-color-scheme: dark)").matches;
     const current = () => root.getAttribute("data-theme") || (sysDark() ? "dark" : "light");
-    const paint = () => {
-      if (icon) icon.textContent = current() === "dark" ? "☀" : "☾";
-    };
-    paint();
     btn?.addEventListener("click", () => {
       const next = current() === "dark" ? "light" : "dark";
       root.setAttribute("data-theme", next);
       try {
         localStorage.setItem("theme", next);
       } catch {}
-      paint();
     });
   })();
 </script>

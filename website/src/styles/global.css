@@ -279,11 +279,35 @@ hr {
   display: inline-grid;
   place-items: center;
   cursor: pointer;
-  font-family: var(--font-mono);
+  padding: 0;
 }
 .theme-toggle:hover {
   color: var(--fg);
   border-color: var(--border-strong);
+}
+.theme-toggle svg {
+  width: 1rem;
+  height: 1rem;
+  display: block;
+}
+/* show the icon for the *current* resolved theme — sun in light, moon in dark —
+   matching the site's theme resolution (explicit data-theme, else system pref). */
+.theme-toggle .icon-moon {
+  display: none;
+}
+:root[data-theme="dark"] .theme-toggle .icon-sun {
+  display: none;
+}
+:root[data-theme="dark"] .theme-toggle .icon-moon {
+  display: block;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .theme-toggle .icon-sun {
+    display: none;
+  }
+  :root:not([data-theme="light"]) .theme-toggle .icon-moon {
+    display: block;
+  }
 }
 
 /* ---- Footer -------------------------------------------------------------- */
@@ -391,33 +415,56 @@ hr {
   margin: var(--space-6) 0;
 }
 .card {
-  display: block;
+  position: relative;
+  display: flex;
+  flex-direction: column;
   border: 1px solid var(--border);
   border-radius: var(--radius-2);
   padding: var(--space-5);
   background: var(--surface-panel);
   text-decoration: none;
   color: var(--fg);
-  transition: border-color 0.12s ease, transform 0.12s ease;
+  transition: border-color 0.12s ease, background 0.12s ease;
 }
 .card:hover {
   border-color: var(--border-strong);
+  background: var(--bg-elevated);
 }
+/* eyebrow: an uppercase, tracked microlabel set off from the title */
 .card__kicker {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
+  font-weight: 500;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
   color: var(--fg-subtle);
-  text-transform: lowercase;
+  margin-bottom: var(--space-3);
 }
 .card__title {
+  display: flex;
+  align-items: center;
   font-family: var(--font-mono);
   font-weight: 700;
   font-size: var(--text-lg);
-  margin: var(--space-1) 0 var(--space-2);
+  margin: 0 0 var(--space-2);
+}
+/* a "→" that slides in on hover, right-aligned, as the affordance */
+.card__title::after {
+  content: "→";
+  margin-left: auto;
+  color: var(--fg-subtle);
+  opacity: 0;
+  transform: translateX(-0.25rem);
+  transition: opacity 0.12s ease, transform 0.12s ease;
+}
+.card:hover .card__title::after {
+  opacity: 1;
+  transform: translateX(0);
 }
 .card__desc {
   color: var(--fg-muted);
   font-size: var(--text-sm);
+  line-height: 1.5;
   margin: 0;
 }
 
