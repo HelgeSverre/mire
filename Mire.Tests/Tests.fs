@@ -688,6 +688,30 @@ let widgetTests =
               Expect.equal surf.[0, 0].Style.Background (Some selBg) "glyph cell carries the selection bg"
               Expect.equal surf.[5, 0].Style.Background (Some selBg) "cell past the text is filled too (full-bleed)"
           }
+          test "Table selected row highlights across colored columns, readably" {
+              // The bug: a colored column (its own fg, no bg) punched a hole in the
+              // selected-row highlight. The fix draws the selected row in the selection
+              // style — the bg spans every column and the fg stays readable (an
+              // inverse-video selection bg would otherwise hide a same-colored fg).
+              let selBg = Color.Rgb(0xFAuy, 0xFAuy, 0xFAuy)
+              let selFg = Color.Rgb(0x05uy, 0x05uy, 0x05uy)
+              let sel = Style.Default.WithForeground(selFg).WithBackground(selBg)
+              let accent = Color.Rgb(0x1Auy, 0x9Auy, 0x7Euy)
+
+              let columns: Mire.Widgets.Column<string list, unit> list =
+                  [ Mire.Widgets.Table.textColumn "a" (Length.Cells 6) (Style.Default.WithForeground Color.White) (fun (r: string list) -> r.[0])
+                    Mire.Widgets.Table.textColumn "b" (Length.Cells 6) (Style.Default.WithForeground accent) (fun (r: string list) -> r.[1]) ]
+
+              let node: LayoutNode<unit> =
+                  Mire.Widgets.Table.view 1 Style.Default sel 0 (fun i -> i = 0) columns [ [ "x"; "+42" ] ]
+
+              let surf = Surface(Size.Create(12, 2))
+              Layout.measure (Rect.Create(0, 0, 12, 2)) node |> Layout.render surf
+              // row 0 is the body (row index 1 on the surface, after the header row)
+              Expect.equal surf.[0, 1].Style.Background (Some selBg) "first column carries the highlight bg"
+              Expect.equal surf.[6, 1].Style.Background (Some selBg) "the colored second column carries it too (no hole)"
+              Expect.equal surf.[6, 1].Style.Foreground (Some selFg) "colored cell adopts the readable selection fg"
+          }
           test "ListView highlights the selected row full-width, others not" {
               let selBg = Color.Rgb(0x4Cuy, 0xAFuy, 0x50uy)
               let sel = Style.Default.WithForeground(Color.Black).WithBackground(selBg)

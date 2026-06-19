@@ -195,9 +195,30 @@ module Backdrop =
     /// Draw `child` over a full-bleed background of `style` — the row/cell
     /// highlight primitive. A bare styled `Text` only colours the cells under its
     /// glyphs; this fills the whole assigned rect first, then renders the child on
-    /// top, so a selection background spans the full width (gaps included).
+    /// top, so a selection background spans the full width (gaps included). The
+    /// child's own cells still carry their own styles — so to highlight *colored*
+    /// content (e.g. styled table columns) legibly, restyle it first with `recolor`
+    /// (a brand selection is inverse video, so a column's own foreground would be
+    /// invisible on the selection background otherwise).
     let behind (style: Style) (child: LayoutNode<'msg>) : LayoutNode<'msg> =
         LayoutNode.Overlay(Rect.Create(0, 0, 0, 0), [ LayoutNode.Filled(Rect.Create(0, 0, 0, 0), style); child ])
+
+    /// Force `style` onto every `Text`/`Box`/`Filled` cell in `node`, dropping each
+    /// cell's own colours. Use it to draw selected/active content (e.g. a table row)
+    /// in the selection style so the highlight is uniform and readable across cells
+    /// that would otherwise keep their own — and now clashing — foreground.
+    let rec recolor (style: Style) (node: LayoutNode<'msg>) : LayoutNode<'msg> =
+        match node with
+        | LayoutNode.Empty -> node
+        | LayoutNode.Text(r, t, _) -> LayoutNode.Text(r, t, style)
+        | LayoutNode.Filled(r, _) -> LayoutNode.Filled(r, style)
+        | LayoutNode.Box(r, _, ch) -> LayoutNode.Box(r, style, ch |> List.map (recolor style))
+        | LayoutNode.Stack(r, d, ch) -> LayoutNode.Stack(r, d, ch |> List.map (fun c -> { c with Child = recolor style c.Child }))
+        | LayoutNode.Dock(r, ch) -> LayoutNode.Dock(r, ch |> List.map (fun c -> { c with Child = recolor style c.Child }))
+        | LayoutNode.Scroll(r, st, c) -> LayoutNode.Scroll(r, st, recolor style c)
+        | LayoutNode.Overlay(r, ch) -> LayoutNode.Overlay(r, ch |> List.map (recolor style))
+        | LayoutNode.Positioned(r, p, w, h, c) -> LayoutNode.Positioned(r, p, w, h, recolor style c)
+        | LayoutNode.Focusable(r, id, c) -> LayoutNode.Focusable(r, id, recolor style c)
 
 /// Place a sized child within the overlay/screen area, on the `Positioned`
 /// layout node. Composes with `Backdrop`/`Filled` layers inside a
@@ -488,7 +509,11 @@ module Table =
                     Stack.hstackOf [ for c in columns -> Stack.sized c.Width (c.Render row) ]
 
                 if isSelected i then
-                    Backdrop.behind selStyle cells
+                    // Draw the whole row in the selection style so the highlight is
+                    // uniform and readable across columns that carry their own colors
+                    // (their foreground would otherwise clash with — or vanish into —
+                    // an inverse-video selection background).
+                    Backdrop.behind selStyle (Backdrop.recolor selStyle cells)
                 else
                     cells)
 
