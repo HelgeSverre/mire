@@ -703,21 +703,17 @@ hr {
   font-size: var(--text-sm);
   padding-bottom: var(--space-8);
 }
-/* flat link lists in the widget sidebar (All widgets / ← All docs) */
-.sidebar__flat {
+/* nested third-level list (all widgets under the Reference > Widgets item) */
+.sidebar__sub {
   list-style: none;
-  margin: 0 0 var(--space-5);
-  padding: 0 0 var(--space-3);
-  border-bottom: 1px solid var(--border);
+  margin: var(--space-1) 0 var(--space-2);
+  padding: 0;
+  margin-left: var(--space-3);
+  border-left: 1px solid var(--border);
 }
-.sidebar__flat--foot {
-  margin: var(--space-5) 0 0;
-  padding: var(--space-3) 0 0;
-  border-top: 1px solid var(--border);
-  border-bottom: none;
-}
-.sidebar__flat a {
-  font-weight: 500;
+.sidebar__sub a {
+  font-size: var(--text-sm);
+  color: var(--fg-subtle);
 }
 .sidebar__group {
   margin-bottom: var(--space-4);

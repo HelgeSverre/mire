@@ -1,7 +1,7 @@
 ---
 import { Code } from "astro:components";
 import Base from "../../../../layouts/Base.astro";
-import WidgetSidebar from "../../../../components/WidgetSidebar.astro";
+import Sidebar from "../../../../components/Sidebar.astro";
 import Toc from "../../../../components/Toc.astro";
 import { ALL_WIDGETS, widgetById } from "../../../../widgets-data";
 import { mireLight, mireDark } from "../../../../shiki-themes";
@@ -36,7 +36,7 @@ const headings = [
 
 <Base title={`${w.title} — Widgets`} description={w.summary}>
   <div class="docs">
-    <WidgetSidebar currentId={w.id} />
+    <Sidebar currentId="reference/widgets" currentWidget={w.id} />
     <article class="docs__main">
       <p class="docs__kicker">
         <a href="/docs/reference/widgets/" style="color:inherit">Widgets</a> / {w.title}

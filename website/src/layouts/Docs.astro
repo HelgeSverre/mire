@@ -1,7 +1,6 @@
 ---
 import Base from "./Base.astro";
 import Sidebar from "../components/Sidebar.astro";
-import WidgetSidebar from "../components/WidgetSidebar.astro";
 import PageNav from "../components/PageNav.astro";
 import Toc from "../components/Toc.astro";
 import { CATEGORY_LABEL, type Doc } from "../nav";
@@ -19,13 +18,11 @@ interface Props {
 }
 const { doc, prev, next, headings = [] } = Astro.props;
 const { title, description, category } = doc.data;
-// The widgets index belongs to the Widgets area, so it gets that sidebar.
-const isWidgetsIndex = doc.id === "reference/widgets";
 ---
 
 <Base title={title} description={description}>
   <div class="docs">
-    {isWidgetsIndex ? <WidgetSidebar /> : <Sidebar currentId={doc.id} />}
+    <Sidebar currentId={doc.id} />
     <article class="docs__main">
       <p class="docs__kicker">{CATEGORY_LABEL[category]}</p>
       <h1 class="docs__title">{title}</h1>

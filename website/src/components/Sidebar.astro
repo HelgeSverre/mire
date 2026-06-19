@@ -1,13 +1,17 @@
 ---
 import { docsByCategory, docHref } from "../nav";
+import { ALL_WIDGETS } from "../widgets-data";
 
 interface Props {
   currentId: string;
+  // When on a widget detail page, the active widget id (so the nested list highlights it).
+  currentWidget?: string;
 }
-const { currentId } = Astro.props;
+const { currentId, currentWidget } = Astro.props;
 const groups = await docsByCategory();
 // The group holding the current page (so it's the one expanded by default).
 const activeCategory = groups.find((g) => g.items.some((d) => d.id === currentId))?.category;
+const inWidgets = currentId === "reference/widgets";
 ---
 
 <nav class="sidebar" aria-label="Documentation" data-pagefind-ignore>
@@ -18,9 +22,23 @@ const activeCategory = groups.find((g) => g.items.some((d) => d.id === currentId
         <ul>
           {group.items.map((doc) => (
             <li>
-              <a href={docHref(doc)} aria-current={doc.id === currentId ? "page" : undefined}>
+              <a
+                href={docHref(doc)}
+                aria-current={doc.id === currentId && !(doc.id === "reference/widgets" && currentWidget) ? "page" : undefined}
+              >
                 {doc.data.title}
               </a>
+              {doc.id === "reference/widgets" && inWidgets && (
+                <ul class="sidebar__sub">
+                  {ALL_WIDGETS.map((w) => (
+                    <li>
+                      <a href={`/docs/reference/widgets/${w.id}/`} aria-current={w.id === currentWidget ? "page" : undefined}>
+                        {w.title}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </li>
           ))}
         </ul>
