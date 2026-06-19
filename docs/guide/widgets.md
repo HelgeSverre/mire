@@ -103,9 +103,9 @@ These return layers you stack over a base tree with `LayoutNode.Overlay`.
 // A centered modal with its own dimming backdrop:
 Modal.modal backdropStyle borderStyle titleStyle width height "Title" body
 
-// Auto-dismissing notifications, placed top-right over a base tree (the app owns the
-// list and expires entries with a Sub timer):
-Toast.view …
+// Auto-dismissing notifications: Toast.card builds a card, Toast.stack places a column
+// of them over a base tree (the app owns the list + expires entries via a Sub timer):
+Toast.stack placement width cardHeight [ Toast.card border titleStyle bodyStyle "title" "body" ]
 
 // A cursor-anchored completion popup (clamped on-screen):
 Completion.view areaW areaH anchorX anchorY width maxRows borderStyle selStyle rowStyle selected items

@@ -120,7 +120,7 @@ side-by-side split mode:
 type HunkStatus = Pending | Accepted | Rejected
 type DiffMode   = Unified | Split
 type DiffLine   = { Sign: char; Text: string }          // '+', '-', or ' '
-type DiffHunk   = { Header: string; Status: HunkStatus; Lines: DiffLine list }
+type DiffHunk   = { Header: string; Lines: DiffLine list; Status: HunkStatus }
 
 DiffView.render theme mode width selectedHunk hunks
 DiffView.splitColumns lines      // (before, after) columns for split mode (pure, tested)

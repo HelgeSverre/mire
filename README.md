@@ -8,7 +8,7 @@ It targets **modern, Kitty-compatible terminals** (Ghostty first) and **.NET 10*
 
 <!-- Links are absolute so they resolve on the NuGet listing too. -->
 
-**Status: 0.5.0** — the core framework and the optional agent layer, published on NuGet. Pre-1.0, so pin an exact version. See [what's included](#whats-included).
+**Status: 0.7.0** — the core framework and the optional agent layer, published on NuGet. Pre-1.0, so pin an exact version. See [what's included](#whats-included).
 
 ## Install
 
@@ -17,7 +17,7 @@ dotnet add package Mire
 ```
 
 ```xml
-<PackageReference Include="Mire" Version="0.5.0" />
+<PackageReference Include="Mire" Version="0.7.0" />
 ```
 
 ## A taste

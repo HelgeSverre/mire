@@ -57,7 +57,7 @@ look needs no per-app theme code:
 ```
 Style.text     Style.dim      Style.title     Style.border
 Style.success  Style.warning  Style.danger    Style.info
-Style.accent   Style.key      Style.bg
+Style.counter  Style.highlight Style.key      Style.bg
 ```
 
 These are the Mire brand by default (emerald accent, neutral hierarchy on a dark

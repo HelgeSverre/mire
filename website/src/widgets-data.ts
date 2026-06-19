@@ -228,7 +228,7 @@ Input.render 40 theme.fg theme.selection m.Focused m.Buffer`,
       {
         id: "modal",
         title: "Modal",
-        summary: "A centered box with its own dimming backdrop.",
+        summary: "A centered box over a translucent scrim that fades the screen behind it.",
         shot: "modal",
         signature: `Modal.modal
     (backdropStyle: Style)
@@ -239,13 +239,13 @@ Input.render 40 theme.fg theme.selection m.Focused m.Buffer`,
     (body: LayoutNode<'msg>)
     : LayoutNode<'msg>`,
         params: [
-          { name: "backdropStyle", type: "Style", desc: "The full-screen dim behind the box (Style.Default for no dim)." },
+          { name: "backdropStyle", type: "Style", desc: "Tints the scrim that fades the screen behind the box, and fills the box interior; its Background is the fade target (Style.Default → dim toward black)." },
           { name: "width / height", type: "int", desc: "The centered box size, in cells." },
           { name: "title", type: "string", desc: "Shown in the top row." },
           { name: "body", type: "LayoutNode<'msg>", desc: "The modal contents (one node; flow several through a Stack)." },
         ],
         details:
-          "Layer the modal over your base tree with `LayoutNode.Overlay`, gated on your model. The modal consumes nothing on its own — your `update` decides what Enter/Esc do while it is open. Make its buttons clickable with `Focusable.region` + `withMouseRegion`.",
+          "Layer the modal over your base tree with `LayoutNode.Overlay`, gated on your model. The surround is a translucent scrim (the base shows through, dimmed) while the box itself stays opaque. The modal consumes nothing on its own — your `update` decides what Enter/Esc do while it is open. Make its buttons clickable with `Focusable.region` + `withMouseRegion`.",
         example: `LayoutNode.Overlay(Rect.Create(0, 0, 0, 0),
     [ baseTree
       Modal.modal Style.Default theme.border theme.title 44 9 "Confirm"

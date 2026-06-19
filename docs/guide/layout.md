@@ -12,6 +12,7 @@ type LayoutNode<'msg> =
     | Empty
     | Text       of Rect * string * Style
     | Filled     of Rect * Style                              // a solid rectangle
+    | Scrim      of Rect * Color * float                      // translucent scrim — fades what's beneath
     | Box        of Rect * Style * LayoutNode<'msg> list      // a border around one child
     | Dock        of Rect * DockChild<'msg> list              // edges + fill
     | Stack       of Rect * Direction * StackChild<'msg> list // row or column
@@ -103,9 +104,11 @@ clamping helpers — see [Widgets](widgets.md#scrolling).
 
 ## Overlay and Positioned — layering
 
-`Overlay` z-stacks layers in list order (later paints on top); a `Filled`/`Backdrop`
-layer occludes what's beneath it. `Positioned` sizes a child and places it at one of
-nine `Placement` points within the area — the basis for modals, toasts, and popups:
+`Overlay` z-stacks layers in list order (later paints on top); a `Filled`/`Backdrop.solid`
+layer occludes what's beneath it, while a `Scrim` (`Backdrop.scrim tint strength`) *fades*
+it — blending the cells underneath toward a tint, the way `Modal.modal` dims the screen
+behind a still-opaque dialog. `Positioned` sizes a child and places it at one of nine
+`Placement` points within the area — the basis for modals, toasts, and popups:
 
 ```fsharp
 LayoutNode.Overlay(Rect.Create(0, 0, 0, 0),

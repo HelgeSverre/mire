@@ -73,7 +73,7 @@ Conversation.isStreaming conv   // true while any entry streams
 A transcript is a list of `TranscriptBlock`s; `ChatTranscript` renders and scrolls them.
 
 ```fsharp
-type ToolStatus = Running | Succeeded | Failed
+type ToolStatus = Queued | Running | Succeeded | Failed
 
 type TranscriptBlock =
     | UserMsg of string
@@ -161,7 +161,7 @@ A reviewable diff — hunks with per-hunk accept/reject status, unified or split
 type HunkStatus = Pending | Accepted | Rejected
 type DiffMode   = Unified | Split
 type DiffLine   = { Sign: char; Text: string }         // '+', '-', or ' '
-type DiffHunk   = { Header: string; Status: HunkStatus; Lines: DiffLine list }
+type DiffHunk   = { Header: string; Lines: DiffLine list; Status: HunkStatus }
 
 DiffView.render theme mode width selectedHunk hunks
 DiffView.splitColumns lines      // (before, after) columns for split mode

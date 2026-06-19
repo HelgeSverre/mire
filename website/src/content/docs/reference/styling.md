@@ -48,8 +48,9 @@ writer brackets a linked run in OSC 8, and because `Link` is part of the record,
 runs split at link boundaries automatically.
 
 The semantic primitives in `Mire.Widgets.Style` (`Style.text`, `Style.dim`,
-`Style.title`, `Style.border`, `Style.accent`, `Style.success`/`warning`/`danger`/`info`,
-`Style.key`, `Style.bg`) are the Mire brand by default.
+`Style.title`, `Style.border`, `Style.counter`, `Style.highlight`,
+`Style.success`/`warning`/`danger`/`info`, `Style.key`, `Style.bg`) are the Mire brand by
+default. (The emerald accent lives on `AppTheme.accent`, not as a loose `Style`.)
 
 ## AppTheme
 
