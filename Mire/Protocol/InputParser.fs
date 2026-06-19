@@ -440,7 +440,90 @@ module InputParser =
                           Repeat = false
                           EventType = Press }
                 )
+            | b when b >= 0x80uy ->
+                // A multi-byte UTF-8 scalar (accented letters, CJK, emoji). The
+                // tokenizer hands us exactly one scalar's bytes; decode it as a Char.
+                let s = Encoding.UTF8.GetString(bytes)
+
+                Some(
+                    Key
+                        { Key = Char s
+                          Text = Some s
+                          Modifiers = KeyModifiers.None
+                          Repeat = false
+                          EventType = Press }
+                )
             | _ -> None
+
+    /// How many bytes the event beginning at `offset` spans — the tokenizer's
+    /// boundary rule. A single `read()` can return several events back-to-back
+    /// (a scroll/drag burst, fast typing, queued sequences); `parseBytes` decodes
+    /// only one, so we slice the buffer into per-event spans first. Rules:
+    ///   • `ESC [ 200 ~ … 201 ~` (bracketed paste) — through the end marker (or to
+    ///     the buffer end if it's missing), so the pasted text isn't split.
+    ///   • `ESC [ …` (CSI) — through the first final byte (0x40–0x7E); params
+    ///     (0x30–0x3F) and intermediates (0x20–0x2F) are interior.
+    ///   • `ESC O x` (SS3) — 3 bytes.
+    ///   • a lone `ESC`, or `ESC` + an unrecognized byte — just the `ESC` (1 byte),
+    ///     so the following byte tokenizes on its own.
+    ///   • a control byte (< 0x20) or `DEL` (0x7F) — 1 byte.
+    ///   • printable lead byte — one UTF-8 scalar (length from the lead byte), so a
+    ///     run of typed characters becomes one Key event each, not a single fused one.
+    let private nextEventLength (bytes: byte[]) (offset: int) : int =
+        let len = bytes.Length
+        let b = bytes.[offset]
+        let rest = bytes.[offset..]
+
+        if b = 0x1Buy then
+            if startsWith pasteStart rest then
+                let endIdx = indexOf pasteEnd rest pasteStart.Length
+                if endIdx >= 0 then endIdx + pasteEnd.Length else rest.Length
+            elif offset + 1 < len && bytes.[offset + 1] = 0x5Buy then // CSI: ESC [ …
+                let mutable i = offset + 2
+                let mutable finalAt = -1
+
+                while finalAt < 0 && i < len do
+                    if bytes.[i] >= 0x40uy && bytes.[i] <= 0x7Euy then
+                        finalAt <- i
+                    else
+                        i <- i + 1
+
+                if finalAt >= 0 then finalAt - offset + 1 else len - offset
+            elif offset + 1 < len && bytes.[offset + 1] = 0x4Fuy then // SS3: ESC O x
+                min 3 (len - offset)
+            else
+                1 // lone ESC, or an ESC-prefixed byte we don't decode as a sequence
+        elif b < 0x20uy || b = 0x7Fuy then
+            1
+        else
+            // Printable: one UTF-8 scalar, length inferred from the lead byte.
+            let scalar =
+                if b < 0x80uy then 1
+                elif b >= 0xF0uy then 4
+                elif b >= 0xE0uy then 3
+                elif b >= 0xC0uy then 2
+                else 1 // stray continuation byte — consume one, defensively
+
+            min scalar (len - offset)
+
+    /// Decode every event in a raw input buffer, in order. Splits the buffer into
+    /// per-event byte spans (see `nextEventLength`) and runs each through
+    /// `parseBytes`, dropping spans that don't decode. The runtime uses this so a
+    /// burst of input delivered in one `read()` isn't collapsed to a single event.
+    let parseAll (bytes: byte[]) : InputEvent list =
+        let acc = System.Collections.Generic.List<InputEvent>()
+        let mutable i = 0
+
+        while i < bytes.Length do
+            let n = max 1 (nextEventLength bytes i)
+
+            match parseBytes bytes.[i .. i + n - 1] with
+            | Some ev -> acc.Add ev
+            | None -> ()
+
+            i <- i + n
+
+        List.ofSeq acc
 
     let readEvent () : InputEvent option =
         if TerminalMode.stdinAvailable () then

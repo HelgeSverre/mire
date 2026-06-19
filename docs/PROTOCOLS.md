@@ -57,16 +57,11 @@ All decoding lives in `Mire/Protocol/InputParser.fs`; the runtime drives it from
 Tracked here so they don't get "rediscovered" as bugs. None block the targeted terminals
 for ordinary use; listed worst-impact first.
 
-1. **One event per read (coalescing).** `InputParser.parseBytes` decodes a *single*
-   `InputEvent` from a buffer; the runtime reads all bytes waiting in a frame and parses
-   once. So a read containing several sequences loses all but one:
-   - two printable bytes `"ab"` in one read → a single `Char "ab"` (key-matchers on
-     `Char "a"` never fire; text widgets do get `"ab"`).
-   - two escape sequences (e.g. `ESC[A ESC[B`) → `parseCsi` treats the whole buffer as one
-     CSI (final = last byte) → wrong/dropped.
-   - a fast **scroll-wheel or drag burst** → only the first event applies → sluggish input.
-   **Fix:** a tokenizer that splits a raw buffer into per-event slices and returns
-   `InputEvent list`; runtime loops over them. Moderate refactor (parser + runtime + tests).
+1. ~~**One event per read (coalescing).**~~ **Fixed.** `InputParser.parseAll` tokenizes a
+   raw buffer into per-event byte spans and the runtime loops over them, so back-to-back
+   sequences (a scroll/drag burst, fast typing, queued escapes) each decode. Bracketed
+   pastes stay one span. (Multi-byte UTF-8 keystrokes — accents/CJK/emoji — now decode too,
+   a related fix in `parseBytes`.)
 2. **Mouse motion / drag not distinguished.** With mode 1002, drag-with-button-held arrives
    with the motion bit `0x20` set; `parseMouseSgr` masks only `&&& 0x03` / `&&& 0x40`, so a
    drag reports as a fresh `Pressed=true` press at the new cell — indistinguishable from a

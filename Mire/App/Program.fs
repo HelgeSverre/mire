@@ -274,8 +274,9 @@ module Runtime =
                     pasteCarry <- newCarry
 
                     if toParse.Length > 0 then
-                        match InputParser.parseBytes toParse with
-                        | Some inputEvent ->
+                        // One read() can carry several events (scroll/drag bursts,
+                        // fast typing); decode them all and process each in order.
+                        for inputEvent in InputParser.parseAll toParse do
                             // Event-type reporting is enabled, so keys arrive as
                             // press + release. Drop releases unless the app opted in
                             // (else every keystroke would fire twice).
@@ -306,7 +307,6 @@ module Runtime =
                                     match program.MapInput inputEvent with
                                     | Some msg -> sendMsg msg
                                     | None -> ()
-                        | None -> ()
 
                     // Process messages
                     let mutable hasMsgs = true

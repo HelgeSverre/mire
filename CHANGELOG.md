@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **Multi-event input decoding (`InputParser.parseAll`).** A single `read()` can return several input sequences back-to-back — a scroll-wheel or drag burst, fast typing, or queued escape sequences. `parseBytes` decodes only the first; the runtime now tokenizes the buffer into per-event byte spans (`parseAll`) and processes each in order, so bursts no longer collapse to one event (e.g. `ESC[A ESC[B` → both arrows; a 3-tick wheel burst → 3 scroll events). Bracketed pastes stay intact (decoded as a single span).
+
+### Fixed
+
+- **Non-ASCII keystrokes now decode.** `InputParser.parseBytes` only handled ASCII printables (0x21–0x7E), so a standalone multi-byte UTF-8 scalar — accented letters, CJK, emoji — was dropped. It now decodes the scalar into a `Char` key (the tokenizer feeds it exactly one scalar's bytes).
+
 ## [0.6.0] - 2026-06-19
 
 Translucent overlays, two input/render regressions fixed, and a documented

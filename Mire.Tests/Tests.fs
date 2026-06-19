@@ -17,6 +17,12 @@ let private asKey (e: InputEvent option) : KeyEvent option =
     | Some(Key k) -> Some k
     | _ -> None
 
+/// The `Key` of an `InputEvent` (for the `parseAll` tokenizer tests).
+let private keyOf (e: InputEvent) : Key option =
+    match e with
+    | Key k -> Some k.Key
+    | _ -> None
+
 /// Read a surface row as a string (concatenated graphemes).
 let private rowText (s: Surface) (y: int) : string =
     String.concat "" [ for x in 0 .. s.Size.Width - 1 -> s.[x, y].Grapheme ]
@@ -341,6 +347,41 @@ let inputTests =
               let toParse, carry = InputParser.stepPasteBuffer 8 [||] big
               Expect.isNonEmpty (List.ofArray toParse) "an over-cap incomplete paste is flushed, not buffered"
               Expect.isEmpty (List.ofArray carry) "carry cleared at the cap"
+          }
+          // Multi-event tokenizer: one read() can carry several events back-to-back.
+          test "parseAll: a single event still decodes (regression vs parseBytes)" {
+              let evs = InputParser.parseAll (System.Text.Encoding.ASCII.GetBytes "\x1b[A")
+              Expect.equal (evs |> List.map keyOf) [ Some ArrowUp ] "one arrow → one event"
+          }
+          test "parseAll: two typed characters in one read are two Key events, not a fused Char \"ab\"" {
+              let evs = InputParser.parseAll (System.Text.Encoding.ASCII.GetBytes "ab")
+              Expect.equal (evs |> List.map keyOf) [ Some(Char "a"); Some(Char "b") ] "split per scalar"
+          }
+          test "parseAll: back-to-back escape sequences both decode (ESC[A ESC[B → Up, Down)" {
+              let evs = InputParser.parseAll (System.Text.Encoding.ASCII.GetBytes "\x1b[A\x1b[B")
+              Expect.equal (evs |> List.map keyOf) [ Some ArrowUp; Some ArrowDown ] "both arrows survive"
+          }
+          test "parseAll: a scroll-wheel burst yields every event (not just the first)" {
+              let evs = InputParser.parseAll (System.Text.Encoding.ASCII.GetBytes "\x1b[<64;1;1M\x1b[<64;1;2M\x1b[<64;1;3M")
+
+              let wheels =
+                  evs
+                  |> List.choose (function
+                      | Mouse m -> Some(m.Button, m.Y)
+                      | _ -> None)
+
+              Expect.equal wheels [ (ScrollUp, 0); (ScrollUp, 1); (ScrollUp, 2) ] "all three wheel events decode in order"
+          }
+          test "parseAll: a complete bracketed paste followed by a keystroke is two events" {
+              let evs = InputParser.parseAll (System.Text.Encoding.ASCII.GetBytes "\x1b[200~hi\x1b[201~\x1b[A")
+
+              Expect.equal evs.Length 2 "the paste isn't split, and the trailing arrow is kept"
+              Expect.equal evs.[0] (Paste "hi") "first event is the whole paste"
+              Expect.equal (keyOf evs.[1]) (Some ArrowUp) "second event is the arrow after the paste"
+          }
+          test "parseAll: a multi-byte UTF-8 scalar stays one Key event" {
+              let evs = InputParser.parseAll (System.Text.Encoding.UTF8.GetBytes "é")
+              Expect.equal (evs |> List.map keyOf) [ Some(Char "é") ] "the 2-byte scalar isn't split"
           } ]
 
 // Frame diffing ------------------------------------------------------------
