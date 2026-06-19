@@ -703,15 +703,16 @@ hr {
   font-size: var(--text-sm);
   padding-bottom: var(--space-8);
 }
-/* nested third-level list (all widgets under the Reference > Widgets item) */
+/* nested third-level list (all widgets under the Reference > Widgets item) —
+   inset further than its siblings so it clearly hangs off the Widgets entry */
 .sidebar__sub {
   list-style: none;
-  margin: var(--space-1) 0 var(--space-2);
+  margin: var(--space-1) 0 var(--space-2) var(--space-4);
   padding: 0;
-  margin-left: var(--space-3);
   border-left: 1px solid var(--border);
 }
 .sidebar__sub a {
+  padding-left: var(--space-4);
   font-size: var(--text-sm);
   color: var(--fg-subtle);
 }
