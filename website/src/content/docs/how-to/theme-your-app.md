@@ -79,7 +79,7 @@ let update msg m =
 
 [<EntryPoint>]
 let main _ =
-    Program.mkProgram init update view
+    Program.create init update view
     |> Program.withMapInput mapInput
     |> Program.withThemeNotifications true
     |> Runtime.run

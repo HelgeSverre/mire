@@ -712,7 +712,7 @@ hr {
   display: block;
 }
 
-/* ---- Widget gallery (rich reference) ------------------------------------- */
+/* ---- Widget grid (reference index) --------------------------------------- */
 .wg-group {
   margin-top: var(--space-10);
 }
@@ -723,23 +723,62 @@ hr {
 }
 .wg-blurb {
   color: var(--fg-muted);
-  margin-top: var(--space-2);
+  margin: var(--space-2) 0 var(--space-5);
   max-width: var(--measure);
 }
-.widget {
-  margin-top: var(--space-8);
+.wg-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+  gap: var(--space-4);
 }
-.widget > h3 {
-  font-size: var(--text-xl);
-  margin-bottom: var(--space-2);
+.wg-card {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-2);
+  overflow: hidden;
+  background: var(--surface-panel);
+  text-decoration: none;
+  color: var(--fg);
+  transition: border-color 0.12s ease;
 }
-.widget__summary {
+.wg-card:hover {
+  border-color: var(--border-strong);
+}
+.wg-card__shot {
+  background: #0d0d0d;
+  border-bottom: 1px solid var(--border);
+  padding: var(--space-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 7.5rem;
+}
+.wg-card__shot svg {
+  width: 100%;
+  height: auto;
+  max-height: 9rem;
+}
+.wg-card__body {
+  padding: var(--space-3) var(--space-4) var(--space-4);
+}
+.wg-card__title {
+  display: block;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: var(--text-base);
+}
+.wg-card__summary {
+  display: block;
+  margin-top: var(--space-1);
   color: var(--fg-muted);
-  max-width: var(--measure);
-  margin-bottom: var(--space-4);
+  font-size: var(--text-sm);
+  line-height: 1.45;
 }
+
+/* ---- Widget detail page -------------------------------------------------- */
 .widget__shot {
-  margin: 0 0 var(--space-4);
+  margin: 0 0 var(--space-6);
   padding: 0;
 }
 .widget__shot svg {
@@ -747,28 +786,25 @@ hr {
   height: auto;
   display: block;
 }
-/* signature block — plain mono, not Shiki, kept readable and wrappable */
-pre.sig {
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  line-height: 1.5;
-  color: var(--fg);
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-2);
-  padding: var(--space-3) var(--space-4);
-  margin: 0 0 var(--space-3);
+
+/* ---- Tables (param tables + prose tables): don't squish ------------------ */
+/* Scroll wrapper for wide tables on narrow screens. */
+.table-scroll {
   overflow-x: auto;
-  white-space: pre;
-}
-pre.sig code {
-  font-family: var(--font-mono);
+  margin: 0 0 var(--space-4);
 }
 table.param-table {
   border-collapse: collapse;
   width: 100%;
+  min-width: 32rem; /* below this it scrolls rather than squishing the description */
+  table-layout: fixed;
   font-size: var(--text-sm);
-  margin: 0 0 var(--space-4);
+}
+table.param-table col.c-name {
+  width: 22%;
+}
+table.param-table col.c-type {
+  width: 26%;
 }
 table.param-table th,
 table.param-table td {
@@ -776,6 +812,7 @@ table.param-table td {
   padding: var(--space-2) var(--space-3);
   text-align: left;
   vertical-align: top;
+  overflow-wrap: anywhere;
 }
 table.param-table th {
   font-family: var(--font-mono);
@@ -786,13 +823,21 @@ table.param-table th {
   color: var(--fg-muted);
   background: var(--bg-elevated);
 }
-table.param-table td:first-child code {
-  white-space: nowrap;
-}
 table.param-table td code {
   background: transparent;
   border: none;
   padding: 0;
   color: var(--accent-readable);
+}
+/* prose (markdown) tables wrap their cell content rather than overflowing */
+.prose th,
+.prose td {
+  overflow-wrap: anywhere;
+}
+/* inline code is nowrap by default (good in a sentence); inside a table cell let it
+   wrap, so a long signature in one column doesn't squeeze the others */
+.prose td code,
+.prose th code {
   white-space: normal;
+  overflow-wrap: anywhere;
 }

@@ -20,7 +20,7 @@ type Program<'model, 'msg> =
 
 ## Builders
 
-Start with `Program.mkProgram init update view`, then compose:
+Start with `Program.create init update view`, then compose:
 
 | Builder | Purpose |
 | --- | --- |
@@ -33,7 +33,7 @@ Start with `Program.mkProgram init update view`, then compose:
 | `withMouseRegion (RegionId option -> MouseEvent -> 'msg option)` | Route mouse via the region table. |
 
 ```fsharp
-Program.mkProgram init update view
+Program.create init update view
 |> Program.withMapInput mapInput
 |> Program.withSubscriptions subscriptions
 |> Runtime.run

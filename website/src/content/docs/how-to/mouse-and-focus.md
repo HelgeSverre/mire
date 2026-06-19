@@ -33,7 +33,7 @@ let onMouseRegion (region: RegionId option) (me: MouseEvent) : Msg option =
         | _ -> None
     else None
 
-Program.mkProgram init update view
+Program.create init update view
 |> Program.withMapInput mapInput          // keys, wheel
 |> Program.withMouseRegion onMouseRegion  // clicks on tagged regions
 |> Runtime.run

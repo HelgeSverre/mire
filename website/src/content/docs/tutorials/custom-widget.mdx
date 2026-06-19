@@ -1,0 +1,163 @@
+---
+title: Build a custom widget
+description: A widget is just a pure function that returns a LayoutNode. Build a real one — a sparkline — from the primitives, compose it, and test it headlessly.
+category: tutorials
+order: 3
+---
+
+import sparklineSvg from "../../../generated/shots/sparkline.svg?raw";
+import Callout from "../../../components/Callout.astro";
+
+Mire's widgets aren't a special, closed set. A widget is just a **pure function that
+returns a `LayoutNode<'msg>`** — exactly what `view` does. Everything in
+`Mire.Widgets` is built this way, from `Text` up to `Table`, and your own widgets sit
+beside them with no ceremony. This tutorial builds a real, reusable one: a **sparkline**,
+the little inline bar chart you see in dashboards.
+
+<Callout type="note">
+Every code block below is the verified implementation — the same sparkline is rendered
+and asserted in Mire's own test suite, so what you read is what compiles and draws.
+</Callout>
+
+## What we're building
+
+A one-line chart that maps a list of numbers onto eight block-drawing glyphs, low to
+high. Composed into a small panel it looks like this — real output from the framework:
+
+<figure class="widget__shot" set:html={sparklineSvg} />
+
+## 1. The shape of a widget
+
+Start from the signature. A widget takes the data it draws (and usually a `Style`) and
+returns a node. No state, no `'msg` unless it emits messages — a sparkline is purely
+presentational, so it stays generic in `'msg`:
+
+```fsharp
+open Mire.Core      // Style, LayoutNode
+open Mire.Widgets   // Text
+
+let sparkline (style: Style) (values: float list) : LayoutNode<'msg> =
+    ...
+```
+
+That generic `'msg` matters: because the sparkline never produces a message, it slots
+into any app's view regardless of that app's message type.
+
+## 2. Map values to glyphs
+
+The eight bars, lowest to highest:
+
+```fsharp
+let private bars = [| "▁"; "▂"; "▃"; "▄"; "▅"; "▆"; "▇"; "█" |]
+```
+
+Normalize each value into `0.0 .. 1.0` against the series' own min and max, then pick a
+bar. Round to the nearest index and clamp so the math can't fall off the end of the
+array:
+
+```fsharp
+let lo = List.min values
+let hi = List.max values
+let span = hi - lo
+
+let glyph v =
+    let t = (v - lo) / span                       // 0.0 .. 1.0
+    let i = int (t * float (bars.Length - 1) + 0.5)
+    bars.[max 0 (min (bars.Length - 1) i)]
+```
+
+The minimum value maps to `▁`, the maximum to `█`, everything else in between.
+
+## 3. Handle the edge cases
+
+Two inputs break the naive version: an **empty** list (no min/max) and a **flat**
+series (every value equal, so `span = 0` and you'd divide by zero). Handle both up
+front — robustness is part of the widget's contract:
+
+```fsharp
+let sparkline (style: Style) (values: float list) : LayoutNode<'msg> =
+    match values with
+    | [] -> Text.text " " style                   // nothing to chart
+    | _ ->
+        let lo = List.min values
+        let hi = List.max values
+        let span = hi - lo
+
+        let glyph v =
+            if span <= 0.0 then
+                bars.[bars.Length / 2]             // flat series → a mid bar
+            else
+                let i = int ((v - lo) / span * float (bars.Length - 1) + 0.5)
+                bars.[max 0 (min (bars.Length - 1) i)]
+
+        values |> List.map glyph |> String.concat "" |> fun s -> Text.text s style
+```
+
+That's the whole widget. It composes exactly one primitive — `Text.text` — but the
+pattern is the same for richer widgets: build the pieces, then assemble them with
+`Stack`, `Box`, `Backdrop`, and the other layout helpers.
+
+## 4. Compose it
+
+Because it returns a `LayoutNode`, it drops into any layout. Here it is labeled and
+boxed into the metrics panel from the screenshot above:
+
+```fsharp
+let metrics (cpu: float list) (mem: float list) =
+    Box.panel "metrics" theme.border
+        [ Stack.hstack [ Text.text "cpu " theme.fgMuted; sparkline theme.accent cpu ]
+          Stack.hstack [ Text.text "mem " theme.fgMuted; sparkline theme.success mem ] ]
+```
+
+Different call sites pass different styles, so the same widget renders an emerald CPU
+trace and a green memory trace — the styling stays the caller's choice, exactly like
+the built-in widgets.
+
+## 5. Test it without a terminal
+
+A widget is a pure function of its inputs, so you test it by rendering to a `Surface`
+and reading the cells back — no terminal, no mocking. This is the same headless path
+the framework's own tests and the `--dump` mode use:
+
+```fsharp
+let rowText (s: Surface) y =
+    System.String.Concat [ for x in 0 .. s.Size.Width - 1 -> s.[x, y].Grapheme ]
+
+let render (node: LayoutNode<unit>) (w, h) =
+    let s = Surface(Size.Create(w, h))
+    Layout.measure (Rect.Create(0, 0, w, h)) node |> Layout.render s
+    s
+
+// ascending values render ascending bars
+let s = render (sparkline Style.Default [ 1.0; 2.0; 3.0; 4.0; 5.0; 6.0; 7.0; 8.0 ]) (8, 1)
+// rowText s 0 = "▁▂▃▄▅▆▇█"
+
+// min and max land on the end bars
+let s2 = render (sparkline Style.Default [ 3.0; 9.0; 3.0 ]) (3, 1)
+// rowText s2 0 = "▁█▁"
+```
+
+Assert on those strings with your test framework of choice (Mire uses Expecto). The
+edge cases are worth a test each: an empty series renders blanks, and a flat series
+renders a mid bar rather than dividing by zero.
+
+## Where it lives, and what comes next
+
+Put the widget wherever your app keeps view helpers — a module is plenty. There's no
+registration step; it's a function. When a widget proves broadly useful you can lift it
+into a shared library, but it never needs to "join" the framework to be a first-class
+citizen.
+
+A few things to reach for as your widgets grow:
+
+- **Compose, don't draw.** Build from `Text`, `Box`, `Stack`, `Dock`, `Backdrop`, and
+  the overlay helpers rather than writing cells directly — they handle measurement,
+  clipping, and width for you. See the [layout reference](/docs/reference/layout/).
+- **Stay pure; let the app own state.** A selectable or scrolling widget takes the
+  selection/offset as arguments (like `ListView` and `Table` do) instead of holding it.
+- **Measure with `Grapheme`,** not `String.length`, if you ever compute widths — wide
+  glyphs and emoji count as more than one cell.
+
+From here, browse the [widget reference](/docs/reference/widgets/) to see the same
+pattern at every scale, or read [the loop](/docs/explanation/the-loop/) for why a pure
+`view` makes all of this cheap to rebuild every frame.

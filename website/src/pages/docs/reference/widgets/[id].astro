@@ -1,0 +1,120 @@
+---
+import { Code } from "astro:components";
+import Base from "../../../../layouts/Base.astro";
+import Sidebar from "../../../../components/Sidebar.astro";
+import { ALL_WIDGETS, widgetById } from "../../../../widgets-data";
+import { mireLight, mireDark } from "../../../../shiki-themes";
+
+export async function getStaticPaths() {
+  return ALL_WIDGETS.map((w, i) => ({
+    params: { id: w.id },
+    props: { w, prev: ALL_WIDGETS[i - 1], next: ALL_WIDGETS[i + 1] },
+  }));
+}
+
+const { w, prev, next } = Astro.props;
+
+// Inline the screenshot SVG so the page font applies.
+const shots = import.meta.glob("../../../../generated/shots/*.svg", {
+  query: "?raw",
+  import: "default",
+  eager: true,
+}) as Record<string, string>;
+const svg = w.shot ? shots[`../../../../generated/shots/${w.shot}.svg`] : undefined;
+
+const codeThemes = { light: mireLight, dark: mireDark };
+---
+
+<Base title={`${w.title} — Widgets`} description={w.summary}>
+  <div class="docs">
+    <Sidebar currentId="reference/widgets" />
+    <article class="docs__main">
+      <p class="docs__kicker">
+        <a href="/docs/reference/widgets/" style="color:inherit">Widgets</a> / {w.title}
+      </p>
+      <h1 class="docs__title">{w.title}</h1>
+      <p class="docs__lead">{w.summary}</p>
+
+      <div class="prose">
+        {svg && <figure class="widget__shot" set:html={svg} />}
+
+        <h2 id="signature">Signature</h2>
+        <Code code={w.signature} lang="fsharp" themes={codeThemes} />
+
+        <h2 id="parameters">Parameters</h2>
+        <div class="table-scroll">
+          <table class="param-table">
+            <colgroup>
+              <col class="c-name" />
+              <col class="c-type" />
+              <col />
+            </colgroup>
+            <thead>
+              <tr>
+                <th>parameter</th>
+                <th>type</th>
+                <th>what it is</th>
+              </tr>
+            </thead>
+            <tbody>
+              {w.params.map((p) => (
+                <tr>
+                  <td><code>{p.name}</code></td>
+                  <td><code>{p.type}</code></td>
+                  <td>{p.desc}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {w.details && (
+          <>
+            <h2 id="notes">Notes</h2>
+            <p set:html={w.details.replace(/`([^`]+)`/g, "<code>$1</code>")} />
+          </>
+        )}
+
+        {w.example && (
+          <>
+            <h2 id="example">Example</h2>
+            <Code code={w.example} lang="fsharp" themes={codeThemes} />
+          </>
+        )}
+
+        {w.related && w.related.length > 0 && (
+          <>
+            <h2 id="related">Related</h2>
+            <ul>
+              {w.related.map((r) => (
+                <li><a href={r.href}>{r.label}</a></li>
+              ))}
+            </ul>
+          </>
+        )}
+      </div>
+
+      <nav class="page-nav" aria-label="Widget pagination">
+        {prev ? (
+          <a href={`/docs/reference/widgets/${prev.id}/`}>
+            <span class="page-nav__dir">← previous</span>
+            {prev.title}
+          </a>
+        ) : (
+          <a href="/docs/reference/widgets/">
+            <span class="page-nav__dir">←</span>
+            All widgets
+          </a>
+        )}
+        {next ? (
+          <a href={`/docs/reference/widgets/${next.id}/`} style="text-align:right">
+            <span class="page-nav__dir">next →</span>
+            {next.title}
+          </a>
+        ) : (
+          <span />
+        )}
+      </nav>
+    </article>
+  </div>
+</Base>

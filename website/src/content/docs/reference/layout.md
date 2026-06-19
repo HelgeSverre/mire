@@ -76,8 +76,9 @@ Box.panel "title" Style.border [ child ]
 
 Clips its child to the viewport and shows it at an offset; the child is laid out at full
 content size off-screen, then the visible window is blitted in. The app owns the offset.
-Most uses want the `ScrollView` widget (adds a scrollbar) — see
-[Widgets](/docs/reference/widgets/#scrolling).
+Most uses want the `ScrollView` widget, which adds a track/thumb scrollbar plus
+`toBottom`/`clampOffset`/`atBottom` offset helpers (listed under "Not pictured" on the
+[Widgets](/docs/reference/widgets/) page).
 
 ## Overlay and Positioned
 

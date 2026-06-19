@@ -21,7 +21,7 @@ const byOrder = (a: Doc, b: Doc) =>
   a.data.order - b.data.order ||
   a.data.title.localeCompare(b.data.title);
 
-/** All docs, sorted into Diátaxis order then by `order`. */
+/** All docs, sorted into category order then by `order`. */
 export async function allDocsSorted(): Promise<Doc[]> {
   const docs = await getCollection("docs");
   return docs.sort(byOrder);

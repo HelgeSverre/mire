@@ -1,0 +1,35 @@
+---
+import { GROUPS } from "../widgets-data";
+
+// Inline the real-output SVG screenshots so the page's JetBrains Mono applies.
+const shots = import.meta.glob("../generated/shots/*.svg", {
+  query: "?raw",
+  import: "default",
+  eager: true,
+}) as Record<string, string>;
+
+const shotFor = (id?: string) => (id ? shots[`../generated/shots/${id}.svg`] : undefined);
+---
+
+{
+  GROUPS.map((group) => (
+    <section class="wg-group">
+      <h2 id={group.name.toLowerCase().replace(/[^a-z]+/g, "-")}>{group.name}</h2>
+      <p class="wg-blurb">{group.blurb}</p>
+      <div class="wg-grid">
+        {group.widgets.map((w) => {
+          const svg = shotFor(w.shot);
+          return (
+            <a class="wg-card" href={`/docs/reference/widgets/${w.id}/`}>
+              {svg && <div class="wg-card__shot" set:html={svg} />}
+              <div class="wg-card__body">
+                <span class="wg-card__title">{w.title}</span>
+                <span class="wg-card__summary">{w.summary}</span>
+              </div>
+            </a>
+          );
+        })}
+      </div>
+    </section>
+  ))
+}
