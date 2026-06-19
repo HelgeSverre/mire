@@ -967,14 +967,15 @@ let private palettePanel (ps: PaletteState) (m: Model) : LayoutNode<Msg> =
               Stack.sized Length.Fill (Scroll.vertical scroll (Stack.vstackOf rows))
               Stack.sized (Length.Cells 1) (Text.text " ↑↓ select · Enter run · Esc close" Theme.subtle) ]
 
-    // Full-screen backdrop + centered box (the `Modal.modal` shape). The backdrop must
-    // be a *sibling* of the centered box at the overlay's top level — wrapping the whole
-    // `opaque` overlay in `centered` would confine the backdrop to the 50×H box and let
-    // the transcript bleed around it.
+    // Translucent scrim that *fades* the screen behind the palette + an opaque
+    // centered box on top (the `Modal.modal` shape). The scrim must be a sibling of
+    // the centered box at the overlay's top level — wrapping `opaque` in `centered`
+    // would confine its fill to the 50×H box. `opaque` keeps the box itself solid so
+    // the faded transcript doesn't bleed through it.
     LayoutNode.Overlay(
         rect0,
-        [ Backdrop.solid Style.Default
-          Mire.Widgets.Overlay.centered 50 (visible + 6) (Box.box Theme.borderStyle [ content ]) ]
+        [ Backdrop.scrim Color.Black Mire.Widgets.Modal.scrimStrength
+          Mire.Widgets.Overlay.centered 50 (visible + 6) (opaque Theme.borderStyle content) ]
     )
 
 let private skillPanel (ss: SkillState) (m: Model) : LayoutNode<Msg> =

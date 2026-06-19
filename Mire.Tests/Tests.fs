@@ -522,6 +522,27 @@ let diffTests =
               Expect.equal s.[0, 0].Grapheme "\U0001F600" "the whole emoji occupies one cell (the full cluster)"
               Expect.equal s.[0, 0].Width 2 "it records display width 2"
               Expect.equal s.[1, 0].Grapheme "" "the trailing column is a continuation"
+          }
+          test "Color.Blend: midpoint toward black halves each channel; endpoints are exact" {
+              Expect.equal (Color.Blend(Color.Rgb(200uy, 100uy, 50uy), Color.Black, 0.5)) (Color.Rgb(100uy, 50uy, 25uy)) "t=0.5 is the midpoint"
+              Expect.equal (Color.Blend(Color.Rgb(200uy, 100uy, 50uy), Color.Black, 0.0)) (Color.Rgb(200uy, 100uy, 50uy)) "t=0 returns the source"
+              Expect.equal (Color.Blend(Color.Rgb(200uy, 100uy, 50uy), Color.Black, 1.0)) Color.Black "t=1 returns the target"
+              Expect.equal (Color.Blend(Color.Default, Color.Black, 0.5)) Color.Default "Default has no RGB to mix, so it passes through"
+          }
+          test "Surface.Scrim: fades a cell's colours toward the tint but keeps its glyph" {
+              let s = Surface(Size.Create(2, 1))
+              s.Write(0, 0, "x", Style.Default.WithForeground(Color.Rgb(200uy, 200uy, 200uy)).WithBackground(Color.Rgb(40uy, 40uy, 40uy)))
+              // dim the whole row 50% toward black
+              s.Scrim(Rect.Create(0, 0, 2, 1), Color.Black, 0.5, Color.Rgb(200uy, 200uy, 200uy), Color.Black)
+              Expect.equal s.[0, 0].Grapheme "x" "the glyph is preserved — the scrim only restyles"
+              Expect.equal s.[0, 0].Style.Foreground (Some(Color.Rgb(100uy, 100uy, 100uy))) "fg faded halfway to black"
+              Expect.equal s.[0, 0].Style.Background (Some(Color.Rgb(20uy, 20uy, 20uy))) "bg faded halfway to black"
+          }
+          test "Surface.Scrim: a Default-fg cell resolves to the fallback before fading (not left full-bright)" {
+              let s = Surface(Size.Create(1, 1))
+              s.Write(0, 0, "y", Style.Default) // fg/bg both Default
+              s.Scrim(Rect.Create(0, 0, 1, 1), Color.Black, 0.5, Color.Rgb(200uy, 200uy, 200uy), Color.Black)
+              Expect.equal s.[0, 0].Style.Foreground (Some(Color.Rgb(100uy, 100uy, 100uy))) "Default fg → fallback 200, then halved toward black"
           } ]
 
 // Layout -------------------------------------------------------------------
@@ -748,31 +769,33 @@ let widgetTests =
               Expect.equal surf.[8, 1].Style.Background (Some selBg) "selected row (beta) filled full width"
               Expect.notEqual surf.[8, 0].Style.Background (Some selBg) "unselected row (alpha) left unfilled"
           }
-          test "Modal fills the backdrop and centers its box over the base tree" {
+          test "Modal fades the base behind it and centers an opaque box over it" {
               let backdropBg = Color.Rgb(0x06uy, 0x08uy, 0x0Buy)
               let backdrop = Style.Default.WithBackground backdropBg
               let border = Style.Default.WithForeground Color.White
               let titleStyle = Style.Default.WithForeground Color.White
 
               let body: LayoutNode<unit> = Mire.Widgets.Text.text "body" Style.Default
-              // 10×5 box centered in 20×10 → top-left border at (5,2)
+              // 10×5 box centered in 20×10 → top-left border at (5,2), interior rows 3-5.
               let m = Mire.Widgets.Modal.modal backdrop border titleStyle 10 5 "Hi" body
 
+              // A base tree with a recognizable background, so the scrim's fade is observable.
+              let baseBg = Color.Rgb(80uy, 80uy, 80uy)
+              let baseTree: LayoutNode<unit> = Mire.Widgets.Backdrop.solid (Style.Default.WithBackground baseBg)
+              let composed = LayoutNode.Overlay(Rect.Create(0, 0, 0, 0), [ baseTree; m ])
+
               let surf = Surface(Size.Create(20, 10))
-              Layout.measure (Rect.Create(0, 0, 20, 10)) m |> Layout.render surf
+              Layout.measure (Rect.Create(0, 0, 20, 10)) composed |> Layout.render surf
 
-              Expect.equal
-                  surf.[0, 0].Style.Background
-                  (Some backdropBg)
-                  "backdrop fills the corner (occludes the base)"
+              // Outside the box the base is *faded* toward the tint — not occluded, not full-strength.
+              let faded = Color.Blend(baseBg, backdropBg, Mire.Widgets.Modal.scrimStrength)
+              Expect.equal surf.[0, 0].Style.Background (Some faded) "the corner outside the box is the base, faded toward the tint"
+              Expect.notEqual surf.[0, 0].Style.Background (Some baseBg) "...so it is dimmed, not left at full strength"
 
-              Expect.equal surf.[19, 9].Style.Background (Some backdropBg) "backdrop fills the far corner too"
+              // The box itself stays opaque: a text-free interior cell carries the backdrop fill.
+              Expect.equal surf.[11, 5].Style.Background (Some backdropBg) "box interior is filled opaquely with the backdrop style"
 
-              Expect.isFalse
-                  (System.String.IsNullOrEmpty surf.[5, 2].Grapheme)
-                  "box border drawn at the centered top-left (5,2)"
-
-              Expect.notEqual surf.[5, 2].Grapheme " " "centered corner is a border glyph, not blank"
+              Expect.notEqual surf.[5, 2].Grapheme " " "centered corner (5,2) is a border glyph, not blank"
           }
           test "flexSpacer in a vstack pushes the last child to the bottom" {
               let a: LayoutNode<unit> = Mire.Widgets.Text.text "top" Style.Default

@@ -6,8 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **Translucent scrim (`Backdrop.scrim` / `LayoutNode.Scrim`).** A new overlay layer that *fades* the content behind it instead of occluding it: it blends every cell already painted under its rect toward a `tint` by a `strength` (0–1), preserving each glyph. Built on `Surface.Scrim` (terminal-`Default` cells resolve to a light-fg/dark-bg fallback so they dim too) and `Color.Blend` (linear RGB lerp). Because it transforms existing cells it must render *after* them — place it as a later sibling in a `LayoutNode.Overlay`.
+
 ### Changed
 
+- **Modals now fade the screen behind them instead of blanking it.** `Modal.modal` (and everything built on it — the Agent demo's skill/MCP/approval overlays, Feed's add/filter modals, the Gallery, `samples/AgentShell`) layers its centered box over a `Backdrop.scrim` rather than a solid `Filled` backdrop, so the base view stays visible but dimmed (a translucent-overlay look). The dialog box itself stays fully opaque — its interior is filled with the `backdropStyle` exactly as before, so faded base content never bleeds through it. `Modal.scrimStrength` exposes the fade amount.
 - **`Program.mkProgram` is now `Program.create`** — a clearer, action-first name that reads `Program.create init update view`. `Program.mkProgram` stays as a source-compatible alias, so existing code keeps working.
 
 ### Fixed

@@ -40,6 +40,13 @@ type LayoutNode<'msg> =
     /// panel background, modal backdrop, or selection highlight — and it gives
     /// `Overlay` genuine opacity (it occludes whatever it covers).
     | Filled of Rect * Style
+    /// A translucent scrim over its assigned rect: blends whatever is already
+    /// painted underneath toward `tint` by `strength` (0 = untouched, 1 = solid
+    /// `tint`), preserving glyphs. Unlike `Filled` it fades rather than occludes —
+    /// so it must render *after* the content it dims (place it as a later sibling
+    /// in an `Overlay`, over the base tree). The modal pattern uses it to fade the
+    /// screen behind a still-opaque dialog box.
+    | Scrim of Rect * Color * float
     | Box of Rect * Style * LayoutNode<'msg> list
     | Dock of Rect * DockChild<'msg> list
     | Stack of Rect * Direction * StackChild<'msg> list
@@ -74,7 +81,8 @@ module Layout =
     let rec contentExtent (dir: Direction) (node: LayoutNode<'msg>) : int =
         match node with
         | Empty -> 0
-        | Filled _ -> 1
+        | Filled _
+        | Scrim _ -> 1
         | Text(_, text, _) ->
             let lines = text.Split('\n')
 
@@ -133,6 +141,7 @@ module Layout =
         | Empty -> Empty
         | Text(_, text, style) -> Text(available, text, style)
         | Filled(_, style) -> Filled(available, style)
+        | Scrim(_, tint, strength) -> Scrim(available, tint, strength)
         | Box(_, style, children) ->
             let inner = available.Inflate(-1, -1)
             let laidOut = children |> List.map (measure inner)
@@ -312,6 +321,11 @@ module Layout =
         | Filled(rect, style) ->
             if not rect.IsEmpty then
                 surface.FillRect(rect, Cell.FromChar(' ', style))
+        | Scrim(rect, tint, strength) ->
+            if not rect.IsEmpty then
+                // Resolve terminal-`Default` cells to a light fg / dark bg so they
+                // dim too rather than staying full-bright through the scrim.
+                surface.Scrim(rect, tint, strength, Color.Rgb(200uy, 200uy, 200uy), Color.Rgb(0uy, 0uy, 0uy))
         | Box(rect, style, children) ->
             surface.DrawBox(rect, style)
 
@@ -367,7 +381,8 @@ module Layout =
             match n with
             | Empty
             | Text _
-            | Filled _ -> ()
+            | Filled _
+            | Scrim _ -> ()
             | Box(_, _, children) -> children |> List.iter go
             | Dock(_, children) -> children |> List.iter (fun c -> go c.Child)
             | Stack(_, _, children) -> children |> List.iter (fun c -> go c.Child)

@@ -33,6 +33,29 @@ type Surface(size: Size) =
                 if x >= 0 && x < safeSize.Width && y >= 0 && y < safeSize.Height then
                     cells.[y * safeSize.Width + x] <- cell
 
+    /// Translucent scrim: blend the colours of every cell already painted under
+    /// `rect` toward `tint` by `strength` (0.0 = untouched, 1.0 = solid `tint`),
+    /// keeping each glyph. Unlike `FillRect`, it doesn't replace the content with
+    /// blanks — it fades it, the way a modal dims the screen behind it. Cells whose
+    /// fg/bg are `Default` (terminal default) are resolved to `fgFallback`/
+    /// `bgFallback` before blending so they dim too rather than staying full-bright.
+    member _.Scrim(rect: Rect, tint: Color, strength: float, fgFallback: Color, bgFallback: Color) =
+        for y in rect.Top .. rect.Bottom do
+            for x in rect.Left .. rect.Right do
+                if x >= 0 && x < safeSize.Width && y >= 0 && y < safeSize.Height then
+                    let idx = y * safeSize.Width + x
+                    let cell = cells.[idx]
+                    let s = cell.Style
+                    let fg0 = s.Foreground |> Option.defaultValue fgFallback
+                    let bg0 = s.Background |> Option.defaultValue bgFallback
+
+                    let style =
+                        { s with
+                            Foreground = Some(Color.Blend(fg0, tint, strength))
+                            Background = Some(Color.Blend(bg0, tint, strength)) }
+
+                    cells.[idx] <- { cell with Style = style }
+
     member _.Write(x, y, text: string, style: Style) =
         let mutable cx = x
 

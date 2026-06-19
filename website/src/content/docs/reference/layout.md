@@ -82,8 +82,8 @@ Most uses want the `ScrollView` widget, which adds a track/thumb scrollbar plus
 
 ## Overlay and Positioned
 
-`Overlay` z-stacks layers (later paints on top; a `Filled`/`Backdrop` layer occludes).
-`Positioned` sizes a child and places it at one of nine `Placement` points:
+`Overlay` z-stacks layers (later paints on top; a `Filled`/`Backdrop.solid` layer
+occludes). `Positioned` sizes a child and places it at one of nine `Placement` points:
 
 ```fsharp
 LayoutNode.Overlay(Rect.Create(0, 0, 0, 0), [ baseTree; modal ])
@@ -91,6 +91,13 @@ LayoutNode.Overlay(Rect.Create(0, 0, 0, 0), [ baseTree; modal ])
 
 Use the `Modal`/`Toast`/`Tooltip`/`Completion`/`Overlay` widgets rather than building
 `Positioned` by hand.
+
+A `Scrim` layer (`Backdrop.scrim tint strength`) is the translucent counterpart of
+`Filled`: instead of replacing what it covers with blanks, it blends the cells already
+painted underneath toward `tint` (preserving their glyphs), so a modal can *fade* the
+screen behind it rather than occluding it. Because it transforms existing cells, a scrim
+must sit *after* the content it dims in the layer list. `Modal.modal` uses one — the
+dialog box stays opaque while the rest of the screen is dimmed.
 
 ## Focusable
 

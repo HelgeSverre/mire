@@ -17,6 +17,20 @@ type Color =
     static member DarkGray = Rgb(60uy, 60uy, 60uy)
     static member LightGray = Rgb(180uy, 180uy, 180uy)
 
+    /// Linear RGB blend: `t = 0.0` → `a`, `t = 1.0` → `b` (clamped). If either
+    /// side is `Default` there's no RGB to mix, so `a` is returned unchanged —
+    /// callers substitute a concrete fallback first (see `Surface.Scrim`).
+    static member Blend(a: Color, b: Color, t: float) =
+        let t = max 0.0 (min 1.0 t)
+
+        match a, b with
+        | Rgb(ar, ag, ab), Rgb(br, bg, bb) ->
+            let mix (x: byte) (y: byte) =
+                byte (System.Math.Round(float x + (float y - float x) * t))
+
+            Rgb(mix ar br, mix ag bg, mix ab bb)
+        | _ -> a
+
     member this.ToHex() =
         match this with
         | Rgb(r, g, b) -> $"#{r:X2}{g:X2}{b:X2}"

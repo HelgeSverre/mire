@@ -192,6 +192,15 @@ module Backdrop =
     let solid (style: Style) : LayoutNode<'msg> =
         LayoutNode.Filled(Rect.Create(0, 0, 0, 0), style)
 
+    /// A translucent scrim: dims everything already painted under its rect toward
+    /// `tint` by `strength` (0.0 = untouched, 1.0 = solid `tint`), preserving each
+    /// glyph. Unlike `solid` it fades the content behind it instead of replacing it
+    /// with blanks — the way a modal dims the screen. It transforms cells already on
+    /// the surface, so it must render *after* them: place it as a later sibling in a
+    /// `LayoutNode.Overlay`, over the base tree.
+    let scrim (tint: Color) (strength: float) : LayoutNode<'msg> =
+        LayoutNode.Scrim(Rect.Create(0, 0, 0, 0), tint, strength)
+
     /// Draw `child` over a full-bleed background of `style` — the row/cell
     /// highlight primitive. A bare styled `Text` only colours the cells under its
     /// glyphs; this fills the whole assigned rect first, then renders the child on
@@ -212,6 +221,7 @@ module Backdrop =
         | LayoutNode.Empty -> node
         | LayoutNode.Text(r, t, _) -> LayoutNode.Text(r, t, style)
         | LayoutNode.Filled(r, _) -> LayoutNode.Filled(r, style)
+        | LayoutNode.Scrim _ -> node // a scrim has no glyphs/colours of its own to restyle
         | LayoutNode.Box(r, _, ch) -> LayoutNode.Box(r, style, ch |> List.map (recolor style))
         | LayoutNode.Stack(r, d, ch) -> LayoutNode.Stack(r, d, ch |> List.map (fun c -> { c with Child = recolor style c.Child }))
         | LayoutNode.Dock(r, ch) -> LayoutNode.Dock(r, ch |> List.map (fun c -> { c with Child = recolor style c.Child }))
@@ -259,13 +269,18 @@ module Overlay =
               Dock.right (max 0 (areaW - px - width)) Spacer.spacer
               Dock.fill child ]
 
-/// A centered modal: an opaque backdrop behind a bordered `width`×`height` box
-/// with a title row above a `body` slot — the *layout half* of the modal pattern.
-/// For the keyboard focus-trap, pair the open/close with `Focus.pushTrap`/`popTrap`
-/// (see `Mire.Layout.Focus`): push the modal's button ids on open, pop on close.
-/// Returns a single node to drop over a base tree:
-/// `Overlay(rect0, [ baseTree; Modal.modal … ])`.
+/// A centered modal: a bordered `width`×`height` box with a title row above a
+/// `body` slot, over a translucent scrim that *fades* the screen behind it — the
+/// *layout half* of the modal pattern. The box stays fully opaque (its interior is
+/// filled with `backdropStyle`, exactly as before); only the area outside it is
+/// dimmed rather than blanked. For the keyboard focus-trap, pair the open/close
+/// with `Focus.pushTrap`/`popTrap` (see `Mire.Layout.Focus`): push the modal's
+/// button ids on open, pop on close. Returns a single node to drop over a base
+/// tree: `Overlay(rect0, [ baseTree; Modal.modal … ])`.
 module Modal =
+    /// How far the scrim fades the screen behind a modal (0 = no dim, 1 = solid).
+    let scrimStrength = 0.6
+
     let modal
         (backdropStyle: Style)
         (borderStyle: Style)
@@ -282,9 +297,17 @@ module Modal =
                       [ Stack.sized (Cells 1) (Text.text (" " + title) titleStyle)
                         Stack.sized Length.Fill body ] ]
 
+        // The box paints opaquely: its own `backdropStyle` fill clears the box area
+        // (so faded base content never shows through gaps in the body), then the
+        // bordered box on top. Outside the box, the scrim dims the base tree.
+        let opaqueBox =
+            LayoutNode.Overlay(Rect.Create(0, 0, 0, 0), [ Backdrop.solid backdropStyle; titledBox ])
+
+        let tint = backdropStyle.Background |> Option.defaultValue Color.Black
+
         LayoutNode.Overlay(
             Rect.Create(0, 0, 0, 0),
-            [ Backdrop.solid backdropStyle; Overlay.centered width height titledBox ]
+            [ Backdrop.scrim tint scrimStrength; Overlay.centered width height opaqueBox ]
         )
 
 /// Auto-dismissing notifications. The layout half: render a column of cards and
