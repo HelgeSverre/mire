@@ -205,3 +205,88 @@ module Grapheme =
                     sb.Append(c) |> ignore
 
             sb.ToString()
+
+    // --- boundaries & columns (for editing) ---------------------------------
+    // Text buffers index by UTF-16 offset; these helpers keep those offsets on
+    // grapheme-cluster boundaries (never inside a surrogate pair, a base+mark
+    // run, or a ZWJ sequence) and convert between offsets and display columns.
+
+    /// The offset just past the cluster starting at `pos` (`s.Length` at the end).
+    let nextBoundary (s: string) (pos: int) : int =
+        if pos >= s.Length then
+            s.Length
+        elif pos < 0 then
+            0
+        else
+            pos + max 1 (StringInfo.GetNextTextElementLength(s, pos))
+
+    /// The largest cluster boundary ≤ `pos`: `pos` itself if it's a boundary,
+    /// else the start of the cluster containing it. Scans from the start of
+    /// `pos`'s line (a line feed always ends a cluster), so cost is per line.
+    let floorBoundary (s: string) (pos: int) : int =
+        let pos = max 0 (min s.Length pos)
+
+        if pos = 0 || pos = s.Length then
+            pos
+        else
+            let mutable i = s.LastIndexOf('\n', pos - 1) + 1
+
+            while i < pos && nextBoundary s i <= pos do
+                i <- nextBoundary s i
+
+            i
+
+    /// The cluster boundary before `pos` (0 at the start).
+    let prevBoundary (s: string) (pos: int) : int =
+        if pos <= 0 then 0 else floorBoundary s (pos - 1)
+
+    /// True if `pos` is a cluster boundary of `s`.
+    let isBoundary (s: string) (pos: int) : bool =
+        pos >= 0 && pos <= s.Length && floorBoundary s pos = pos
+
+    /// How an editor displays one cluster: the text to paint and its columns. A
+    /// tab shows as a single blank column, a control character as its visible
+    /// stand-in, and a zero-width cluster with no base (a lone combining mark) on
+    /// a dotted circle — so every cluster occupies at least one column and a
+    /// caret can always sit on it.
+    let editDisplay (cluster: string) : string * int =
+        if cluster = "\t" then
+            " ", 1
+        else
+            let shown = sanitize cluster
+            let w = clusterWidth shown
+
+            if w = 0 then "◌" + shown, 1 else shown, w
+
+    /// Display columns of `s.[lo .. hi - 1]` as an editor shows it (`editDisplay`).
+    let editColumns (s: string) (lo: int) (hi: int) : int =
+        let hi = min s.Length hi
+        let mutable i = max 0 lo
+        let mutable cols = 0
+
+        while i < hi do
+            let j = nextBoundary s i
+            cols <- cols + snd (editDisplay (s.Substring(i, j - i)))
+            i <- j
+
+        cols
+
+    /// The offset in `s.[lo .. hi - 1]` whose display column (from `lo`) is the
+    /// largest ≤ `col` — where a caret moved to column `col` of that line lands.
+    let offsetAtColumn (s: string) (lo: int) (hi: int) (col: int) : int =
+        let hi = min s.Length hi
+        let mutable i = max 0 lo
+        let mutable cols = 0
+        let mutable go = true
+
+        while go && i < hi do
+            let j = nextBoundary s i
+            let w = snd (editDisplay (s.Substring(i, j - i)))
+
+            if cols + w > col then
+                go <- false
+            else
+                cols <- cols + w
+                i <- j
+
+        i

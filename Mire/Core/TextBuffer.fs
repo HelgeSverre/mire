@@ -1,9 +1,11 @@
 namespace Mire.Core
 
-/// A single-line text buffer with a cursor — `Cursor` is a char index in
-/// `0 .. Text.Length`. Every edit is pure and returns a new buffer. Char-indexed
-/// (not grapheme-aware): fine for ASCII-ish input; combining/wide clusters are a
-/// known approximation, matching the rest of the framework.
+/// A text buffer with a cursor — `Cursor` (and `Anchor`) are UTF-16 offsets in
+/// `0 .. Text.Length`. Every edit is pure and returns a new buffer. Edits and
+/// motions are grapheme-aware: the cursor and anchor are kept on grapheme-cluster
+/// boundaries (see `TextBuffer.normalize`), so a motion or deletion never splits
+/// a surrogate pair, a base + combining-mark run, or a ZWJ emoji sequence, and
+/// vertical motion preserves the *display column*, not the char count.
 type TextBuffer =
     {
         Text: string
@@ -24,9 +26,22 @@ type TextBuffer =
 
 module TextBuffer =
 
-    let private clampCursor (b: TextBuffer) =
-        { b with
-            Cursor = max 0 (min b.Text.Length b.Cursor) }
+    /// Clamp an offset into `0 .. text.Length` and snap it to a cluster boundary.
+    let private snap (text: string) (pos: int) = Grapheme.floorBoundary text pos
+
+    /// Restore the buffer invariants: `Cursor` and `Anchor` within
+    /// `0 .. Text.Length` and on grapheme-cluster boundaries. Every operation
+    /// normalizes its input, so a hand-built or stale buffer (an anchor past the
+    /// end, a cursor inside a surrogate pair) can't make an edit throw or split a
+    /// cluster.
+    let normalize (b: TextBuffer) : TextBuffer =
+        let t = if isNull b.Text then "" else b.Text
+
+        { Text = t
+          Cursor = snap t b.Cursor
+          Anchor = b.Anchor |> Option.map (snap t) }
+
+    let private clampCursor (b: TextBuffer) = normalize b
 
     /// A word char = anything that isn't whitespace (so `\n`/`\t`/spaces are all
     /// word boundaries — word ops won't silently run across a line break).
@@ -56,9 +71,10 @@ module TextBuffer =
     let ofString (s: string) : TextBuffer = TextBuffer.Of s
     let isEmpty (b: TextBuffer) = b.Text = ""
 
-    /// The selected range as `(lo, hi)` char indices (`hi` exclusive), or `None`
-    /// when there's no selection.
+    /// The selected range as `(lo, hi)` offsets (`hi` exclusive, both clamped to
+    /// the text and on cluster boundaries), or `None` when there's no selection.
     let selection (b: TextBuffer) : (int * int) option =
+        let b = normalize b
         b.Anchor |> Option.map (fun a -> (min a b.Cursor, max a b.Cursor))
 
     /// True when a non-empty range is selected.
@@ -68,10 +84,12 @@ module TextBuffer =
         | None -> false
 
     /// Drop any selection, keeping the caret where it is.
-    let clearSelection (b: TextBuffer) : TextBuffer = { b with Anchor = None }
+    let clearSelection (b: TextBuffer) : TextBuffer = { normalize b with Anchor = None }
 
     /// Delete the selected range (caret to its start); a no-op collapse otherwise.
     let deleteSelection (b: TextBuffer) : TextBuffer =
+        let b = normalize b
+
         match selection b with
         | Some(lo, hi) when hi > lo ->
             { Text = b.Text.Substring(0, lo) + b.Text.Substring(hi)
@@ -81,13 +99,15 @@ module TextBuffer =
 
     /// Select the whole buffer (anchor at 0, caret at the end).
     let selectAll (b: TextBuffer) : TextBuffer =
-        { b with
+        { normalize b with
             Anchor = Some 0
             Cursor = b.Text.Length }
 
     /// Apply a motion as a selection extension (shift+move): anchor at the current
     /// caret if not already anchored, then move — the move preserves the anchor.
     let extend (move: TextBuffer -> TextBuffer) (b: TextBuffer) : TextBuffer =
+        let b = normalize b
+
         move (
             match b.Anchor with
             | Some _ -> b
@@ -95,50 +115,74 @@ module TextBuffer =
         )
 
     /// Insert `s` at the cursor (replacing any selection) and advance past it.
+    /// The caret lands on the next cluster boundary at or after the insertion
+    /// (inserting a combining mark joins it to the preceding cluster).
     let insert (s: string) (b: TextBuffer) : TextBuffer =
-        let b = clampCursor (deleteSelection b)
+        let b = deleteSelection b
+        let s = if isNull s then "" else s
+        let text = b.Text.Substring(0, b.Cursor) + s + b.Text.Substring(b.Cursor)
+        let target = b.Cursor + s.Length
+        let snapped = snap text target
 
-        { Text = b.Text.Substring(0, b.Cursor) + s + b.Text.Substring(b.Cursor)
-          Cursor = b.Cursor + s.Length
+        { Text = text
+          Cursor =
+            (if snapped < target then
+                 Grapheme.nextBoundary text snapped
+             else
+                 snapped)
           Anchor = None }
 
-    /// Delete the selection if any, else the char before the cursor (Backspace).
+    /// Delete the selection if any, else the cluster before the cursor (Backspace).
     let backspace (b: TextBuffer) : TextBuffer =
         if hasSelection b then
             deleteSelection b
         else
-            let b = clampCursor b
+            let b = normalize b
 
             if b.Cursor = 0 then
                 { b with Anchor = None }
             else
-                { Text = b.Text.Substring(0, b.Cursor - 1) + b.Text.Substring(b.Cursor)
-                  Cursor = b.Cursor - 1
+                let p = Grapheme.prevBoundary b.Text b.Cursor
+
+                { Text = b.Text.Substring(0, p) + b.Text.Substring(b.Cursor)
+                  Cursor = p
                   Anchor = None }
 
-    /// Delete the selection if any, else the char at the cursor (forward Delete).
+    /// Delete the selection if any, else the cluster at the cursor (forward Delete).
     let delete (b: TextBuffer) : TextBuffer =
         if hasSelection b then
             deleteSelection b
         else
-            let b = clampCursor b
+            let b = normalize b
 
             if b.Cursor >= b.Text.Length then
                 { b with Anchor = None }
             else
+                let n = Grapheme.nextBoundary b.Text b.Cursor
+
                 { b with
-                    Text = b.Text.Substring(0, b.Cursor) + b.Text.Substring(b.Cursor + 1)
+                    Text = b.Text.Substring(0, b.Cursor) + b.Text.Substring(n)
                     Anchor = None }
 
+    /// Move one cluster left.
     let left (b: TextBuffer) : TextBuffer =
-        { b with Cursor = max 0 (b.Cursor - 1) }
+        let b = normalize b
 
-    let right (b: TextBuffer) : TextBuffer =
         { b with
-            Cursor = min b.Text.Length (b.Cursor + 1) }
+            Cursor = Grapheme.prevBoundary b.Text b.Cursor }
 
-    let home (b: TextBuffer) : TextBuffer = { b with Cursor = 0 }
-    let toEnd (b: TextBuffer) : TextBuffer = { b with Cursor = b.Text.Length }
+    /// Move one cluster right.
+    let right (b: TextBuffer) : TextBuffer =
+        let b = normalize b
+
+        { b with
+            Cursor = Grapheme.nextBoundary b.Text b.Cursor }
+
+    let home (b: TextBuffer) : TextBuffer = { normalize b with Cursor = 0 }
+
+    let toEnd (b: TextBuffer) : TextBuffer =
+        { normalize b with
+            Cursor = b.Text.Length }
 
     /// Move the cursor to the start of the previous word (skip whitespace, then
     /// the word). No-op at the start of the buffer.
@@ -152,7 +196,7 @@ module TextBuffer =
         while i > 0 && isWord b.Text.[i - 1] do
             i <- i - 1
 
-        { b with Cursor = i }
+        { b with Cursor = snap b.Text i }
 
     /// Move the cursor to the end of the next word. No-op at the end of the buffer.
     let wordRight (b: TextBuffer) : TextBuffer =
@@ -166,36 +210,54 @@ module TextBuffer =
         while i < n && isWord b.Text.[i] do
             i <- i + 1
 
-        { b with Cursor = i }
+        // A whitespace char carrying a combining mark could leave `i` mid-cluster;
+        // round forward so the motion always makes progress.
+        let j = snap b.Text i
+
+        { b with
+            Cursor = (if j < i then Grapheme.nextBoundary b.Text j else j) }
 
     /// Select the word around/before the cursor (anchor at its start, caret at its end).
     let selectWord (b: TextBuffer) : TextBuffer =
+        let b = normalize b
+
         { b with
             Anchor = Some (wordLeft b).Cursor
             Cursor = (wordRight b).Cursor }
 
-    /// Delete from the cursor back to the start of the previous word. The action
-    /// is key-agnostic; the conventional binding (Ctrl/Cmd+Backspace) is wired in
-    /// `Mire.Core.TextEdit`.
+    /// Delete the selection if any, else from the cursor back to the start of the
+    /// previous word. The action is key-agnostic; the conventional binding
+    /// (Ctrl/Cmd+Backspace) is wired in `Mire.Core.TextEdit`.
     let deleteWordBack (b: TextBuffer) : TextBuffer =
-        let b = clampCursor b
-        let i = (wordLeft b).Cursor
+        if hasSelection b then
+            deleteSelection b
+        else
+            let b = clampCursor b
+            let i = (wordLeft b).Cursor
 
-        { Text = b.Text.Substring(0, i) + b.Text.Substring(b.Cursor)
-          Cursor = i
-          Anchor = None }
+            { Text = b.Text.Substring(0, i) + b.Text.Substring(b.Cursor)
+              Cursor = i
+              Anchor = None }
 
-    /// Delete from the cursor forward to the end of the next word.
+    /// Delete the selection if any, else from the cursor forward to the end of
+    /// the next word.
     let deleteWordForward (b: TextBuffer) : TextBuffer =
-        let b = clampCursor b
-        let j = (wordRight b).Cursor
+        if hasSelection b then
+            deleteSelection b
+        else
+            let b = clampCursor b
+            let j = (wordRight b).Cursor
 
-        { b with
-            Text = b.Text.Substring(0, b.Cursor) + b.Text.Substring(j) }
+            { Text = b.Text.Substring(0, b.Cursor) + b.Text.Substring(j)
+              Cursor = b.Cursor
+              Anchor = None }
 
     /// The cursor's `(row, col)` — both 0-based — over the `\n`-delimited text.
+    /// `col` is the UTF-16 offset within the line (see `cursorRowColumn` for the
+    /// display column).
     let cursorRowCol (b: TextBuffer) : int * int =
-        let p = max 0 (min b.Text.Length b.Cursor)
+        let b = normalize b
+        let p = b.Cursor
         let mutable row = 0
 
         for i in 0 .. p - 1 do
@@ -204,45 +266,60 @@ module TextBuffer =
 
         (row, p - lineStartIndex b.Text p)
 
+    /// The cursor's `(row, displayColumn)`: the row as in `cursorRowCol`, and the
+    /// number of terminal columns the line's text before the cursor occupies (a
+    /// wide glyph counts 2, a combining mark 0 — see `Grapheme.editDisplay`).
+    let cursorRowColumn (b: TextBuffer) : int * int =
+        let b = normalize b
+        let (row, _) = cursorRowCol b
+        let ls = lineStartIndex b.Text b.Cursor
+        (row, Grapheme.editColumns b.Text ls b.Cursor)
+
     /// Move the cursor to the start of the current line.
     let lineStart (b: TextBuffer) : TextBuffer =
+        let b = normalize b
+
         { b with
             Cursor = lineStartIndex b.Text b.Cursor }
 
     /// Move the cursor to the end of the current line (before its `\n`).
     let lineEnd (b: TextBuffer) : TextBuffer =
-        { b with
-            Cursor = lineEndIndex b.Text b.Cursor }
+        let b = normalize b
 
-    /// Move to the same column on the previous line (clamped to its length). No
-    /// sticky desired-column: the column is recomputed each move. No-op on line 0.
+        { b with
+            Cursor = snap b.Text (lineEndIndex b.Text b.Cursor) }
+
+    /// Move to the same display column on the previous line (clamped to its
+    /// width). No sticky desired-column: the column is recomputed each move.
+    /// No-op on line 0.
     let up (b: TextBuffer) : TextBuffer =
         let b = clampCursor b
-        let (row, col) = cursorRowCol b
+        let (row, col) = cursorRowColumn b
 
         if row = 0 then
             b
         else
             let curLineStart = lineStartIndex b.Text b.Cursor
             let prevLineStart = lineStartIndex b.Text (curLineStart - 1)
-            let prevLineLen = (curLineStart - 1) - prevLineStart
+            let prevLineEnd = curLineStart - 1
 
             { b with
-                Cursor = prevLineStart + min col prevLineLen }
+                Cursor = Grapheme.offsetAtColumn b.Text prevLineStart prevLineEnd col }
 
-    /// Move to the same column on the next line (clamped). No-op on the last line.
+    /// Move to the same display column on the next line (clamped). No-op on the
+    /// last line.
     let down (b: TextBuffer) : TextBuffer =
         let b = clampCursor b
-        let (_, col) = cursorRowCol b
+        let (_, col) = cursorRowColumn b
         let curLineEnd = lineEndIndex b.Text b.Cursor
 
         if curLineEnd >= b.Text.Length then
             b
         else
             let nextLineStart = curLineEnd + 1
-            let nextLineLen = lineEndIndex b.Text nextLineStart - nextLineStart
+            let nextLineEnd = lineEndIndex b.Text nextLineStart
 
             { b with
-                Cursor = nextLineStart + min col nextLineLen }
+                Cursor = Grapheme.offsetAtColumn b.Text nextLineStart nextLineEnd col }
 
     let clear (_: TextBuffer) : TextBuffer = TextBuffer.Empty
