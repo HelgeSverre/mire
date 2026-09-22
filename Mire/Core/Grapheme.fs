@@ -156,3 +156,52 @@ module Grapheme =
                     widthCache.[s] <- w
 
                 w
+
+    // --- control-character safety -------------------------------------------
+    // Cell text is content, not terminal instructions. A C0 control (ESC, BEL,
+    // CR, …), DEL, or a C1 control (0x80–0x9F, e.g. CSI 0x9B / OSC 0x9D) reaching
+    // the output stream would be *executed* by the terminal — `"a\x1b[2Jb"` would
+    // clear the screen instead of showing inert text. The renderer maps every such
+    // scalar to a visible, inert stand-in before it lands in a cell (and the diff
+    // writer re-checks at emission). Raw instructions go through the explicit,
+    // trusted `Cmd.writeRaw` path instead.
+
+    /// True for a C0 control (< 0x20), DEL (0x7F), or C1 control (0x80–0x9F).
+    let isControlScalar (cp: int) : bool = cp < 0x20 || (cp >= 0x7F && cp <= 0x9F)
+
+    /// True if `s` contains any control scalar (see `isControlScalar`).
+    let hasControl (s: string) : bool =
+        let mutable found = false
+        let mutable i = 0
+
+        while not found && i < s.Length do
+            if isControlScalar (int s.[i]) then
+                found <- true
+
+            i <- i + 1
+
+        found
+
+    /// The visible stand-in for a control scalar: C0 → its Unicode Control
+    /// Picture (U+2400 + cp, e.g. ESC → `␛`), DEL → `␡`, C1 → U+FFFD. All are a
+    /// single narrow column.
+    let controlPicture (cp: int) : string =
+        if cp < 0x20 then string (char (0x2400 + cp))
+        elif cp = 0x7F then "␡"
+        else "�"
+
+    /// Replace every control scalar in `s` with its visible stand-in
+    /// (`controlPicture`). Returns `s` unchanged (no allocation) when it has none.
+    let sanitize (s: string) : string =
+        if not (hasControl s) then
+            s
+        else
+            let sb = System.Text.StringBuilder(s.Length)
+
+            for c in s do
+                if isControlScalar (int c) then
+                    sb.Append(controlPicture (int c)) |> ignore
+                else
+                    sb.Append(c) |> ignore
+
+            sb.ToString()

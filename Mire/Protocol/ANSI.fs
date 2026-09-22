@@ -73,13 +73,56 @@ module ANSI =
     let defaultBg = CSI + "49m"
 
     // OSC 8 hyperlink
+    /// Longest URI accepted into an OSC 8 sequence (terminals cap it too; Kitty
+    /// and VTE use 2083-ish, so anything longer is almost certainly not a link).
+    let maxOscUriLength = 2048
+
+    /// Validate and encode a URI for an OSC 8 control string. The URI is data
+    /// spliced *inside* a terminal instruction, so an embedded ESC/BEL/ST would
+    /// terminate it early and let the rest run as commands. `None` if it holds
+    /// any control scalar (C0, DEL, C1) or is empty/over `maxOscUriLength`;
+    /// otherwise non-ASCII and space are percent-encoded (UTF-8), as the OSC 8
+    /// spec requires URIs to be printable ASCII (0x21–0x7E).
+    let oscUri (url: string) : string option =
+        if String.IsNullOrEmpty url || url.Length > maxOscUriLength then
+            None
+        elif url |> Seq.exists (fun c -> int c < 0x20 || (int c >= 0x7F && int c <= 0x9F)) then
+            None
+        elif url |> Seq.forall (fun c -> int c > 0x20 && int c < 0x7F) then
+            Some url
+        else
+            let sb = StringBuilder()
+
+            for b in Encoding.UTF8.GetBytes url do
+                if b > 0x20uy && b < 0x7Fuy then
+                    sb.Append(char b) |> ignore
+                else
+                    sb.Append('%').Append(b.ToString("X2")) |> ignore
+
+            let encoded = sb.ToString()
+
+            if encoded.Length > maxOscUriLength then
+                None
+            else
+                Some encoded
+
+    /// A complete OSC 8 hyperlink around `text`. An unsafe URL (see `oscUri`)
+    /// drops the link and yields just the text. `text` is emitted as-is — this is
+    /// a raw-output helper; cell text goes through the renderer's sanitizer.
     let hyperlink (url, text) =
-        $"\x1b]8;;{url}\x1b\\{text}\x1b]8;;\x1b\\"
+        match oscUri url with
+        | Some u -> $"\x1b]8;;{u}\x1b\\{text}\x1b]8;;\x1b\\"
+        | None -> text
 
     /// Open a hyperlink: cells written after this carry the link until `osc8Close`.
     /// (The Diff writer brackets each linked run with these so the link attribute
-    /// is scoped to exactly that run, even across cursor moves.)
-    let osc8Open (url: string) = $"\x1b]8;;{url}\x1b\\"
+    /// is scoped to exactly that run, even across cursor moves.) An unsafe URL
+    /// (see `oscUri`) yields `""` — the run renders unlinked.
+    let osc8Open (url: string) =
+        match oscUri url with
+        | Some u -> $"\x1b]8;;{u}\x1b\\"
+        | None -> ""
+
     let osc8Close = "\x1b]8;;\x1b\\"
 
     // OSC 52 clipboard
@@ -93,7 +136,17 @@ module ANSI =
     // is split into ≤4096-byte chunks with `m=1` on all but the last, per the spec.
     // `deleteImages` clears all placed images (`a=d`).
     let kittyImage (cols: int) (rows: int) (pngBase64: string) : string =
-        if pngBase64 = "" then
+        let isBase64 (c: char) =
+            (c >= 'A' && c <= 'Z')
+            || (c >= 'a' && c <= 'z')
+            || (c >= '0' && c <= '9')
+            || c = '+'
+            || c = '/'
+            || c = '='
+
+        // The payload sits inside an APC control string: anything but base64
+        // (an ESC, say) could terminate it and run the remainder as commands.
+        if pngBase64 = "" || not (Seq.forall isBase64 pngBase64) then
             ""
         else
             let sb = StringBuilder()

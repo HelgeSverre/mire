@@ -367,7 +367,20 @@ module Layout =
 
                 for vx in 0 .. viewport.Width - 1 do
                     let sx = vx + offX
-                    surface.[viewport.Left + vx, viewport.Top + vy] <- temp.[sx, sy]
+                    let cell = temp.[sx, sy]
+
+                    // A wide glyph cut by the viewport edge can't show half of
+                    // itself: its lead past the right edge, or its continuation
+                    // at the left edge (lead scrolled off), degrades to a blank.
+                    let cell =
+                        if (vx = 0 && cell.IsContinuation) || (vx = viewport.Width - 1 && cell.Width = 2) then
+                            { Grapheme = " "
+                              Width = 1
+                              Style = cell.Style }
+                        else
+                            cell
+
+                    surface.[viewport.Left + vx, viewport.Top + vy] <- cell
 
     /// Collect the `(RegionId, Rect)` of every `Focusable` node in a *measured* tree,
     /// in paint order (later entries paint on top). This is the retained region table
