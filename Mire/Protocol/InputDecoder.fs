@@ -174,7 +174,7 @@ type InputDecoder(pasteCap: int) =
             len <- len - pos
 
     /// A decoder with the runtime's default 1 MiB paste cap.
-    new() = InputDecoder(1 <<< 20)
+    new() = new InputDecoder(1 <<< 20)
 
     /// Feed newly-read bytes; returns the events they complete, in order.
     member _.Feed(bytes: byte[]) : InputEvent list =
