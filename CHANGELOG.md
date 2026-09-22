@@ -6,6 +6,88 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+A correctness and interaction release, driven by an external source audit of
+0.7.0. Nothing new in the widget catalog: this release makes the existing pieces
+compose safely at their boundaries — ordinary text can't emit terminal commands,
+input decoding no longer depends on how `read()` splits bytes, editing preserves
+valid Unicode, measured geometry matches painted and hit-tested geometry, and the
+ready-made `AgentShell` routes the interactions its widgets already supported.
+Several public shapes moved (noted per item) — acceptable pre-1.0.
+
+### Security
+
+- **Cell text can no longer emit terminal commands.** `Surface.Write`/`WriteClipped`
+  map C0/DEL/C1 control characters to inert visible stand-ins (Unicode Control
+  Pictures, U+FFFD for C1) and the diff writer re-sanitizes at emission, so text like
+  `"a\x1b[2Jb"` renders instead of clearing the screen. OSC 8 link URLs are validated
+  (`ANSI.oscUri`: controls rejected, non-ASCII percent-encoded, length capped) and a
+  Kitty image payload must be pure base64. Raw output remains available through the
+  explicit `Cmd.writeRaw`.
+
+### Added
+
+- **`InputDecoder`** — a persistent incremental decoder that retains split CSI/SS3
+  sequences, partial UTF-8 scalars, and unfinished bracketed pastes across reads; a
+  paste stays a paste until its end marker (over-cap content is truncated, never
+  leaked as keystrokes). The runtime uses it with a 30 ms lone-Escape timeout.
+- **`CommandSupervisor`** — `Cmd.ofAsync` work runs under a runtime-owned
+  cancellation token (cancelled on quit; observable via `Async.CancellationToken`),
+  failures after an async yield reach `Program.OnError` on the runtime thread, and
+  sends after shutdown are dropped. `Cmd.dispatchWith` takes the async starter.
+- **`MessagePump`** — the bounded message pump (4096 messages / 16 ms per iteration,
+  stops as soon as quit is requested), factored out for testing.
+- **Pointer capture** (`PointerCapture.route`): a press captures its region for the
+  following drag and release.
+- **`Surface.Clip`**, **`Grapheme`** boundary/column helpers (`nextBoundary`,
+  `prevBoundary`, `floorBoundary`, `editColumns`, `offsetAtColumn`, `lineWidth`,
+  `sanitize`), `TextBuffer.normalize`/`cursorRowColumn`, `Table.viewIndexed`/`viewArray`.
+- **Agent layer:** `TranscriptCache` + `ChatTranscript.viewKeyed`/`toBottomKeyed`/
+  `contentHeightKeyed`, `Conversation.keyed`, `PromptBox.renderRows`/`visualRows`,
+  `AgentShell.config`, approval ids + FIFO queue (`requestApprovalId`,
+  `cancelApproval`), cancellation (`Cancel`, `OnCancel`, `stopStreams`, `failReply`),
+  completion (`ShellConfig.Completions`/`Triggers`), multi-line prompt
+  (`MaxPromptRows`), transcript scrolling (`ScrollBy`/`ScrollPage`/`JumpToLatest`).
+
+### Changed
+
+- **Terminal lifecycle.** Setup is bracketed from the first mutation, so a throwing
+  `Init`, initial command, or setup write still restores the terminal; each teardown
+  step runs independently. Raw mode saves `stty -g` and restores it exactly (was
+  `stty sane`) with an explicit policy (`-echo -icanon -isig -ixon -iexten -icrnl`);
+  failures are reported via `OnError`. With `-isig`, Ctrl+C always reaches the quit
+  policy as a key instead of killing the process.
+- **Input reads** are iterative, 4 KiB chunks, 256 KiB per call (was recursive,
+  byte-at-a-time, quadratic); `parseAll` no longer copies buffer suffixes.
+- **Editing is grapheme-aware.** `TextBuffer` keeps offsets on cluster boundaries —
+  motions and deletes never split a surrogate pair, combining sequence, or ZWJ emoji;
+  Up/Down keep the display column; word deletes honor a selection; every edit clears
+  or clamps the anchor. `Input`/`TextArea`/`wrapLine` lay out in display columns.
+- **Layout.** `contentExtent` honors explicit `Cells` sizes (scroll content is sized
+  to what `measure` places); `Box` extent is its largest child (children overlap);
+  rendering clips each subtree to its ancestors' content areas; a `Scroll` paints its
+  child directly into the viewport instead of a full-size off-screen surface.
+- **Hit regions** now include `Scroll` descendants (mapped to screen space and
+  clipped), are clipped like painting, and a later `Filled`/`Scrim` layer blocks
+  regions beneath it (a modal backdrop no longer lets clicks fall through).
+- **`AgentShell`** (breaking shape): `mapInput` emits `KeyPress` and `update` routes
+  by context (approval → completion → prompt), so ←/→/Home/End/selection/word chords
+  reach the editor; Shift/Alt+Enter or Ctrl+J insert a newline; `Session` is derived
+  from the streaming reply ids and the open approval; `Approval` is a
+  `PendingApproval` record; follow-tail is explicit (`Following`) and resolved once
+  per frame; new output no longer yanks a scrolled-up view.
+- **Transcript height cache** is bounded by retained text as well as entry count and
+  clears when full (was: stop caching when full).
+
+### Fixed
+
+- `DiffView.splitColumns` keeps shared context aligned after unequal edit runs.
+- `StatusBar.statusBar` honors its left/center/right groups (center is centered on
+  the bar; sides win collisions).
+- Wide glyphs: a glyph whose second column is clipped becomes a blank, and
+  overwriting either half of a pair repairs the other (writes, fills, scroll edges).
+- `wrapLine 2 "世界"` measured characters, not columns (now one glyph per row).
+- The Gallery sample docked its 3-row status bar into 1 row.
+
 ## [0.7.0] - 2026-06-19
 
 The agent layer grows into its name, plus input/protocol completeness and

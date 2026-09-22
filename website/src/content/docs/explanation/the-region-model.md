@@ -29,10 +29,12 @@ On a mouse event, `Layout.regionAt` finds the topmost region containing the curs
 `withMouseRegion` handler. You react to an _id_, not a coordinate — so when the layout
 changes, the hit-testing follows automatically. No geometry mirrored by hand.
 
-One deliberate gap: regions nested inside a `Scroll` are excluded. Their measured rects
-live in the scroll's off-screen content space, not screen space, so comparing them to a
-screen-space click would be wrong. Scrolled content uses the wheel; fixed chrome uses
-regions.
+The table uses the same geometry the user sees. Regions inside a `Scroll` are mapped
+from its content space through the scroll offset into the viewport and clipped to it;
+every region is clipped to its ancestors, as painting is; and a later `Filled` or `Scrim`
+layer (an opaque panel, a modal backdrop) blocks the regions beneath it, so a click on a
+modal never falls through. A button press also _captures_ its region: the drag and
+release that follow are delivered to it even if the pointer wanders off.
 
 ## The keyboard half — the focus ring
 
