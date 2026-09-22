@@ -606,6 +606,60 @@ module Table =
           Width = width
           Render = fun r -> Text.text (toStr r) style }
 
+    /// The table over an indexed row source: `rowCount` rows, fetched by
+    /// `rowAt i`. Only the `height` rows from `topRow` are fetched and built, so
+    /// cost is O(visible) regardless of the row count.
+    let viewIndexed
+        (height: int)
+        (headerStyle: Style)
+        (selStyle: Style)
+        (topRow: int)
+        (isSelected: int -> bool)
+        (columns: Column<'row, 'msg> list)
+        (rowCount: int)
+        (rowAt: int -> 'row)
+        : LayoutNode<'msg> =
+        let headerRow =
+            Stack.hstackOf [ for c in columns -> Stack.sized c.Width (Text.text c.Header headerStyle) ]
+
+        let start = max 0 (min topRow rowCount)
+        let stop = min rowCount (start + max 0 height) - 1
+
+        let bodyRows =
+            [ for i in start..stop ->
+                  let row = rowAt i
+
+                  let cells =
+                      Stack.hstackOf [ for c in columns -> Stack.sized c.Width (c.Render row) ]
+
+                  if isSelected i then
+                      // Draw the whole row in the selection style so the highlight is
+                      // uniform and readable across columns that carry their own colors
+                      // (their foreground would otherwise clash with — or vanish into —
+                      // an inverse-video selection background).
+                      Backdrop.behind selStyle (Backdrop.recolor selStyle cells)
+                  else
+                      cells ]
+
+        Stack.vstackOf
+            [ Stack.sized (Length.Cells 1) headerRow
+              Stack.sized (Length.Cells(max 0 height)) (Stack.vstack bodyRows) ]
+
+    /// The table over an array of rows — O(visible) (see `viewIndexed`).
+    let viewArray
+        (height: int)
+        (headerStyle: Style)
+        (selStyle: Style)
+        (topRow: int)
+        (isSelected: int -> bool)
+        (columns: Column<'row, 'msg> list)
+        (rows: 'row[])
+        : LayoutNode<'msg> =
+        viewIndexed height headerStyle selStyle topRow isSelected columns rows.Length (fun i -> rows.[i])
+
+    /// The table over a row list. Only the visible window is built; reaching it
+    /// walks the list up to `topRow + height` (a list has no random access — use
+    /// `viewArray`/`viewIndexed` for large, deeply scrolled tables).
     let view
         (height: int)
         (headerStyle: Style)
@@ -615,33 +669,18 @@ module Table =
         (columns: Column<'row, 'msg> list)
         (rows: 'row list)
         : LayoutNode<'msg> =
-        let headerRow =
-            Stack.hstackOf [ for c in columns -> Stack.sized c.Width (Text.text c.Header headerStyle) ]
+        let start = max 0 topRow
 
-        // only the visible window of rows is built (virtualized by `topRow`/`height`)
-        let start = max 0 (min topRow (List.length rows))
-
-        let bodyRows =
+        let window =
             rows
-            |> List.indexed
-            |> List.skip start
-            |> List.truncate (max 0 height)
-            |> List.map (fun (i, row) ->
-                let cells =
-                    Stack.hstackOf [ for c in columns -> Stack.sized c.Width (c.Render row) ]
+            |> Seq.indexed
+            |> Seq.skipWhile (fun (i, _) -> i < start)
+            |> Seq.truncate (max 0 height)
+            |> Seq.map snd
+            |> Seq.toArray
 
-                if isSelected i then
-                    // Draw the whole row in the selection style so the highlight is
-                    // uniform and readable across columns that carry their own colors
-                    // (their foreground would otherwise clash with — or vanish into —
-                    // an inverse-video selection background).
-                    Backdrop.behind selStyle (Backdrop.recolor selStyle cells)
-                else
-                    cells)
-
-        Stack.vstackOf
-            [ Stack.sized (Length.Cells 1) headerRow
-              Stack.sized (Length.Cells(max 0 height)) (Stack.vstack bodyRows) ]
+        viewIndexed height headerStyle selStyle 0 (fun i -> isSelected (i + start)) columns window.Length (fun i ->
+            window.[i])
 
 /// A centered, fuzzy-filtered command surface (the `Ctrl+P`-style palette), built
 /// on `Modal` + `ListView`. The pure `matches`/`filter` are the fuzzy core (also

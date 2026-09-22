@@ -34,6 +34,43 @@ type TranscriptBlock =
     | TaskTimeline of (string * ToolStatus) list
     | PlanBlock of (bool * string) list
 
+/// A session-owned render cache for a transcript whose blocks have stable keys
+/// (e.g. `Conversation`'s `MessageId`s). For each (key, wrap width) it keeps only
+/// the *latest* revision of the block — its measured height and, when the block
+/// has no animated content, its built layout node. When a streamed message grows,
+/// its entry is replaced, so memory is bounded by one revision per message instead
+/// of every streamed prefix; an unchanged block costs a reference check per frame.
+/// Not thread-safe: use it from the runtime thread (view/update), one per session.
+type TranscriptCache() =
+    let entries =
+        System.Collections.Generic.Dictionary<struct (int * int), TranscriptBlock * int * obj * obj>()
+
+    /// Number of (key, width) entries held.
+    member _.Count = entries.Count
+
+    /// Drop everything (e.g. after clearing the conversation).
+    member _.Clear() = entries.Clear()
+
+    /// Remove entries whose key isn't in `live` (messages deleted from the model).
+    member _.Retain(live: System.Collections.Generic.HashSet<int>) =
+        let dead =
+            [ for KeyValue(struct (k, w), _) in entries do
+                  if not (live.Contains k) then
+                      yield struct (k, w) ]
+
+        for d in dead do
+            entries.Remove d |> ignore
+
+    /// The cached (height, node, theme) for `key` at `width` if the stored block
+    /// is still `block`.
+    member internal _.TryGet(key: int, width: int, block: TranscriptBlock) =
+        match entries.TryGetValue(struct (key, width)) with
+        | true, (b, h, node, theme) when obj.ReferenceEquals(b, block) || b = block -> Some(h, node, theme)
+        | _ -> None
+
+    member internal _.Set(key: int, width: int, block: TranscriptBlock, height: int, node: obj, theme: obj) =
+        entries.[struct (key, width)] <- (block, height, node, theme)
+
 /// Renders a transcript (a list of `TranscriptBlock`s) to layout nodes. Pure —
 /// the app owns the block list, the spinner tick, and the scroll offset; wrap the
 /// result in a `ScrollView` for scrolling/follow-tail.
@@ -238,35 +275,75 @@ module ChatTranscript =
     // A block's rendered height depends only on (wrapWidth, block) — not on the
     // theme (colours don't change row counts) nor the `frame` tick (the spinner glyph
     // is one cell). So it's safe to memoize, which turns the per-frame transcript
-    // measure from "re-wrap every block" into a cache lookup — the append-only /
-    // wrap-caching win for long, streaming transcripts. Bounded so unique lines can't
-    // grow it without limit.
+    // measure from "re-wrap every block" into a cache lookup.
+    //
+    // This shared, key-by-content cache can't tell a streaming message's revisions
+    // apart (every streamed prefix is a distinct key), so it's bounded by *retained
+    // text* as well as entry count, and when either bound is hit it's cleared — the
+    // live working set re-populates it within a frame, instead of the cache freezing
+    // full of stale prefixes. Sessions should prefer a `TranscriptCache` (keyed by
+    // message id, one revision per message) via the `*Keyed` functions.
     let private heightCache =
         System.Collections.Concurrent.ConcurrentDictionary<struct (int * TranscriptBlock), int>()
 
     let private heightCacheCap = 8192
+    let private heightCacheCharCap = 4 * 1024 * 1024
+    let mutable private heightCacheChars = 0
+
+    /// Approximate retained size of a block: the total length of its strings.
+    let blockChars (b: TranscriptBlock) : int =
+        match b with
+        | UserMsg s
+        | AssistantMd s
+        | Thinking s
+        | ErrorBlock s -> s.Length
+        | Notice(_, s) -> s.Length
+        | ToolCall(n, c, _, m, o) -> n.Length + c.Length + m.Length + o.Length
+        | DiffBlock(f, lines) -> f.Length + (lines |> List.sumBy (fun l -> l.Text.Length + 1))
+        | TableBlock(h, rows) ->
+            (h |> List.sumBy String.length)
+            + (rows |> List.sumBy (List.sumBy String.length))
+        | FileTree ps -> ps |> List.sumBy String.length
+        | TaskTimeline items -> items |> List.sumBy (fun (n, _) -> n.Length + 1)
+        | PlanBlock steps -> steps |> List.sumBy (fun (_, t) -> t.Length + 1)
 
     /// Test/diagnostic hook: how many (wrapWidth, block) heights are memoized.
     let heightCacheSize () = heightCache.Count
+
+    /// Test/diagnostic hook: approximate text retained by the shared height cache.
+    let heightCacheRetainedChars () = heightCacheChars
 
     /// Test hook: is `(wrapWidth, block)` memoized? Race-free under parallel tests
     /// (unlike observing `heightCacheSize` deltas against a shared global cache).
     let heightCacheContains (wrapWidth: int) (block: TranscriptBlock) =
         heightCache.ContainsKey(struct (wrapWidth, block))
 
+    /// Measure a block's height directly (no cache).
+    let measureHeight (theme: AppTheme) (wrapWidth: int) (frame: int) (b: TranscriptBlock) : int =
+        Layout.contentExtent Direction.Vertical (renderBlock theme wrapWidth frame b)
+
     /// One block's rendered row height — the exact `contentExtent` the layout uses,
-    /// so scroll clamping matches what's drawn. Memoized by (wrapWidth, block).
+    /// so scroll clamping matches what's drawn. Memoized by (wrapWidth, block) in a
+    /// shared cache bounded by entries and retained text.
     let blockHeight (theme: AppTheme) (wrapWidth: int) (frame: int) (b: TranscriptBlock) : int =
         let key = struct (wrapWidth, b)
 
         match heightCache.TryGetValue key with
         | true, h -> h
         | _ ->
-            let h =
-                Layout.contentExtent Direction.Vertical (renderBlock theme wrapWidth frame b)
+            let h = measureHeight theme wrapWidth frame b
+            let chars = blockChars b
 
-            if heightCache.Count < heightCacheCap then
-                heightCache.[key] <- h
+            lock heightCache (fun () ->
+                if
+                    heightCache.Count >= heightCacheCap
+                    || heightCacheChars + chars > heightCacheCharCap
+                then
+                    heightCache.Clear()
+                    heightCacheChars <- 0
+
+                if chars <= heightCacheCharCap && heightCache.TryAdd(key, h) then
+                    heightCacheChars <- heightCacheChars + chars)
 
             h
 
@@ -305,28 +382,92 @@ module ChatTranscript =
         : bool =
         ScrollView.atBottom viewportH (contentHeight theme wrapWidth frame blocks) offset
 
-    /// The live transcript view: a `viewportH`-tall scroll region at `offset` with a
-    /// track/thumb scrollbar. **Virtualized** — only the blocks intersecting the
-    /// viewport are built into the scroll node (the `Scroll` primitive otherwise
-    /// renders the whole transcript onto an off-screen surface every frame), while
-    /// the scrollbar reflects the true content height/offset. The app owns `offset`
-    /// (clamp with `clampOffset`, follow the tail by holding it at `toBottom`).
-    let view
+    /// True if the block's rendering depends on the spinner `frame` (a running
+    /// tool / task) — such nodes are rebuilt every frame, never cached.
+    let private isAnimated (b: TranscriptBlock) =
+        match b with
+        | ToolCall(_, _, Running, _, _) -> true
+        | TaskTimeline items -> items |> List.exists (fun (_, s) -> s = Running)
+        | _ -> false
+
+    /// A block's height via a session `TranscriptCache` (latest revision per key).
+    let keyedHeight
+        (cache: TranscriptCache)
+        (theme: AppTheme)
+        (wrapWidth: int)
+        (frame: int)
+        (key: int)
+        (b: TranscriptBlock)
+        : int =
+        match cache.TryGet(key, wrapWidth, b) with
+        | Some(h, _, _) -> h
+        | None ->
+            let node: LayoutNode<unit> = renderBlock theme wrapWidth frame b
+            let h = Layout.contentExtent Direction.Vertical node
+            cache.Set(key, wrapWidth, b, h, null, null)
+            h
+
+    /// A block's layout node via the cache (rebuilt when the block, theme, or —
+    /// for animated blocks — the frame changes).
+    let private keyedNode
+        (cache: TranscriptCache)
+        (theme: AppTheme)
+        (wrapWidth: int)
+        (frame: int)
+        (key: int)
+        (b: TranscriptBlock)
+        : LayoutNode<'msg> =
+        let build () = renderBlock theme wrapWidth frame b
+
+        if isAnimated b then
+            build ()
+        else
+            match cache.TryGet(key, wrapWidth, b) with
+            | Some(h, (:? LayoutNode<'msg> as node), t) when obj.ReferenceEquals(t, theme) -> node
+            | cached ->
+                let node = build ()
+
+                let h =
+                    match cached with
+                    | Some(h, _, _) -> h
+                    | None -> Layout.contentExtent Direction.Vertical node
+
+                cache.Set(key, wrapWidth, b, h, box node, box theme)
+                node
+
+    /// Total height of a keyed transcript (see `TranscriptCache`).
+    let contentHeightKeyed
+        (cache: TranscriptCache)
+        (theme: AppTheme)
+        (wrapWidth: int)
+        (frame: int)
+        (items: (int * TranscriptBlock) list)
+        : int =
+        items |> List.sumBy (fun (k, b) -> keyedHeight cache theme wrapWidth frame k b)
+
+    /// The follow-tail offset of a keyed transcript.
+    let toBottomKeyed
+        (cache: TranscriptCache)
         (theme: AppTheme)
         (wrapWidth: int)
         (frame: int)
         (viewportH: int)
+        (items: (int * TranscriptBlock) list)
+        : int =
+        ScrollView.toBottom viewportH (contentHeightKeyed cache theme wrapWidth frame items)
+
+    /// Shared body of `view`/`viewKeyed`: heights for every block (cheap, cached),
+    /// nodes only for the blocks intersecting the viewport.
+    let private viewWith
+        (heightOf: int -> int)
+        (nodeOf: int -> LayoutNode<'msg>)
+        (count: int)
+        (viewportH: int)
         (offset: int)
         (trackStyle: Style)
         (thumbStyle: Style)
-        (blocks: TranscriptBlock list)
         : LayoutNode<'msg> =
-        // Measure every block from the memo (cheap) — but only *render* the blocks
-        // that intersect the viewport, so a long transcript costs O(visible), not
-        // O(all), of the expensive wrap/build work each frame.
-        let blocksArr = List.toArray blocks
-        let heights = blocksArr |> Array.map (blockHeight theme wrapWidth frame)
-
+        let heights = Array.init count heightOf
         let contentH = Array.sum heights
         let clamped = ScrollView.clampOffset viewportH contentH offset
 
@@ -342,7 +483,7 @@ module ChatTranscript =
         let visBot = clamped + viewportH
 
         let visible =
-            [ for i in 0 .. blocksArr.Length - 1 do
+            [ for i in 0 .. count - 1 do
                   if tops.[i] + heights.[i] > clamped && tops.[i] < visBot then
                       yield i ]
 
@@ -352,11 +493,68 @@ module ChatTranscript =
             match visible with
             | [] -> Spacer.spacer
             | first :: _ ->
+                // Each visible block is sized to its (cached) height, so the scroll's
+                // content extent is exact without re-measuring. The scroll paints
+                // straight into the viewport, so rows of a huge block that are off
+                // screen are skipped rather than drawn to an off-screen surface.
                 let windowContent =
                     visible
-                    |> List.map (fun i -> Stack.sized Length.Content (renderBlock theme wrapWidth frame blocksArr.[i]))
+                    |> List.map (fun i -> Stack.sized (Length.Cells heights.[i]) (nodeOf i))
                     |> Stack.vstackOf
                 // local offset = how far the first visible block is scrolled off the top
                 Scroll.vertical (clamped - tops.[first]) windowContent
 
         Stack.hstackOf [ Stack.sized Length.Fill body; Stack.sized (Length.Cells 1) bar ]
+
+    /// The live transcript view: a `viewportH`-tall scroll region at `offset` with a
+    /// track/thumb scrollbar. **Virtualized** — only the blocks intersecting the
+    /// viewport are built into the scroll node, while the scrollbar reflects the
+    /// true content height/offset. The app owns `offset` (clamp with `clampOffset`,
+    /// follow the tail by holding it at `toBottom`, or pass `Int32.MaxValue`, which
+    /// clamps to the bottom).
+    let view
+        (theme: AppTheme)
+        (wrapWidth: int)
+        (frame: int)
+        (viewportH: int)
+        (offset: int)
+        (trackStyle: Style)
+        (thumbStyle: Style)
+        (blocks: TranscriptBlock list)
+        : LayoutNode<'msg> =
+        let arr = List.toArray blocks
+
+        viewWith
+            (fun i -> blockHeight theme wrapWidth frame arr.[i])
+            (fun i -> renderBlock theme wrapWidth frame arr.[i])
+            arr.Length
+            viewportH
+            offset
+            trackStyle
+            thumbStyle
+
+    /// `view` over keyed blocks with a session `TranscriptCache`: heights *and*
+    /// built nodes are reused across frames (one revision per key), so an
+    /// unchanged message costs a lookup and a streaming one is rebuilt only when
+    /// its text changed.
+    let viewKeyed
+        (cache: TranscriptCache)
+        (theme: AppTheme)
+        (wrapWidth: int)
+        (frame: int)
+        (viewportH: int)
+        (offset: int)
+        (trackStyle: Style)
+        (thumbStyle: Style)
+        (items: (int * TranscriptBlock) list)
+        : LayoutNode<'msg> =
+        let arr = List.toArray items
+
+        viewWith
+            (fun i -> keyedHeight cache theme wrapWidth frame (fst arr.[i]) (snd arr.[i]))
+            (fun i -> keyedNode cache theme wrapWidth frame (fst arr.[i]) (snd arr.[i]))
+            arr.Length
+            viewportH
+            offset
+            trackStyle
+            thumbStyle

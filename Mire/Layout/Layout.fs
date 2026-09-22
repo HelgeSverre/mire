@@ -343,54 +343,71 @@ module Layout =
     /// its parent (a `Cells`/`Content` stack child larger than the space left)
     /// is cut at the parent's edge instead of painting over its border or
     /// neighbours. `collectRegions` applies the same clip to hit regions.
-    let rec private renderIn (surface: Surface) (clip: Rect) (node: LayoutNode<'msg>) : unit =
-        let within (r: Rect) = clip.Intersect r
+    ///
+    /// `dx, dy` translate the subtree's measured rects to surface coordinates —
+    /// how a `Scroll` paints its content-space child straight into its viewport.
+    /// A leaf entirely outside the clip is skipped without touching its text, so a
+    /// huge scrolled subtree costs only its visible part to paint.
+    let rec private renderIn (surface: Surface) (dx: int) (dy: int) (clip: Rect) (node: LayoutNode<'msg>) : unit =
+        let screen (r: Rect) =
+            if dx = 0 && dy = 0 then r else r.Offset(dx, dy)
+
+        let within (r: Rect) = clip.Intersect(screen r)
+        let visible (r: Rect) = not (within r).IsEmpty
 
         match node with
         | Empty -> ()
         | Text(rect, text, style) ->
-            surface.Clip <- clip
-            surface.WriteClipped(rect, text, style)
-        | Filled(rect, style) ->
-            if not rect.IsEmpty then
+            if visible rect then
                 surface.Clip <- clip
-                surface.FillRect(rect, Cell.FromChar(' ', style))
+                surface.WriteClipped(screen rect, text, style)
+        | Filled(rect, style) ->
+            if visible rect then
+                surface.Clip <- clip
+                surface.FillRect(screen rect, Cell.FromChar(' ', style))
         | Scrim(rect, tint, strength) ->
-            if not rect.IsEmpty then
+            if visible rect then
                 surface.Clip <- clip
                 // Resolve terminal-`Default` cells to a light fg / dark bg so they
                 // dim too rather than staying full-bright through the scrim.
-                surface.Scrim(rect, tint, strength, Color.Rgb(200uy, 200uy, 200uy), Color.Rgb(0uy, 0uy, 0uy))
+                surface.Scrim(screen rect, tint, strength, Color.Rgb(200uy, 200uy, 200uy), Color.Rgb(0uy, 0uy, 0uy))
         | Box(rect, style, children) ->
-            surface.Clip <- clip
-            surface.DrawBox(rect, style)
-            let inner = within (rect.Inflate(-1, -1))
+            if visible rect then
+                surface.Clip <- clip
+                surface.DrawBox(screen rect, style)
+                let inner = within (rect.Inflate(-1, -1))
 
-            for child in children do
-                renderIn surface inner child
+                for child in children do
+                    renderIn surface dx dy inner child
         | Dock(rect, children) ->
             let c = within rect
 
-            for child in children do
-                renderIn surface c child.Child
+            if not c.IsEmpty then
+                for child in children do
+                    renderIn surface dx dy c child.Child
         | Stack(rect, _, children) ->
             let c = within rect
 
-            for child in children do
-                renderIn surface c child.Child
-        | Scroll(viewport, scroll, child) -> renderScroll surface (within viewport) viewport scroll child
+            if not c.IsEmpty then
+                for child in children do
+                    renderIn surface dx dy c child.Child
+        | Scroll(viewport, scroll, child) -> renderScroll surface (within viewport) (screen viewport) scroll child
         | Overlay(rect, children) ->
             let c = within rect
 
-            for child in children do
-                renderIn surface c child
-        | Positioned(rect, _, _, _, child) -> renderIn surface (within rect) child
-        | Focusable(rect, _, child) -> renderIn surface (within rect) child
+            if not c.IsEmpty then
+                for child in children do
+                    renderIn surface dx dy c child
+        | Positioned(rect, _, _, _, child) -> renderIn surface dx dy (within rect) child
+        | Focusable(rect, _, child) -> renderIn surface dx dy (within rect) child
 
-    /// Renders a scroll child onto an off-screen content surface, then blits the
-    /// window selected by the scroll offset into the viewport (clipped to
-    /// `clip`). Offsets are clamped to the valid range so over-scroll cannot
-    /// reveal blank gaps past the content.
+    /// Paints a scroll's content-space child directly into the viewport: the
+    /// viewport is cleared (a scroll region is opaque), then the child is rendered
+    /// translated by the (clamped) offset and clipped to the viewport. No
+    /// full-size off-screen surface is allocated, and off-viewport leaves are
+    /// skipped. A wide glyph cut by a viewport edge shows as a blank (see
+    /// `Surface.WriteClipped`). Offsets are clamped so over-scroll can't reveal
+    /// blank gaps past the content.
     and private renderScroll
         (surface: Surface)
         (clip: Rect)
@@ -402,31 +419,11 @@ module Layout =
             ()
         else
             let size = scrollContentSize viewport child
-            let temp = Surface(size)
-            renderIn temp (Rect.FromOrigin size) child
             let offY = max 0 (min scroll.OffsetY (size.Height - viewport.Height))
             let offX = max 0 (min scroll.OffsetX (size.Width - viewport.Width))
             surface.Clip <- clip
-
-            for vy in 0 .. viewport.Height - 1 do
-                let sy = vy + offY
-
-                for vx in 0 .. viewport.Width - 1 do
-                    let sx = vx + offX
-                    let cell = temp.[sx, sy]
-
-                    // A wide glyph cut by the viewport edge can't show half of
-                    // itself: its lead past the right edge, or its continuation
-                    // at the left edge (lead scrolled off), degrades to a blank.
-                    let cell =
-                        if (vx = 0 && cell.IsContinuation) || (vx = viewport.Width - 1 && cell.Width = 2) then
-                            { Grapheme = " "
-                              Width = 1
-                              Style = cell.Style }
-                        else
-                            cell
-
-                    surface.[viewport.Left + vx, viewport.Top + vy] <- cell
+            surface.FillRect(viewport, Cell.Empty)
+            renderIn surface (viewport.Left - offX) (viewport.Top - offY) clip child
 
     /// Paint a measured tree onto `surface` (see `renderIn` for the clipping
     /// contract). The surface's own `Clip` is restored afterwards.
@@ -434,7 +431,7 @@ module Layout =
         let saved = surface.Clip
 
         try
-            renderIn surface saved node
+            renderIn surface 0 0 saved node
         finally
             surface.Clip <- saved
 

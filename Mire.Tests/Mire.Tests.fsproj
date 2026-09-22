@@ -17,6 +17,7 @@
     <Compile Include="RuntimeTests.fs" />
     <Compile Include="EditingTests.fs" />
     <Compile Include="GeometryTests.fs" />
+    <Compile Include="ShellTests.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 

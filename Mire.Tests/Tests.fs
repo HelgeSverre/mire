@@ -2357,26 +2357,30 @@ let conversationTests =
 
 let agentShellTests =
     let cfg: ShellConfig =
-        { Theme = Mire.Widgets.AppTheme.defaultTheme
-          Title = "t"
-          Placeholder = "p"
-          OnSubmit =
-            fun text m ->
+        AgentShell.config
+            Mire.Widgets.AppTheme.defaultTheme
+            "t"
+            "p"
+            (fun text m ->
                 if text = "run" then
                     AgentShell.requestApproval "danger" m, Cmd.none
                 else
-                    AgentShell.addAssistant ("re: " + text) m, Cmd.none
-          OnApprove =
-            fun ok _cmd m ->
+                    AgentShell.addAssistant ("re: " + text) m, Cmd.none)
+            (fun ok _cmd m ->
                 (if ok then
                      AgentShell.addAssistant "accepted" m
                  else
                      AgentShell.addNotice Mire.Widgets.AppTheme.Warning "denied" m),
-                Cmd.none }
+                Cmd.none)
 
     let upd msg m = AgentShell.update cfg msg m |> fst
     let m0 = fst (AgentShell.init cfg ())
     let blocks (m: ShellModel) = Conversation.blocks m.Conversation
+
+    let approval (m: ShellModel) =
+        m.Approval |> Option.map (fun a -> a.Command, a.AcceptFocused)
+
+    let withApproval cmd (m: ShellModel) = AgentShell.requestApproval cmd m
 
     testList
         "AgentShell"
@@ -2395,7 +2399,7 @@ let agentShellTests =
                       Prompt = PromptBox.ofString "run" }
                   |> upd Submit
 
-              Expect.equal m.Approval (Some("danger", true)) "OnSubmit requested an approval (Accept focused)"
+              Expect.equal (approval m) (Some("danger", true)) "OnSubmit requested an approval (Accept focused)"
               Expect.equal m.Session AwaitingApproval "session reflects the pending approval"
           }
           test "an empty submit is a no-op" {
@@ -2407,34 +2411,24 @@ let agentShellTests =
               Expect.isEmpty (blocks m) "blank input adds nothing"
           }
           test "ToggleButton flips the focused approval button" {
-              let m = upd ToggleButton { m0 with Approval = Some("x", true) }
-              Expect.equal m.Approval (Some("x", false)) "Accept→Deny focus"
+              let m = upd ToggleButton (withApproval "x" m0)
+              Expect.equal (approval m) (Some("x", false)) "Accept→Deny focus"
           }
           test "accepting an approval clears it (session → Idle) and runs OnApprove" {
-              let m =
-                  upd
-                      Submit
-                      { m0 with
-                          Approval = Some("x", true)
-                          Session = AwaitingApproval }
+              let m = upd Submit (withApproval "x" m0)
 
               Expect.equal m.Approval None "approval resolved"
               Expect.equal m.Session Idle "back to idle"
               Expect.equal (blocks m) [ AssistantMd "accepted" ] "OnApprove(true) ran"
           }
           test "Esc denies the approval through OnApprove" {
-              let m =
-                  upd
-                      EscKey
-                      { m0 with
-                          Approval = Some("x", true)
-                          Session = AwaitingApproval }
+              let m = upd EscKey (withApproval "x" m0)
 
               Expect.equal m.Approval None "approval dismissed"
               Expect.equal (blocks m) [ Notice(Mire.Widgets.AppTheme.Warning, "denied") ] "OnApprove(false) ran"
           }
           test "the modal swallows editing while open" {
-              let before = { m0 with Approval = Some("x", true) }
+              let before = withApproval "x" m0
 
               let after =
                   upd
@@ -2458,50 +2452,34 @@ let agentShellTests =
               let m = AgentShell.finishReply id m
               Expect.equal m.Session Idle "finishReply returns to idle"
           }
-          test "mapInput routes the shell's keys" {
-              // ShellMsg carries a function case (Apply) so it has no equality — match instead.
-              let key k =
-                  Key
-                      { Key = k
-                        Text = None
+          test "mapInput passes keys through for context routing; the wheel scrolls" {
+              let ke =
+                  { Key = ArrowLeft
+                    Text = None
+                    Modifiers = KeyModifiers.None
+                    Repeat = false
+                    EventType = Press }
+
+              Expect.isTrue
+                  (match AgentShell.mapInput (Key ke) with
+                   | Some(KeyPress k) -> k = ke
+                   | _ -> false)
+                  "keys become KeyPress (routed by update)"
+
+              let wheel =
+                  Mouse
+                      { X = 0
+                        Y = 0
+                        Button = ScrollUp
                         Modifiers = KeyModifiers.None
-                        Repeat = false
-                        EventType = Press }
+                        Pressed = true
+                        Moved = false }
 
-              let is f e =
-                  Expect.isTrue (
-                      match AgentShell.mapInput (key e) with
-                      | Some m -> f m
-                      | None -> false
-                  )
-
-              is
-                  (function
-                  | Submit -> true
-                  | _ -> false)
-                  Enter
-                  "Enter → Submit"
-
-              is
-                  (function
-                  | EscKey -> true
-                  | _ -> false)
-                  Escape
-                  "Escape → EscKey"
-
-              is
-                  (function
-                  | HistoryPrev -> true
-                  | _ -> false)
-                  ArrowUp
-                  "Up → history prev"
-
-              is
-                  (function
-                  | HistoryNext -> true
-                  | _ -> false)
-                  ArrowDown
-                  "Down → history next"
+              Expect.isTrue
+                  (match AgentShell.mapInput wheel with
+                   | Some(ScrollBy d) -> d < 0
+                   | _ -> false)
+                  "wheel up scrolls up"
           } ]
 
 // Mire.Agent PromptBox (history + completion token) -------------------------

@@ -231,23 +231,45 @@ type Surface(size: Size) =
     /// `rect.Left`; other control characters render as visible stand-ins. A wide
     /// glyph that doesn't fit before `rect.Right` is replaced by a blank.
     member _.WriteClipped(rect: Rect, text: string, style: Style) =
-        let mutable cy = rect.Top
-        let mutable line = ResizeArray<string>()
+        // Only rows inside both the rect and the active clip are laid out; rows
+        // above are skipped without grapheme segmentation, and the walk stops
+        // after the last visible row — so a huge multi-line text costs only its
+        // visible lines.
+        let firstRow = max rect.Top clip.Top
+        let lastRow = min rect.Bottom clip.Bottom
 
-        let flush () =
-            if cy >= rect.Top && cy <= rect.Bottom then
-                writeRun rect.Left cy line style rect.Left rect.Left rect.Right |> ignore
+        if not (isNull text) && firstRow <= lastRow then
+            let mutable cy = rect.Top
+            let mutable i = 0
+            let n = text.Length
 
-            line.Clear()
+            while i <= n && cy <= lastRow do
+                // Find the end of this line: the next \n, \r, or the end.
+                let mutable j = i
 
-        for cluster in Grapheme.clusters text do
-            if cluster = "\n" || cluster = "\r" || cluster = "\r\n" then
-                flush ()
+                while j < n && text.[j] <> '\n' && text.[j] <> '\r' do
+                    j <- j + 1
+
+                if cy >= firstRow then
+                    writeRun
+                        rect.Left
+                        cy
+                        (Grapheme.clusters (text.Substring(i, j - i)))
+                        style
+                        rect.Left
+                        rect.Left
+                        rect.Right
+                    |> ignore
+
                 cy <- cy + 1
-            else
-                line.Add cluster
 
-        flush ()
+                // Consume the line break (\r\n counts as one).
+                if j < n && text.[j] = '\r' && j + 1 < n && text.[j + 1] = '\n' then
+                    i <- j + 2
+                elif j < n then
+                    i <- j + 1
+                else
+                    i <- n + 1
 
     member _.DrawBox(rect: Rect, style: Style) =
         if rect.Width > 0 && rect.Height > 0 then
