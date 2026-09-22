@@ -30,17 +30,37 @@ module DiffView =
 
     /// Split a hunk's lines into the (before, after) columns for side-by-side view:
     /// the left column keeps context + removed lines, the right keeps context +
-    /// added lines, each padded with blanks to the same height. (A simple split —
-    /// not LCS-aligned within a hunk.)
+    /// added lines. Each contiguous edit run (removals and additions between two
+    /// context lines) is padded to the taller of its two sides, so every context
+    /// line sits on the same row in both columns. (Context-anchored, not LCS-
+    /// aligned within a run.)
     let splitColumns (lines: DiffLine list) : DiffLine list * DiffLine list =
-        let left = lines |> List.filter (fun l -> l.Sign <> '+')
-        let right = lines |> List.filter (fun l -> l.Sign <> '-')
-        let n = max (List.length left) (List.length right)
+        let left = ResizeArray<DiffLine>()
+        let right = ResizeArray<DiffLine>()
+        let removed = ResizeArray<DiffLine>()
+        let added = ResizeArray<DiffLine>()
 
-        let pad xs =
-            xs @ List.replicate (n - List.length xs) blank
+        let flush () =
+            let n = max removed.Count added.Count
 
-        pad left, pad right
+            for i in 0 .. n - 1 do
+                left.Add(if i < removed.Count then removed.[i] else blank)
+                right.Add(if i < added.Count then added.[i] else blank)
+
+            removed.Clear()
+            added.Clear()
+
+        for l in lines do
+            match l.Sign with
+            | '-' -> removed.Add l
+            | '+' -> added.Add l
+            | _ ->
+                flush ()
+                left.Add l
+                right.Add l
+
+        flush ()
+        List.ofSeq left, List.ofSeq right
 
     /// The marker glyph for a hunk's review status.
     let statusMark (s: HunkStatus) =

@@ -74,27 +74,54 @@ module Box =
         panel title Style.border children
 
 module StatusBar =
+    let private z = Rect.Create(0, 0, 0, 0)
+
+    /// A row of items laid side by side at their content widths.
+    let private row (items: LayoutNode<'msg> list) : LayoutNode<'msg> =
+        LayoutNode.Stack(z, Direction.Horizontal, items |> List.map (fun c -> { Length = Length.Content; Child = c }))
+
+    /// Items separated by single spaces.
+    let private spaced (items: LayoutNode<'msg> list) : LayoutNode<'msg> list =
+        items
+        |> List.mapi (fun i c -> if i = 0 then [ c ] else [ Text.text " " Style.dim; c ])
+        |> List.concat
+
+    /// A bordered status bar with three alignment groups: `leftItems` flush
+    /// left, `rightItems` flush right, and `centerItems` centered on the *whole
+    /// bar* (not on the gap between the sides, so unequal side widths don't pull
+    /// it off-center). Collision policy: the left and right groups always show in
+    /// full — they paint opaquely over the center group, which is hidden where it
+    /// would collide; if left and right themselves collide, left shows in full
+    /// and right is clipped at the bar's edge.
     let statusBar
         (leftItems: LayoutNode<'msg> list)
         (centerItems: LayoutNode<'msg> list)
         (rightItems: LayoutNode<'msg> list)
         : LayoutNode<'msg> =
-        let allItems =
-            leftItems
-            @ [ Text.text " " Style.dim ]
-            @ centerItems
-            @ [ Text.text " " Style.dim ]
-            @ rightItems
+        // An opaque group: a blank fill under its items, sized to their width.
+        let opaque (items: LayoutNode<'msg> list) =
+            LayoutNode.Overlay(z, [ LayoutNode.Filled(z, Style.Default); row (spaced items) ])
 
-        // Box renders one child filling its inner rect; flow the items through an
-        // explicit horizontal Stack so they sit side-by-side instead of overlapping.
-        Box.box
-            Style.border
-            [ LayoutNode.Stack(
-                  Rect.Create(0, 0, 0, 0),
-                  Direction.Horizontal,
-                  allItems |> List.map (fun c -> { Length = Length.Content; Child = c })
-              ) ]
+        let sides =
+            LayoutNode.Stack(
+                z,
+                Direction.Horizontal,
+                [ if not (List.isEmpty leftItems) then
+                      { Length = Length.Content
+                        Child = opaque leftItems }
+                  { Length = Length.Fill
+                    Child = LayoutNode.Empty }
+                  if not (List.isEmpty rightItems) then
+                      { Length = Length.Content
+                        Child = opaque rightItems } ]
+            )
+
+        let layers =
+            [ if not (List.isEmpty centerItems) then
+                  LayoutNode.Positioned(z, Center, Length.Content, Length.Cells 1, row (spaced centerItems))
+              sides ]
+
+        Box.box Style.border [ LayoutNode.Overlay(z, layers) ]
 
     let statusBarSimple (items: string list) : LayoutNode<'msg> =
         let nodes = items |> List.map (fun s -> Text.textDefault s)

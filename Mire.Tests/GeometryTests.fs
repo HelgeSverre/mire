@@ -229,3 +229,49 @@ let pointerCaptureTests =
               let t, c = PointerCapture.route a b (mouse ScrollUp true false)
               Expect.equal (t, c) (b, a) "wheel → region under the pointer"
           } ]
+
+[<Tests>]
+let widgetAlignmentTests =
+    testList
+        "Widget alignment"
+        [ test "DiffView.splitColumns keeps trailing context aligned after an unequal edit run" {
+              let l s t : Mire.Agent.DiffLine = { Sign = s; Text = t }
+
+              let left, right =
+                  Mire.Agent.DiffView.splitColumns
+                      [ l ' ' "a"
+                        l '-' "r1"
+                        l '-' "r2"
+                        l '+' "x1"
+                        l ' ' "b"
+                        l '+' "x2"
+                        l ' ' "c" ]
+
+              let texts = List.map (fun (d: Mire.Agent.DiffLine) -> d.Text)
+              Expect.equal (texts left) [ "a"; "r1"; "r2"; "b"; ""; "c" ] "left column"
+              Expect.equal (texts right) [ "a"; "x1"; ""; "b"; "x2"; "c" ] "right column"
+
+              for i in 0 .. left.Length - 1 do
+                  if left.[i].Sign = ' ' && left.[i].Text <> "" then
+                      Expect.equal right.[i].Text left.[i].Text $"context row {i} aligned"
+          }
+          test "StatusBar centers its middle group on the bar and right-aligns the right group" {
+              let t s : LayoutNode<unit> = Text(z, s, Style.Default)
+              let bar = Mire.Widgets.StatusBar.statusBar [ t "LEFTSIDE" ] [ t "MID" ] [ t "R" ]
+              let s, _ = draw 22 3 bar
+              let row = rowText s 1
+
+              Expect.equal
+                  row
+                  "│LEFTSIDEMID        R│"
+                  "left flush, MID at col (20-3)/2 = 8 of the interior, R flush right"
+          }
+          test "StatusBar: sides win a collision with the center group" {
+              let t s : LayoutNode<unit> = Text(z, s, Style.Default)
+
+              let bar =
+                  Mire.Widgets.StatusBar.statusBar [ t "LLLLLL" ] [ t "CCCC" ] [ t "RRRRRR" ]
+
+              let s, _ = draw 12 3 bar
+              Expect.equal (rowText s 1) "│LLLLLLRRRR│" "center hidden; left shown in full, right clipped"
+          } ]
