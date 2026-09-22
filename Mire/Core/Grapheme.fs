@@ -157,6 +157,25 @@ module Grapheme =
 
                 w
 
+    /// Display width of one line of text as the renderer lays it out: like
+    /// `stringWidth`, but a tab advances to the next 8-column stop (measured from
+    /// the line's start), matching `Surface.Write`/`WriteClipped`.
+    let lineWidth (s: string) : int =
+        if s.IndexOf('\t') < 0 then
+            stringWidth s
+        else
+            let mutable cols = 0
+
+            for part in s.Split('\t') |> Array.indexed do
+                let (i, text) = part
+
+                if i > 0 then
+                    cols <- (cols / 8 + 1) * 8
+
+                cols <- cols + stringWidth text
+
+            cols
+
     // --- control-character safety -------------------------------------------
     // Cell text is content, not terminal instructions. A C0 control (ESC, BEL,
     // CR, …), DEL, or a C1 control (0x80–0x9F, e.g. CSI 0x9B / OSC 0x9D) reaching

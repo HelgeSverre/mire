@@ -22,6 +22,16 @@ type Surface(size: Size) =
     let inBounds x y =
         x >= 0 && x < safeSize.Width && y >= 0 && y < safeSize.Height
 
+    // The active clip rectangle (see `Clip`): writes outside it are dropped.
+    let mutable clip = Rect.FromOrigin(safeSize)
+
+    let writable x y =
+        inBounds x y
+        && x >= clip.Left
+        && x <= clip.Right
+        && y >= clip.Top
+        && y <= clip.Bottom
+
     /// Store `cell` at (x, y), preserving the wide-glyph pairing invariant: a
     /// wide (width-2) lead is always immediately followed by its continuation
     /// cell, and a continuation always follows a wide lead. Overwriting either
@@ -29,7 +39,7 @@ type Surface(size: Size) =
     /// grid never holds a lead whose right column shows unrelated content (the
     /// terminal would erase or shift one of them and the diff would desync).
     let put x y (cell: Cell) =
-        if inBounds x y then
+        if writable x y then
             let row = y * safeSize.Width
             let old = cells.[row + x]
 
@@ -55,9 +65,9 @@ type Surface(size: Size) =
     /// written in its place rather than half a glyph. A wide glyph written over
     /// the lead of another wide glyph also repairs that glyph's continuation.
     let putGlyph x y (cluster: string) (w: int) (style: Style) (clipLeft: int) (clipRight: int) =
-        if x >= clipLeft && x <= clipRight && inBounds x y then
+        if x >= clipLeft && x <= clipRight && writable x y then
             if w = 2 then
-                if x + 1 <= clipRight && x + 1 < safeSize.Width then
+                if x + 1 <= clipRight && writable (x + 1) y then
                     // The continuation column may itself hold a wide lead whose
                     // continuation (x + 2) would be orphaned.
                     put (x + 1) y (blank style)
@@ -97,7 +107,7 @@ type Surface(size: Size) =
               && cells.[cy * safeSize.Width + bx].IsContinuation do
             bx <- bx - 1
 
-        if bx >= clipLeft && bx <= clipRight && inBounds bx cy then
+        if bx >= clipLeft && bx <= clipRight && writable bx cy then
             let idx = cy * safeSize.Width + bx
             let cell = cells.[idx]
 
@@ -155,7 +165,7 @@ type Surface(size: Size) =
             else
                 Cell.Empty
         and set (x, y) (value: Cell) =
-            if inBounds x y then
+            if writable x y then
                 if value.IsContinuation then
                     // A continuation completes the lead just written at x - 1;
                     // store it without the "cut a pair" repair.
@@ -170,6 +180,14 @@ type Surface(size: Size) =
                     cells.[y * safeSize.Width + x] <- value
                 else
                     put x y value
+
+    /// The clip rectangle every write is confined to (default: the whole
+    /// surface). `Layout.render` narrows it to each container's content area as
+    /// it descends, so a child that overflows its parent can't paint over the
+    /// parent's border or siblings. Reads (`surface.[x, y]`) are never clipped.
+    member _.Clip
+        with get () = clip
+        and set (r: Rect) = clip <- r.Intersect(Rect.FromOrigin(safeSize))
 
     member _.Clear() = Array.Fill(cells, Cell.Empty)
 
@@ -187,7 +205,7 @@ type Surface(size: Size) =
     member _.Scrim(rect: Rect, tint: Color, strength: float, fgFallback: Color, bgFallback: Color) =
         for y in rect.Top .. rect.Bottom do
             for x in rect.Left .. rect.Right do
-                if x >= 0 && x < safeSize.Width && y >= 0 && y < safeSize.Height then
+                if writable x y then
                     let idx = y * safeSize.Width + x
                     let cell = cells.[idx]
                     let s = cell.Style

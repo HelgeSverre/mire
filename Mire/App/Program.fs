@@ -285,8 +285,46 @@ module Program =
     /// handler gets the topmost `RegionId` under the cursor (or `None`) and the mouse
     /// event, and `Some msg` consumes it. Lets an app focus/activate by id rather than
     /// hand-computing hit rects. Tag regions in the view with `Focusable.region`.
+    /// Regions inside a `Scroll` are hit-tested in screen space, `Filled`/`Scrim`
+    /// layers block regions beneath them, and a press captures its region for
+    /// the drag and release that follow (see `PointerCapture`).
     let withMouseRegion (f: RegionId option -> MouseEvent -> 'msg option) (program: Program<'model, 'msg>) =
         { program with OnMouseRegion = f }
+
+/// Pointer capture for region-routed mouse input (`Program.withMouseRegion`).
+/// A button press captures the region under the pointer; every drag motion and
+/// the release that follow are routed to *that* region, even after the pointer
+/// leaves it (or passes over another region), until the release ends the
+/// capture. Wheel events never capture.
+module PointerCapture =
+    let private isWheel (me: MouseEvent) =
+        match me.Button with
+        | ScrollUp
+        | ScrollDown
+        | ScrollLeft
+        | ScrollRight -> true
+        | _ -> false
+
+    /// Given the current capture, the region hit-tested under the pointer, and
+    /// the event, return `(target region, new capture)`.
+    let route (captured: RegionId option) (hit: RegionId option) (me: MouseEvent) : RegionId option * RegionId option =
+        if isWheel me then
+            hit, captured
+        elif me.Pressed && not me.Moved then
+            // Press: capture whatever is under the pointer (None clears a stale one).
+            hit, hit
+        elif me.Pressed && me.Moved then
+            // Drag: stays with the captured region, if any.
+            (match captured with
+             | Some _ -> captured
+             | None -> hit),
+            captured
+        else
+            // Release: delivered to the captured region, then capture ends.
+            (match captured with
+             | Some _ -> captured
+             | None -> hit),
+            None
 
 type RuntimeState<'model, 'msg> =
     { Model: 'model
@@ -401,6 +439,8 @@ module Runtime =
             // Retained region table from the last rendered frame — what mouse events are
             // hit-tested against (`Program.withMouseRegion`).
             let mutable lastRegions: (RegionId * Rect) list = []
+            // The region holding pointer capture during a drag (`PointerCapture`).
+            let mutable captured: RegionId option = None
 
             // Dispatch initial command
             dispatch initialCmd
@@ -430,7 +470,11 @@ module Runtime =
                     // table; a handled hit consumes the event.
                     let regionMsg =
                         match inputEvent with
-                        | Mouse me -> program.OnMouseRegion (Layout.regionAt lastRegions (Point.Create(me.X, me.Y))) me
+                        | Mouse me ->
+                            let hit = Layout.regionAt lastRegions (Point.Create(me.X, me.Y))
+                            let target, nextCapture = PointerCapture.route captured hit me
+                            captured <- nextCapture
+                            program.OnMouseRegion target me
                         | _ -> None
 
                     match regionMsg with

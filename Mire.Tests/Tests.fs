@@ -2188,14 +2188,18 @@ let regionTests =
                   (Some(RegionId "under"))
                   "outside the top one → under"
           }
-          test "regions inside a Scroll are omitted (virtual content space)" {
+          test "regions inside a Scroll are hit-testable in screen space" {
               let node: LayoutNode<unit> =
                   Mire.Widgets.Scroll.vertical
                       0
                       (Mire.Widgets.Focusable.region (RegionId "scrolled") (Mire.Widgets.Backdrop.solid Style.Default))
 
               let laid = Layout.measure (Rect.Create(0, 0, 10, 4)) node
-              Expect.isEmpty (Layout.collectRegions laid) "a Focusable under a Scroll is not hit-testable here"
+
+              Expect.equal
+                  (Layout.collectRegions laid)
+                  [ (RegionId "scrolled", Rect.Create(0, 0, 10, 4)) ]
+                  "the scrolled Focusable is mapped to (and clipped by) the viewport"
           } ]
 
 // Mire.Agent DiffView (split columns + status markers) ----------------------
