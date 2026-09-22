@@ -204,22 +204,29 @@ module InputParser =
     let private pasteStart = [| 0x1Buy; 0x5Buy; 0x32uy; 0x30uy; 0x30uy; 0x7Euy |] // ESC [ 2 0 0 ~
     let private pasteEnd = [| 0x1Buy; 0x5Buy; 0x32uy; 0x30uy; 0x31uy; 0x7Euy |] // ESC [ 2 0 1 ~
 
-    let private startsWith (prefix: byte[]) (bytes: byte[]) : bool =
-        bytes.Length >= prefix.Length
-        && Array.forall2 (=) prefix bytes.[0 .. prefix.Length - 1]
+    /// True if `bytes` holds `prefix` starting at `offset` (no copying).
+    let private startsWithAt (prefix: byte[]) (bytes: byte[]) (offset: int) : bool =
+        offset >= 0
+        && bytes.Length - offset >= prefix.Length
+        && System.MemoryExtensions.SequenceEqual(
+            ReadOnlySpan<byte>(bytes, offset, prefix.Length),
+            ReadOnlySpan<byte>(prefix)
+        )
+
+    let private startsWith (prefix: byte[]) (bytes: byte[]) : bool = startsWithAt prefix bytes 0
 
     /// First index ≥ `start` where `needle` occurs in `bytes`, or -1.
     let private indexOf (needle: byte[]) (bytes: byte[]) (start: int) : int =
-        let mutable i = start
-        let mutable found = -1
+        if start < 0 || start > bytes.Length then
+            -1
+        else
+            let i =
+                System.MemoryExtensions.IndexOf(
+                    ReadOnlySpan<byte>(bytes, start, bytes.Length - start),
+                    ReadOnlySpan<byte>(needle)
+                )
 
-        while found < 0 && i + needle.Length <= bytes.Length do
-            if Array.forall2 (=) needle bytes.[i .. i + needle.Length - 1] then
-                found <- i
-            else
-                i <- i + 1
-
-        found
+            if i < 0 then -1 else start + i
 
     /// Bracketed paste: `ESC [ 200 ~ <text> ESC [ 201 ~` → `Paste text`. If the end
     /// marker isn't in this buffer (a paste split across reads), takes the text
@@ -238,8 +245,10 @@ module InputParser =
     let isIncompletePaste (bytes: byte[]) : bool =
         startsWith pasteStart bytes && indexOf pasteEnd bytes pasteStart.Length < 0
 
-    /// Paste-reassembly step for the runtime read loop. Given the bytes carried
-    /// from prior reads and a fresh read, decide whether to keep buffering (an
+    /// Paste-reassembly step (superseded by `InputDecoder`, which the runtime now
+    /// uses: it also retains split escape sequences and UTF-8, and never flushes
+    /// an over-cap paste into the key channel). Kept for source compatibility.
+    /// Given the bytes carried from prior reads and a fresh read, decide whether to keep buffering (an
     /// unfinished bracketed paste still under `cap` bytes) or to flush. Returns
     /// `(bytesToParseNow, newCarry)`; an empty first element means "keep waiting".
     /// The `cap` bounds a missing end-marker so the carry can't grow without limit.
@@ -479,16 +488,15 @@ module InputParser =
     let private nextEventLength (bytes: byte[]) (offset: int) : int =
         let len = bytes.Length
         let b = bytes.[offset]
-        let rest = bytes.[offset..]
 
         if b = 0x1Buy then
-            if startsWith pasteStart rest then
-                let endIdx = indexOf pasteEnd rest pasteStart.Length
+            if startsWithAt pasteStart bytes offset then
+                let endIdx = indexOf pasteEnd bytes (offset + pasteStart.Length)
 
                 if endIdx >= 0 then
-                    endIdx + pasteEnd.Length
+                    endIdx + pasteEnd.Length - offset
                 else
-                    rest.Length
+                    len - offset
             elif offset + 1 < len && bytes.[offset + 1] = 0x5Buy then // CSI: ESC [ …
                 let mutable i = offset + 2
                 let mutable finalAt = -1
@@ -528,7 +536,7 @@ module InputParser =
         while i < bytes.Length do
             let n = max 1 (nextEventLength bytes i)
 
-            match parseBytes bytes.[i .. i + n - 1] with
+            match parseBytes (Array.sub bytes i (min n (bytes.Length - i))) with
             | Some ev -> acc.Add ev
             | None -> ()
 
@@ -544,13 +552,12 @@ module InputParser =
         else
             None
 
-    /// Read whatever raw input bytes are waiting (with a short settle delay so a
-    /// multi-byte escape sequence arrives whole). `[||]` if nothing is available.
-    /// The runtime uses this (rather than `readEvent`) so it can reassemble a
-    /// bracketed paste split across reads via `stepPasteBuffer` before parsing.
+    /// Read whatever raw input bytes are waiting, in bounded chunks (see
+    /// `TerminalMode.readStdinBytesUpTo`). `[||]` if nothing is available. No
+    /// settle delay: the runtime feeds these into a persistent `InputDecoder`,
+    /// which retains a split sequence until the rest arrives.
     let readRawBytes () : byte[] =
         if TerminalMode.stdinAvailable () then
-            System.Threading.Thread.Sleep(1)
             TerminalMode.readStdinBytes ()
         else
             [||]

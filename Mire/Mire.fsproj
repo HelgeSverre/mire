@@ -70,6 +70,7 @@
     <!-- Protocol — ANSI strings, raw terminal mode, input decoding -->
     <Compile Include="Protocol/ANSI.fs" />
     <Compile Include="Protocol/InputParser.fs" />
+    <Compile Include="Protocol/InputDecoder.fs" />
 
     <!-- Renderer — cell grid + frame diff (Diff uses Protocol.ANSI) -->
     <Compile Include="Renderer/Surface.fs" />
