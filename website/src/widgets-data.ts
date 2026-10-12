@@ -400,9 +400,12 @@ Markdown.wrap (style: MarkdownStyle) (width: int) (baseStyle: Style) (text: stri
           { name: "Title / Placeholder", type: "string", desc: "Header title and the prompt's placeholder text." },
           { name: "OnSubmit", type: "string -> ShellModel -> ShellModel * Cmd", desc: "What a submitted line does — echo, run a tool, or stream a reply." },
           { name: "OnApprove", type: "bool -> string -> ShellModel -> ShellModel * Cmd", desc: "What accepting / denying a tool approval does." },
+          { name: "OnCancel", type: "ShellModel -> ShellModel * Cmd", desc: "Cancel the app's operation when the user stops streaming." },
+          { name: "Triggers / Completions", type: "char list / (CompletionToken -> string list)", desc: "Completion triggers and candidate source; defaults to / and @ with no candidates." },
+          { name: "MaxPromptRows", type: "int", desc: "Maximum multiline prompt rows; defaults to 6." },
         ],
         details:
-          "Composes ChatTranscript + PromptBox + ApprovalModal + the Conversation model — owning scroll/follow-tail, prompt history, key routing, a spinner tick, and an Idle/Streaming/AwaitingApproval session. Stream a reply by dispatching `Apply (AgentShell.stream id chunk)` from a `Cmd.ofAsync`.",
+          "Composes ChatTranscript + PromptBox + ApprovalModal + the Conversation model — owning scroll/follow-tail, multiline editing, history, completions, approval queues, cancellation routing, and a derived Idle/Streaming/AwaitingApproval session. Build the config with `AgentShell.config`; scrolling up pauses follow-tail. Stream a reply by dispatching `Apply (AgentShell.stream id chunk)` from a `Cmd.ofAsync`.",
         related: [
           { href: "/docs/how-to/build-an-agent-shell/", label: "Build an agent shell" },
           { href: "/docs/reference/agent-layer/", label: "The agent layer" },

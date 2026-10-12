@@ -97,7 +97,7 @@ it correctly:
 You rarely call these directly — `Surface.Write` iterates clusters, so a wide glyph
 occupies two columns with an empty _continuation_ cell in its trailing column (so the
 diff repaints it cleanly when narrower content replaces it), and an astral emoji lands
-in a single cell instead of split surrogate halves. Layout uses `stringWidth` to size
+in a single cell instead of split surrogate halves. Layout uses `lineWidth` (including 8-column tab stops) to size
 `Text`. If you build custom drawing, measure with `Grapheme`, not `String.length`.
 
 ## Headless / non-terminal use
@@ -105,3 +105,11 @@ in a single cell instead of split surrogate halves. Layout uses `stringWidth` to
 None of the above runs in the headless `--dump`/snapshot path — `Layout.measure` and
 `Layout.render` are pure and write to a `Surface`, no escapes involved. That's what makes
 layout testable without a tty (see [Architecture → headless rendering](architecture.md#headless-rendering)).
+
+## Output safety
+
+Cell text is content: C0/DEL/C1 controls render as visible stand-ins, and the diff writer
+sanitizes again before emission. Tabs expand to 8-column stops; `WriteClipped` treats
+line breaks as row boundaries. OSC 8 URLs reject controls, cap length, and percent-encode
+non-ASCII text. Kitty image payloads accept only base64 characters. `Cmd.writeRaw`
+remains the explicit path for trusted terminal commands.

@@ -147,9 +147,11 @@ program
 |> Program.withMouseRegion onMouseRegion  // clicks on tagged regions
 ```
 
-Regions nested inside a `Scroll` are omitted from the table (their rects live in the
-scroll's virtual content space, not screen space). For wheel scrolling, handle the
-`Mouse` event's `ScrollUp`/`ScrollDown` button in `MapInput` as usual.
+Regions nested inside a `Scroll` are translated to screen coordinates and clipped to
+the viewport and their ancestors. Later `Filled`/`Scrim` layers block regions beneath
+them. A press captures its region for subsequent drag and release events. For wheel
+scrolling, handle `ScrollUp`/`ScrollDown` in `MapInput` when the region handler returns
+`None`.
 
 `Mire.Layout` also exposes the pure pieces if you need them directly:
 `Layout.collectRegions tree` returns the `(RegionId * Rect)` table, and
@@ -162,3 +164,12 @@ Mouse hit-testing is the spatial half of focus; the keyboard half is `Mire.Layou
 driven entirely in `update`. It pairs naturally with `Focusable.region` (use the same
 `RegionId`s): `Focus.ofOrder`, `Focus.next`/`prev`, `Focus.focus`, `Focus.isFocused`,
 `Focus.pushTrap`/`popTrap` (for modals). `Mire.Demo.Feed` is the reference adopter.
+
+## Incremental decoding
+
+The runtime feeds bounded raw reads to a persistent `InputDecoder`, retaining split
+CSI/SS3 sequences, partial UTF-8, and bracketed pastes across read boundaries. A lone
+Escape is settled after 30 ms of idle input. Pastes are capped at 1 MiB and truncated
+as a `Paste`, without turning the excess into keystrokes; a stalled paste is settled
+after 3 seconds. Direct parser users can use `InputDecoder.Feed` and `Flush` for the
+same behavior.

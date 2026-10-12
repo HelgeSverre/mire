@@ -77,6 +77,11 @@ let update msg model =
     | Done -> model, Cmd.quit
 ```
 
+`Runtime.run` supervises `Cmd.ofAsync` work under a shared cancellation token. Quit
+cancels that token (available through `Async.CancellationToken`), drops late messages,
+and delivers async failures to `Program.OnError` on the runtime thread. Its message
+pump stops after 4096 messages or 16 ms per iteration so input and rendering can proceed.
+
 ## Subscriptions
 
 Long-lived event sources, recomputed from the model each frame.

@@ -96,8 +96,9 @@ Box.panel "settings" Style.border [ Text.text "a line" Style.text ]
 ## Scroll and ScrollView
 
 `Scroll` clips its child to the viewport and shows it at an offset. The child is laid
-out at its full content size on an off-screen surface, then the visible window is
-blitted in. The app owns the offset (it's MVU state).
+out at its full content size, then painted directly into the viewport with translation
+and ancestor clipping. No full-content backing surface is allocated. The app owns the
+offset (it's MVU state).
 
 For most cases use the `ScrollView` widget, which adds a track/thumb scrollbar and
 clamping helpers — see [Widgets](widgets.md#scrolling).

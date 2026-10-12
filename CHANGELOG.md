@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Documentation
+
+- Align the guides, website reference, AgentShell examples, and roadmap with v0.8.0:
+  config defaults, cancellation/completion, follow-tail and approval queues, grapheme
+  editing, incremental decoding, supervised commands, output safety, and viewport painting.
+
 ## [0.8.0] - 2026-10-12
 
 A correctness and interaction release, driven by an external source audit of

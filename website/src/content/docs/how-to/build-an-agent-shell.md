@@ -54,11 +54,8 @@ let onApprove (accepted: bool) (cmd: string) (m: ShellModel) : ShellModel * Cmd<
         AgentShell.addNotice AppTheme.Warning (sprintf "denied: %s" cmd) m, Cmd.none
 
 let config: ShellConfig =
-    { Theme = AppTheme.defaultTheme
-      Title = "└ mire · agent"
-      Placeholder = "type a message — or `run`"
-      OnSubmit = onSubmit
-      OnApprove = onApprove }
+    AgentShell.config AppTheme.defaultTheme "└ mire · agent" "type a message — or `run`"
+        onSubmit onApprove
 
 [<EntryPoint>]
 let main _ =
@@ -67,16 +64,19 @@ let main _ =
 ```
 
 That's a complete shell: type to chat (replies stream in), `run` to raise a tool approval
-(←/→ choose, Enter confirm, Esc deny), ↑/↓ to recall history, Ctrl+C to quit.
+(←/→ choose, Enter confirm, Esc deny, or click), ↑/↓ to recall history, Shift+Enter
+to insert a newline, PgUp/PgDn or the wheel to scroll, Esc to cancel streaming, and
+Ctrl+C to quit. `AgentShell.config` supplies default completion/cancellation settings;
+override `Completions`, `Triggers`, `OnCancel`, and `MaxPromptRows` as needed.
 
 ### Streaming
 
 The shell renders streaming for free. Start a reply with `AgentShell.startReply` (which
-returns the new message's id and flips the session to `Streaming`), then feed chunks in
+returns the new message's id and tracks an active reply), then feed chunks in
 from a command via the `Apply` message — `Apply (AgentShell.stream id chunk)` — and end
-with `Apply (AgentShell.finishReply id)`. The transcript follows the tail as it grows, and
-because the runtime coalesces a burst of messages into one render per frame, a fast token
-stream stays smooth.
+with `Apply (AgentShell.finishReply id)`. The transcript follows the tail while
+`Following` is true; scrolling up pauses it. The runtime coalesces a burst of messages
+into one render per frame.
 
 ### The model helpers
 
@@ -84,11 +84,11 @@ stream stays smooth.
 
 | Helper                                                | Effect                                                         |
 | ----------------------------------------------------- | -------------------------------------------------------------- |
-| `addUser` / `addAssistant` / `addNotice` / `addBlock` | append a block, follow the tail                                |
+| `addUser` / `addAssistant` / `addNotice` / `addBlock` | append a block; only `addUser` resumes follow-tail                                |
 | `startReply` → `(id, m)`                              | begin a streaming assistant reply                              |
 | `stream id chunk`                                     | append a token to a streaming reply                            |
-| `finishReply id`                                      | end the stream (→ `Idle`)                                      |
-| `requestApproval cmd`                                 | raise the approval modal (→ `AwaitingApproval`)                |
+| `finishReply id`                                      | end this stream; derive session from remaining work                                      |
+| `requestApproval cmd`                                 | show or queue an approval (FIFO)                |
 | `addTool name cmd status` → `(id, m)`                 | append a tool call                                             |
 | `setTool id status meta output`                       | transition a tool call (`Queued → Running → Succeeded/Failed`) |
 
@@ -122,7 +122,8 @@ let view (m: Model) =
 
 Route Enter→submit, Esc→cancel, Tab/←/→→move the modal's focus, everything else→editing
 (`PromptBox.applyInput`); keep the transcript pinned with `ChatTranscript.toBottom`. This
-is exactly what `AgentShell` does internally — read its source for the full shape.
+is the basic composition; `AgentShell` additionally owns completion, cancellation,
+approval queues, multiline input, and scroll/follow-tail routing.
 
 ## Where to take it
 

@@ -19,8 +19,9 @@ state of the code.
 Pre-1.0, shipped **incrementally** — the public API still moves between minors,
 so consumers pin an exact version. A release goes out by publishing a `v*`
 GitHub Release; `publish.yml` then packs + pushes to nuget.org via OIDC.
-**`0.4.0` through `0.7.0` are released.** `0.7.0` bundled three cycles — input &
-protocol completeness, streaming performance, and the agent-layer expansion. The
+**`0.4.0` through `0.8.0` are released.** `0.7.0` bundled input/protocol
+completeness, streaming performance, and the agent-layer expansion; `0.8.0` hardens
+output, input, editing, geometry, runtime lifecycle, and shell interactions. The
 next planned cycle is **1.0 hardening** (API review/freeze; see below).
 
 > Release numbers ≠ the SPEC "phase" numbers below. The 0.4.0 release bundled the
@@ -120,7 +121,7 @@ boundaries, not the widget catalog.
 
 ### 1.0.0 — later (not a near-term goal)
 
-Stay 0.x until the shipped surface (through 0.7.0 — core, agent layer, input/perf)
+Stay 0.x until the shipped surface (through 0.8.0 — core, agent layer, input/perf, correctness)
 bakes under real use. 1.0 means an API review/freeze, full XML-doc coverage, and a
 deprecation policy — revisit once the public API stops moving.
 
@@ -222,7 +223,7 @@ transcript/prompt/approval through `Mire.Agent`.)
 Recommended order — each step names its extraction source in the demo:
 
 - [x] **1. Create `Mire.Agent` project** — classlib referencing `Mire` only, in `Mire.slnx` (CI builds the solution); one-directional chain preserved
-- [x] **2. `TranscriptBlock` model + `ChatTranscript`** — extracted from `Blocks.fs` into `Mire.Agent`, parameterized by `AppTheme` (`Notice` uses `AppTheme.Tone`); `ChatTranscript.{renderBlock,render,statusGlyph,statusStyle}`. **Virtualization + follow-tail folded in:** `ChatTranscript.view` builds only the blocks intersecting the viewport into the `Scroll` node (vs. the `Scroll` primitive rendering the whole transcript onto an off-screen surface each frame) with a true-content scrollbar, plus `contentHeight`/`toBottom`/`clampOffset`/`atBottom` scroll-math helpers (the offset stays app-owned MVU state). The demo now renders its transcript through `ChatTranscript.view`.
+- [x] **2. `TranscriptBlock` model + `ChatTranscript`** — extracted from `Blocks.fs` into `Mire.Agent`, parameterized by `AppTheme` (`Notice` uses `AppTheme.Tone`); `ChatTranscript.{renderBlock,render,statusGlyph,statusStyle}`. **Virtualization + follow-tail folded in:** `ChatTranscript.view` builds only the blocks intersecting the viewport into the `Scroll` node (v0.8.0 also paints scroll content directly into the viewport) with a true-content scrollbar, plus `contentHeight`/`toBottom`/`clampOffset`/`atBottom` scroll-math helpers (the offset stays app-owned MVU state). The demo now renders its transcript through `ChatTranscript.view`.
 - [x] **3. `PromptBox`** — `PromptInput.fs` moved into `Mire.Agent.PromptBox`, then **completion + history folded in**: a submit-`History` ring with `submit`/`historyPrev`/`historyNext` (draft-preserving up/down recall), and `completionToken`/`acceptCompletion` that locate the slash/@-mention token under the caret and splice a pick (the candidate _source_ stays app-owned). The Agent demo's @mention / /slash detection now routes through `completionToken`/`acceptCompletion`.
 - [x] **4. `ToolCallView` + `ThinkingBlock`** — shipped as `TranscriptBlock.ToolCall`/`Thinking` rendered by `ChatTranscript` (they're transcript blocks here, not standalone widgets).
 - [x] **5. `ApprovalModal`** — `ApprovalModal.view` + `buttonHit` (click) in `Mire.Agent`, styled by `AppTheme`; the demo's permission modal renders + click-activates through it (accept/deny behavior stays app-side).
@@ -288,7 +289,7 @@ Things that work "well enough" today but have a sharp edge worth remembering:
 
 ## How to use this file
 
-1. Pick the next unchecked item. Releases 0.4.0–0.7.0 have shipped; what remains is
+1. Pick the next unchecked item. Releases 0.4.0–0.8.0 have shipped; what remains is
    the deferred stretch/perf items above and the **1.0 hardening** pass (API
    review/freeze) — see the Release plan.
 2. Implement it; verify with `dotnet build Mire.slnx`, `dotnet run --project

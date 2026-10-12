@@ -75,7 +75,8 @@ Box.panel "title" Style.border [ child ]
 ## Scroll
 
 Clips its child to the viewport and shows it at an offset; the child is laid out at full
-content size off-screen, then the visible window is blitted in. The app owns the offset.
+content size, then painted directly into the viewport with translation and ancestor
+clipping. No full-content backing surface is allocated. The app owns the offset.
 Most uses want the `ScrollView` widget, which adds a track/thumb scrollbar plus
 `toBottom`/`clampOffset`/`atBottom` offset helpers (listed under "Not pictured" on the
 [Widgets](/docs/reference/widgets/) page).

@@ -12,12 +12,22 @@ owns scroll/follow-tail, prompt history, key routing, a spinner tick, and an
 The **`samples/AgentShell`** MVP (`just shell`) is built on it with **zero theme code**.
 
 ```fsharp
-AgentShell.program
-    { Theme = AppTheme.defaultTheme; Title = "agent"; Placeholder = "type…"
-      OnSubmit = (fun text m -> …)      // what a submitted line does
-      OnApprove = (fun ok cmd m -> …) } // what an approval decision does
-|> Runtime.run
+let config =
+    AgentShell.config AppTheme.defaultTheme "agent" "type…"
+        (fun _text m -> m, Cmd.none)
+        (fun _accepted _command m -> m, Cmd.none)
+
+AgentShell.program config |> Runtime.run
 ```
+
+`AgentShell.config` supplies defaults for the v0.8 settings: `OnCancel`, `Triggers`,
+`Completions`, and `MaxPromptRows` (6). Override fields with `{ config with … }`.
+The shell routes keys by context (approval, completion, prompt), supports multiline
+input (Shift/Alt+Enter or Ctrl+J), and scrolls with PgUp/PgDn or the wheel. Esc cancels
+streaming work through `OnCancel`; the app should cancel its own operation there.
+Scrolling up pauses follow-tail until you submit, reach the bottom, or jump to latest.
+`Session` is derived from active reply ids and the open approval. Approvals queue FIFO;
+`requestApprovalId` returns an id that `cancelApproval` can withdraw.
 
 The `Conversation` model (a typed list over `TranscriptBlock` with stable ids, streaming
 helpers, and the `Queued → Running → Succeeded/Failed` tool lifecycle) is what the shell
@@ -52,6 +62,12 @@ the true content height:
 ```fsharp
 ChatTranscript.view theme wrapWidth frame viewportH offset trackStyle thumbStyle blocks
 ```
+
+For a conversation with stable message ids, keep one `TranscriptCache` per session and
+use `Conversation.keyed` with `ChatTranscript.viewKeyed` / `contentHeightKeyed` /
+`toBottomKeyed`. The cache keeps the latest revision per (message id, wrap width), and
+reuses unchanged nodes. `AgentShell` uses this path. Painting skips off-viewport rows;
+a huge visible block still builds and measures its node tree when its revision changes.
 
 The app owns `offset` (MVU state); the scroll-math helpers compute the bounds, so
 following the tail is a one-liner in `update`:
@@ -91,6 +107,8 @@ match PromptBox.completionToken [ '/'; '@' ] p with
 
 // render (an accent glyph + the editable text, or a placeholder when empty):
 PromptBox.render width glyphStyle textStyle cursorStyle placeholderStyle placeholder focused p
+PromptBox.renderRows width rows glyphStyle textStyle cursorStyle placeholderStyle placeholder focused p
+PromptBox.visualRows textWidth p
 ```
 
 A typical flow: on each edit, recompute `completionToken` to open/refresh a popup

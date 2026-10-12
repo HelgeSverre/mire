@@ -16,14 +16,16 @@ You hold a `TextBuffer` in your model, feed input through `TextEdit`, and render
 ```fsharp
 type TextBuffer =
     { Text: string
-      Cursor: int            // a char index in 0 .. Text.Length
+      Cursor: int            // a UTF-16 offset on a grapheme boundary
       Anchor: int option }   // Some i ⇒ selection between i and Cursor; None ⇒ just the caret
 
 TextBuffer.Empty
 TextBuffer.Of "initial text"   // caret at the end
 ```
 
-It's char-indexed (a fine approximation for editing; the _renderer_ is grapheme-aware).
+Cursor and anchor are UTF-16 offsets kept on grapheme-cluster boundaries. Motions and
+deletes preserve emoji, combining sequences, and surrogate pairs; Up/Down use display
+columns. `TextBuffer.normalize` clamps hand-built buffers to valid boundaries.
 The ops are pure and return new buffers:
 
 ```fsharp

@@ -25,19 +25,26 @@ approval does_:
 
 ```fsharp
 let config: ShellConfig =
-    { Theme = AppTheme.defaultTheme
-      Title = "└ mire · agent"
-      Placeholder = "type a message — or `run`"
-      OnSubmit = fun text m -> …, Cmd<ShellMsg>      // a line was submitted (user msg already appended)
-      OnApprove = fun accepted cmd m -> …, Cmd<ShellMsg> }   // an approval was resolved
+    AgentShell.config AppTheme.defaultTheme "└ mire · agent" "type a message — or `run`"
+        (fun _text m -> m, Cmd.none)             // replace with submission behavior
+        (fun _accepted _command m -> m, Cmd.none) // replace with approval behavior
 
 AgentShell.program config |> Runtime.run
 ```
 
+`AgentShell.config` supplies defaults for the v0.8 settings: `OnCancel`, `Triggers`,
+`Completions`, and `MaxPromptRows` (6). Override fields with `{ config with … }`.
+The shell routes keys by context (approval, completion, prompt), supports multiline
+input (Shift/Alt+Enter or Ctrl+J), and scrolls with PgUp/PgDn or the wheel. Esc cancels
+streaming work through `OnCancel`; the app should cancel its own operation there.
+Scrolling up pauses follow-tail until you submit, reach the bottom, or jump to latest.
+`Session` is derived from active reply ids and the open approval. Approvals queue FIFO;
+`requestApprovalId` returns an id that `cancelApproval` can withdraw.
+
 The callbacks use the model helpers to mutate the conversation:
 
 ```fsharp
-AgentShell.addUser / addAssistant / addNotice / addBlock   // append a block + follow tail
+AgentShell.addUser / addAssistant / addNotice / addBlock   // append a block; only addUser resumes follow-tail
 AgentShell.startReply m            // (id, m') — begin a streaming assistant reply
 AgentShell.stream id chunk         // ShellModel -> ShellModel — append a token
 AgentShell.finishReply id          // end the stream
@@ -97,6 +104,12 @@ the true content height:
 ChatTranscript.view theme wrapWidth frame viewportH offset trackStyle thumbStyle blocks
 ```
 
+For a conversation with stable message ids, keep one `TranscriptCache` per session and
+use `Conversation.keyed` with `ChatTranscript.viewKeyed` / `contentHeightKeyed` /
+`toBottomKeyed`. The cache keeps the latest revision per (message id, wrap width), and
+reuses unchanged nodes. `AgentShell` uses this path. Painting skips off-viewport rows;
+a huge visible block still builds and measures its node tree when its revision changes.
+
 The app owns `offset`. The scroll-math helpers compute the bounds, so following the tail
 is one line in `update`:
 
@@ -138,6 +151,8 @@ match PromptBox.completion [ '/'; '@' ] (fun tok -> myCandidates tok.Trigger tok
 PromptBox.completionToken [ '/'; '@' ] p   // tok.Trigger, tok.Query, tok.Start
 
 PromptBox.render width glyphStyle textStyle cursorStyle placeholderStyle placeholder focused p
+PromptBox.renderRows width rows glyphStyle textStyle cursorStyle placeholderStyle placeholder focused p
+PromptBox.visualRows textWidth p
 ```
 
 ## ApprovalModal

@@ -109,3 +109,12 @@ program |> Program.withKeyReleases true
 Opt in to theme notifications and you'll get a `ThemeChanged` event when the terminal's
 scheme changes — swap your `AppTheme` in response. See
 [Theme your app](/docs/how-to/theme-your-app/#react-to-the-terminals-light-dark-setting).
+
+## Incremental decoding
+
+The runtime feeds bounded raw reads to a persistent `InputDecoder`, retaining split
+CSI/SS3 sequences, partial UTF-8, and bracketed pastes across read boundaries. A lone
+Escape is settled after 30 ms of idle input. Pastes are capped at 1 MiB and truncated
+as a `Paste`, without turning the excess into keystrokes; a stalled paste is settled
+after 3 seconds. Direct parser users can use `InputDecoder.Feed` and `Flush` for the
+same behavior.
