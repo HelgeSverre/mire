@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Documentation
 
+- Use the production Vercel docs URL in the README, canonical links, and sitemap.
+
 - Align the guides, website reference, AgentShell examples, and roadmap with v0.8.0:
   config defaults, cancellation/completion, follow-tail and approval queues, grapheme
   editing, incremental decoding, supervised commands, output safety, and viewport painting.

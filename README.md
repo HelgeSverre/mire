@@ -95,7 +95,8 @@ The [user guide](https://github.com/HelgeSverre/mire/blob/main/docs/guide/README
 [Text editing](https://github.com/HelgeSverre/mire/blob/main/docs/guide/text-editing.md) ·
 [Agent layer](https://github.com/HelgeSverre/mire/blob/main/docs/guide/agent-layer.md)
 
-A full documentation site (Astro) lives in [`website/`](https://github.com/HelgeSverre/mire/tree/main/website).
+Browse the [documentation site](https://mire-black.vercel.app/docs/). Its Astro source lives in
+[`website/`](https://github.com/HelgeSverre/mire/tree/main/website).
 
 ## Demos and samples
 
