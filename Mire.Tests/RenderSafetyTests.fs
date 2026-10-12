@@ -175,3 +175,13 @@ let wideGlyphTests =
                   Layout.measure (Rect.Create(0, 0, 2, 1)) node |> Layout.render s
                   Expect.isEmpty (pairsValid s) $"pairs valid at offset {offX}"
           } ]
+
+[<Tests>]
+let controlClusterTests =
+    test "Write expands CRLF into two separate inert cells" {
+        let s = Surface(Size.Create(5, 1))
+        s.Write(0, 0, "a\r\nb", Style.Default)
+        Expect.equal s.[1, 0].Grapheme "␍" "CR occupies its own cell"
+        Expect.equal s.[2, 0].Grapheme "␊" "LF occupies its own cell"
+        Expect.equal s.[3, 0].Grapheme "b" "following text stays aligned"
+    }

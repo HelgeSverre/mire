@@ -210,3 +210,16 @@ let columnViewTests =
               Expect.equal (rowText s 0) "世界" "first row holds two wide glyphs (4 cols)"
               Expect.equal s.[0, 1].Style.Background (Some Color.White) "caret at the start of row 2"
           } ]
+
+[<Tests>]
+let joinedClusterTests =
+    testList "Deletion joins clusters"
+        [ test "deleting a newline keeps the caret on the joined cluster boundary" {
+              for edit, b in
+                  [ TextBuffer.backspace, buf "a\n\u0301" 2 None
+                    TextBuffer.delete, buf "a\n\u0301" 1 None
+                    TextBuffer.deleteSelection, buf "a\n\u0301" 2 (Some 1) ] do
+                  let result = edit b
+                  Expect.equal result.Text "a\u0301" "newline removed"
+                  Expect.isTrue (valid result) "caret remains on a grapheme boundary"
+          } ]

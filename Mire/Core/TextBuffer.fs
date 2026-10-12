@@ -95,6 +95,7 @@ module TextBuffer =
             { Text = b.Text.Substring(0, lo) + b.Text.Substring(hi)
               Cursor = lo
               Anchor = None }
+            |> normalize
         | _ -> { b with Anchor = None }
 
     /// Select the whole buffer (anchor at 0, caret at the end).
@@ -147,6 +148,7 @@ module TextBuffer =
                 { Text = b.Text.Substring(0, p) + b.Text.Substring(b.Cursor)
                   Cursor = p
                   Anchor = None }
+                |> normalize
 
     /// Delete the selection if any, else the cluster at the cursor (forward Delete).
     let delete (b: TextBuffer) : TextBuffer =
@@ -163,6 +165,7 @@ module TextBuffer =
                 { b with
                     Text = b.Text.Substring(0, b.Cursor) + b.Text.Substring(n)
                     Anchor = None }
+                |> normalize
 
     /// Move one cluster left.
     let left (b: TextBuffer) : TextBuffer =
@@ -238,6 +241,7 @@ module TextBuffer =
             { Text = b.Text.Substring(0, i) + b.Text.Substring(b.Cursor)
               Cursor = i
               Anchor = None }
+            |> normalize
 
     /// Delete the selection if any, else from the cursor forward to the end of
     /// the next word.
@@ -251,6 +255,7 @@ module TextBuffer =
             { Text = b.Text.Substring(0, b.Cursor) + b.Text.Substring(j)
               Cursor = b.Cursor
               Anchor = None }
+            |> normalize
 
     /// The cursor's `(row, col)` — both 0-based — over the `\n`-delimited text.
     /// `col` is the UTF-16 offset within the line (see `cursorRowColumn` for the

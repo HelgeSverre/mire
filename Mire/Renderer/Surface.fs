@@ -224,7 +224,16 @@ type Surface(size: Size) =
     /// text); tabs expand to 8-column stops from `x`; other control characters
     /// render as visible stand-ins rather than reaching the terminal.
     member _.Write(x, y, text: string, style: Style) =
-        writeRun x y (Grapheme.clusters text) style x 0 (safeSize.Width - 1) |> ignore
+        // Sanitization can split a cluster (CRLF becomes two control pictures),
+        // so segment the displayed text rather than the original controls.
+        // Keep tabs for writeRun's column-stop expansion.
+        let shown =
+            if not (isNull text) && Grapheme.hasControl text then
+                text.Split('\t') |> Array.map Grapheme.sanitize |> String.concat "\t"
+            else
+                text
+
+        writeRun x y (Grapheme.clusters shown) style x 0 (safeSize.Width - 1) |> ignore
 
     /// Write `text` into `rect`, starting at its top-left, clipped to it. `\n`,
     /// `\r`, and `\r\n` start the next row; tabs expand to 8-column stops from
