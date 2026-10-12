@@ -102,7 +102,7 @@ framework never knows what an LLM is). Slices, in dependency order:
 
 _(Naming was considered: keep `Mire.Agent` and grow into it, rather than renaming to `Mire.Chat`.)_
 
-### Next — Correctness & interaction hardening · _unreleased_
+### 0.8.0 — Correctness & interaction hardening · _released_
 
 From an external source audit of 0.7.0: the gap was composition at the
 boundaries, not the widget catalog.

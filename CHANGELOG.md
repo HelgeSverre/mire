@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-12
+
 A correctness and interaction release, driven by an external source audit of
 0.7.0. Nothing new in the widget catalog: this release makes the existing pieces
 compose safely at their boundaries — ordinary text can't emit terminal commands,
@@ -83,6 +85,8 @@ Several public shapes moved (noted per item) — acceptable pre-1.0.
 - `DiffView.splitColumns` keeps shared context aligned after unequal edit runs.
 - `StatusBar.statusBar` honors its left/center/right groups (center is centered on
   the bar; sides win collisions).
+- Deleting text that joins grapheme clusters keeps the caret on a valid boundary.
+- Single-line CRLF control pictures occupy separate cells, preserving output alignment.
 - Wide glyphs: a glyph whose second column is clipped becomes a blank, and
   overwriting either half of a pair repairs the other (writes, fills, scroll edges).
 - `wrapLine 2 "世界"` measured characters, not columns (now one glyph per row).
