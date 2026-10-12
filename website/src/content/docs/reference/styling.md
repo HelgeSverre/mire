@@ -82,7 +82,7 @@ See [Theme your app](/docs/how-to/theme-your-app/) for usage and runtime light/d
 
 ## TextBuffer
 
-Text + cursor + selection, char-indexed, pure.
+Text + cursor + selection, pure. Offsets are UTF-16 indices kept on grapheme-cluster boundaries, so edits never split an emoji or combining sequence.
 
 ```fsharp
 type TextBuffer = { Text: string; Cursor: int; Anchor: int option }

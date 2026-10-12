@@ -74,27 +74,54 @@ module Box =
         panel title Style.border children
 
 module StatusBar =
+    let private z = Rect.Create(0, 0, 0, 0)
+
+    /// A row of items laid side by side at their content widths.
+    let private row (items: LayoutNode<'msg> list) : LayoutNode<'msg> =
+        LayoutNode.Stack(z, Direction.Horizontal, items |> List.map (fun c -> { Length = Length.Content; Child = c }))
+
+    /// Items separated by single spaces.
+    let private spaced (items: LayoutNode<'msg> list) : LayoutNode<'msg> list =
+        items
+        |> List.mapi (fun i c -> if i = 0 then [ c ] else [ Text.text " " Style.dim; c ])
+        |> List.concat
+
+    /// A bordered status bar with three alignment groups: `leftItems` flush
+    /// left, `rightItems` flush right, and `centerItems` centered on the *whole
+    /// bar* (not on the gap between the sides, so unequal side widths don't pull
+    /// it off-center). Collision policy: the left and right groups always show in
+    /// full — they paint opaquely over the center group, which is hidden where it
+    /// would collide; if left and right themselves collide, left shows in full
+    /// and right is clipped at the bar's edge.
     let statusBar
         (leftItems: LayoutNode<'msg> list)
         (centerItems: LayoutNode<'msg> list)
         (rightItems: LayoutNode<'msg> list)
         : LayoutNode<'msg> =
-        let allItems =
-            leftItems
-            @ [ Text.text " " Style.dim ]
-            @ centerItems
-            @ [ Text.text " " Style.dim ]
-            @ rightItems
+        // An opaque group: a blank fill under its items, sized to their width.
+        let opaque (items: LayoutNode<'msg> list) =
+            LayoutNode.Overlay(z, [ LayoutNode.Filled(z, Style.Default); row (spaced items) ])
 
-        // Box renders one child filling its inner rect; flow the items through an
-        // explicit horizontal Stack so they sit side-by-side instead of overlapping.
-        Box.box
-            Style.border
-            [ LayoutNode.Stack(
-                  Rect.Create(0, 0, 0, 0),
-                  Direction.Horizontal,
-                  allItems |> List.map (fun c -> { Length = Length.Content; Child = c })
-              ) ]
+        let sides =
+            LayoutNode.Stack(
+                z,
+                Direction.Horizontal,
+                [ if not (List.isEmpty leftItems) then
+                      { Length = Length.Content
+                        Child = opaque leftItems }
+                  { Length = Length.Fill
+                    Child = LayoutNode.Empty }
+                  if not (List.isEmpty rightItems) then
+                      { Length = Length.Content
+                        Child = opaque rightItems } ]
+            )
+
+        let layers =
+            [ if not (List.isEmpty centerItems) then
+                  LayoutNode.Positioned(z, Center, Length.Content, Length.Cells 1, row (spaced centerItems))
+              sides ]
+
+        Box.box Style.border [ LayoutNode.Overlay(z, layers) ]
 
     let statusBarSimple (items: string list) : LayoutNode<'msg> =
         let nodes = items |> List.map (fun s -> Text.textDefault s)
@@ -435,10 +462,106 @@ module ScrollView =
             [ Stack.sized Length.Fill (Scroll.vertical (clampOffset viewportH contentH offset) content)
               Stack.sized (Length.Cells 1) (scrollbar viewportH contentH offset trackStyle thumbStyle) ]
 
+/// Column-accurate row rendering shared by the editing views (`Input`,
+/// `TextArea`). A row is a slice of buffer text; it's laid out cluster by
+/// cluster in *display columns* (`Grapheme.editDisplay`), windowed horizontally
+/// to `[colStart, colStart + width)`, and split into normal / selected / caret
+/// runs. A wide glyph cut by either window edge shows as blanks rather than half
+/// a glyph, and every run is sized to its exact column count.
+module EditRow =
+    type private Kind =
+        | Normal
+        | Selected
+        | Caret
+
+    /// Render `text.[lo .. hi - 1]` (a row of the buffer; offsets are global).
+    /// `caret` / `sel` are global offsets (`sel` = `(selLo, selHi)`, `selHi`
+    /// exclusive). A caret at `hi` (end of row) draws a one-column block after
+    /// the text.
+    let render
+        (text: string)
+        (lo: int)
+        (hi: int)
+        (colStart: int)
+        (width: int)
+        (caret: int option)
+        (sel: (int * int) option)
+        (textStyle: Style)
+        (cursorStyle: Style)
+        : LayoutNode<'msg> =
+        let runs = ResizeArray<Kind * System.Text.StringBuilder * int ref>()
+
+        let emit (kind: Kind) (s: string) (w: int) =
+            if runs.Count > 0 && (let (k, _, _) = runs.[runs.Count - 1] in k = kind) then
+                let (_, sb, wr) = runs.[runs.Count - 1]
+                sb.Append(s) |> ignore
+                wr.Value <- wr.Value + w
+            else
+                runs.Add((kind, System.Text.StringBuilder(s), ref w))
+
+        let colEnd = colStart + width
+        let mutable col = 0
+        let mutable i = lo
+
+        while i < hi && col < colEnd do
+            let j = min hi (Grapheme.nextBoundary text i)
+            let shown, w = Grapheme.editDisplay (text.Substring(i, j - i))
+
+            let kind =
+                match sel, caret with
+                | Some(a, b), _ when i >= a && i < b -> Selected
+                | None, Some c when c = i -> Caret // the block caret shows only without a selection
+                | _ -> Normal
+
+            if col + w <= colStart then
+                ()
+            elif col < colStart || col + w > colEnd then
+                // Cut by a window edge: show only the visible columns, as blanks.
+                let visible = min (col + w) colEnd - max col colStart
+                emit kind (String.replicate visible " ") visible
+            else
+                emit kind shown w
+
+            col <- col + w
+            i <- j
+
+        // Caret after the last cluster of the row.
+        match caret with
+        | Some c when c = hi && col >= colStart && col < colEnd && Option.isNone sel -> emit Caret " " 1
+        | _ -> ()
+
+        match List.ofSeq runs with
+        | [] -> Text.text "" textStyle
+        | [ (Normal, sb, _) ] -> Text.text (sb.ToString()) textStyle
+        | rs ->
+            Stack.hstackOf
+                [ for (kind, sb, w) in rs ->
+                      let style =
+                          match kind with
+                          | Normal -> textStyle
+                          | Selected
+                          | Caret -> cursorStyle
+
+                      Stack.sized (Length.Cells w.Value) (Text.text (sb.ToString()) style) ]
+
+    /// The first display column of a window of `width` columns that keeps the
+    /// caret's cell (`caretCol`, `caretWidth` columns wide) fully visible.
+    let windowStart (width: int) (caretCol: int) (caretWidth: int) : int =
+        max 0 (caretCol + max 1 caretWidth - width)
+
+    /// Columns the cluster at `pos` occupies (1 for the end-of-row caret block).
+    let caretWidth (text: string) (pos: int) (rowEnd: int) : int =
+        if pos >= rowEnd then
+            1
+        else
+            let j = min rowEnd (Grapheme.nextBoundary text pos)
+            snd (Grapheme.editDisplay (text.Substring(pos, j - pos)))
+
 /// Single-line text editor view over a `TextBuffer`. Pure edit logic lives in
 /// `Mire.Core.TextBuffer`; this only renders. When `focused`, a block cursor is
 /// drawn (the cell under the cursor in `cursorStyle`) and the view scrolls
-/// horizontally to keep it visible within `width` cells.
+/// horizontally to keep it visible within `width` cells. Layout is in display
+/// columns: wide glyphs take two cells and are never split at the window edge.
 module Input =
     let render
         (width: int)
@@ -447,49 +570,23 @@ module Input =
         (focused: bool)
         (buf: TextBuffer)
         : LayoutNode<'msg> =
+        let buf = TextBuffer.normalize buf
         let text = buf.Text
-        let len = text.Length
-        let cur = max 0 (min len buf.Cursor)
-        // horizontal scroll window of `width` chars containing the cursor
-        let start = if cur < width then 0 else cur - width + 1
-        let visLen = min (max 0 (len - start)) width
-        let visible = if visLen <= 0 then "" else text.Substring(start, visLen)
+        let cur = buf.Cursor
+        let caretCol = Grapheme.editColumns text 0 cur
+        // horizontal scroll window of `width` columns containing the cursor cell
+        let start =
+            EditRow.windowStart width caretCol (EditRow.caretWidth text cur text.Length)
 
         if not focused then
-            Text.text visible textStyle
+            EditRow.render text 0 text.Length start width None None textStyle cursorStyle
         else
-            match TextBuffer.selection buf with
-            // A selection renders as a highlighted range (reusing `cursorStyle` —
-            // inverse video reads as selected text), clipped to the visible window.
-            | Some(lo, hi) when hi > lo && min visible.Length (hi - start) > max 0 (lo - start) ->
-                let s0 = max 0 (lo - start)
-                let s1 = min visible.Length (hi - start)
+            let sel =
+                match TextBuffer.selection buf with
+                | Some(lo, hi) when hi > lo -> Some(lo, hi)
+                | _ -> None
 
-                Stack.hstackOf
-                    [ Stack.sized Length.Content (Text.text (visible.Substring(0, s0)) textStyle)
-                      Stack.sized Length.Content (Text.text (visible.Substring(s0, s1 - s0)) cursorStyle)
-                      Stack.sized Length.Content (Text.text (visible.Substring(s1)) textStyle) ]
-            | _ ->
-                let cw = cur - start // cursor column within the window (0 .. width-1)
-
-                let leftPart =
-                    if cw <= 0 then
-                        ""
-                    else
-                        visible.Substring(0, min cw visible.Length)
-
-                let atCursor = if cw < visible.Length then string visible.[cw] else " "
-
-                let rightPart =
-                    if cw + 1 <= visible.Length then
-                        visible.Substring(min (cw + 1) visible.Length)
-                    else
-                        ""
-
-                Stack.hstackOf
-                    [ Stack.sized Length.Content (Text.text leftPart textStyle)
-                      Stack.sized (Length.Cells 1) (Text.text atCursor cursorStyle)
-                      Stack.sized Length.Content (Text.text rightPart textStyle) ]
+            EditRow.render text 0 text.Length start width (Some cur) sel textStyle cursorStyle
 
 /// One table column: a header label, a width (`Length`), and a per-row cell
 /// renderer. `Table.textColumn` builds a plain styled-text column.
@@ -509,6 +606,60 @@ module Table =
           Width = width
           Render = fun r -> Text.text (toStr r) style }
 
+    /// The table over an indexed row source: `rowCount` rows, fetched by
+    /// `rowAt i`. Only the `height` rows from `topRow` are fetched and built, so
+    /// cost is O(visible) regardless of the row count.
+    let viewIndexed
+        (height: int)
+        (headerStyle: Style)
+        (selStyle: Style)
+        (topRow: int)
+        (isSelected: int -> bool)
+        (columns: Column<'row, 'msg> list)
+        (rowCount: int)
+        (rowAt: int -> 'row)
+        : LayoutNode<'msg> =
+        let headerRow =
+            Stack.hstackOf [ for c in columns -> Stack.sized c.Width (Text.text c.Header headerStyle) ]
+
+        let start = max 0 (min topRow rowCount)
+        let stop = min rowCount (start + max 0 height) - 1
+
+        let bodyRows =
+            [ for i in start..stop ->
+                  let row = rowAt i
+
+                  let cells =
+                      Stack.hstackOf [ for c in columns -> Stack.sized c.Width (c.Render row) ]
+
+                  if isSelected i then
+                      // Draw the whole row in the selection style so the highlight is
+                      // uniform and readable across columns that carry their own colors
+                      // (their foreground would otherwise clash with — or vanish into —
+                      // an inverse-video selection background).
+                      Backdrop.behind selStyle (Backdrop.recolor selStyle cells)
+                  else
+                      cells ]
+
+        Stack.vstackOf
+            [ Stack.sized (Length.Cells 1) headerRow
+              Stack.sized (Length.Cells(max 0 height)) (Stack.vstack bodyRows) ]
+
+    /// The table over an array of rows — O(visible) (see `viewIndexed`).
+    let viewArray
+        (height: int)
+        (headerStyle: Style)
+        (selStyle: Style)
+        (topRow: int)
+        (isSelected: int -> bool)
+        (columns: Column<'row, 'msg> list)
+        (rows: 'row[])
+        : LayoutNode<'msg> =
+        viewIndexed height headerStyle selStyle topRow isSelected columns rows.Length (fun i -> rows.[i])
+
+    /// The table over a row list. Only the visible window is built; reaching it
+    /// walks the list up to `topRow + height` (a list has no random access — use
+    /// `viewArray`/`viewIndexed` for large, deeply scrolled tables).
     let view
         (height: int)
         (headerStyle: Style)
@@ -518,33 +669,18 @@ module Table =
         (columns: Column<'row, 'msg> list)
         (rows: 'row list)
         : LayoutNode<'msg> =
-        let headerRow =
-            Stack.hstackOf [ for c in columns -> Stack.sized c.Width (Text.text c.Header headerStyle) ]
+        let start = max 0 topRow
 
-        // only the visible window of rows is built (virtualized by `topRow`/`height`)
-        let start = max 0 (min topRow (List.length rows))
-
-        let bodyRows =
+        let window =
             rows
-            |> List.indexed
-            |> List.skip start
-            |> List.truncate (max 0 height)
-            |> List.map (fun (i, row) ->
-                let cells =
-                    Stack.hstackOf [ for c in columns -> Stack.sized c.Width (c.Render row) ]
+            |> Seq.indexed
+            |> Seq.skipWhile (fun (i, _) -> i < start)
+            |> Seq.truncate (max 0 height)
+            |> Seq.map snd
+            |> Seq.toArray
 
-                if isSelected i then
-                    // Draw the whole row in the selection style so the highlight is
-                    // uniform and readable across columns that carry their own colors
-                    // (their foreground would otherwise clash with — or vanish into —
-                    // an inverse-video selection background).
-                    Backdrop.behind selStyle (Backdrop.recolor selStyle cells)
-                else
-                    cells)
-
-        Stack.vstackOf
-            [ Stack.sized (Length.Cells 1) headerRow
-              Stack.sized (Length.Cells(max 0 height)) (Stack.vstack bodyRows) ]
+        viewIndexed height headerStyle selStyle 0 (fun i -> isSelected (i + start)) columns window.Length (fun i ->
+            window.[i])
 
 /// A centered, fuzzy-filtered command surface (the `Ctrl+P`-style palette), built
 /// on `Modal` + `ListView`. The pure `matches`/`filter` are the fuzzy core (also
@@ -667,40 +803,59 @@ module KeyHint =
 /// Multi-line text editor view over a `TextBuffer` (text with `\n`). Renders a
 /// `height`-row window of the lines, vertically scrolled to keep the cursor visible
 /// (no wrap — long lines clip, and the view tracks the cursor horizontally), with a
-/// block cursor at the cursor's (row,col) when `focused`. Pure render — the app
-/// drives edits (e.g. via `Mire.Core.TextEdit`); this only renders.
+/// block cursor at the cursor's (row, column) when `focused`. Pure render — the app
+/// drives edits (e.g. via `Mire.Core.TextEdit`); this only renders. Layout is in
+/// display columns (wide glyphs take two cells; see `EditRow`).
 module TextArea =
-    /// Break one logical line into visual segments no wider than `width`,
-    /// word-wrapping at spaces when possible and hard-breaking words longer than
-    /// the width. Returns `(startIndex, text)` pairs that partition the line
-    /// exactly — `text` is `line.Substring(startIndex, text.Length)` and the
-    /// concatenation of the texts is the original line, so char offsets map
-    /// straight back to the buffer (a trailing break-space stays on its segment).
-    /// An empty line yields a single empty segment so it still occupies a row.
+    /// Break one logical line into visual segments no wider than `width` display
+    /// columns, word-wrapping at spaces when possible and hard-breaking words
+    /// longer than the width — always between grapheme clusters. Returns
+    /// `(startIndex, text)` pairs that partition the line exactly — `text` is
+    /// `line.Substring(startIndex, text.Length)` and the concatenation of the texts
+    /// is the original line, so offsets map straight back to the buffer (a
+    /// trailing break-space stays on its segment). An empty line yields a single
+    /// empty segment so it still occupies a row. A single cluster wider than
+    /// `width` still gets a segment of its own (it can't be split).
     let wrapLine (width: int) (line: string) : (int * string) list =
         let n = line.Length
 
         if width <= 0 || n = 0 then
             [ (0, line) ]
         else
-            let rec go (pos: int) (acc: (int * string) list) =
-                if n - pos <= width then
-                    List.rev ((pos, line.Substring(pos)) :: acc)
-                else
-                    let segEnd = pos + width // exclusive upper bound of this segment
+            let acc = ResizeArray<int * string>()
+            let mutable pos = 0
 
-                    // last space strictly inside the window — break *after* it so the
-                    // word stays whole; none → hard break at the width.
-                    let mutable brk = -1
+            while pos < n do
+                // Walk clusters until the next one would overflow the width,
+                // remembering the last break opportunity (just after a space).
+                let mutable i = pos
+                let mutable cols = 0
+                let mutable brk = -1
+                let mutable go = true
 
-                    for i in pos .. segEnd - 1 do
+                while go && i < n do
+                    let j = Grapheme.nextBoundary line i
+                    let w = snd (Grapheme.editDisplay (line.Substring(i, j - i)))
+
+                    if cols + w > width && i > pos then
+                        go <- false
+                    else
+                        cols <- cols + w
+
                         if line.[i] = ' ' then
-                            brk <- i
+                            brk <- j
 
-                    let cut = if brk > pos then brk + 1 else segEnd
-                    go cut ((pos, line.Substring(pos, cut - pos)) :: acc)
+                        i <- j
 
-            go 0 []
+                let cut =
+                    if i >= n then n
+                    elif brk > pos then brk
+                    else i
+
+                acc.Add((pos, line.Substring(pos, cut - pos)))
+                pos <- cut
+
+            List.ofSeq acc
 
     let render
         (width: int)
@@ -713,17 +868,12 @@ module TextArea =
         if width <= 0 || height <= 0 then
             Spacer.spacer
         else
-            let lines = buf.Text.Split('\n')
-            let curRow, curCol = TextBuffer.cursorRowCol buf
+            let buf = TextBuffer.normalize buf
+            let text = buf.Text
+            let lines = text.Split('\n')
+            let curRow, curCol = TextBuffer.cursorRowColumn buf
 
-            // vertical scroll-to-cursor (the vertical analog of Input's window)
-            let rawOff = if curRow < height then 0 else curRow - height + 1
-            let offY = ScrollView.clampOffset height lines.Length rawOff
-            // horizontal window so the cursor column stays visible (no wrap)
-            let hstart = if curCol < width then 0 else curCol - width + 1
-
-            // Global char offset of each line's start, for mapping the (whole-text)
-            // selection onto individual lines.
+            // Global offset of each line's start.
             let mutable acc = 0
 
             let lineStarts =
@@ -732,72 +882,39 @@ module TextArea =
                        acc <- acc + ln.Length + 1
                        s |]
 
-            let sel = if focused then TextBuffer.selection buf else None
+            // vertical scroll-to-cursor (the vertical analog of Input's window)
+            let rawOff = if curRow < height then 0 else curRow - height + 1
+            let offY = ScrollView.clampOffset height lines.Length rawOff
 
-            let renderLine (idx: int) (line: string) : LayoutNode<'msg> =
-                let visLen = min (max 0 (line.Length - hstart)) width
-                let visible = if visLen <= 0 then "" else line.Substring(hstart, visLen)
-                let gStart = lineStarts.[idx]
+            // horizontal window (shared by all rows) so the cursor cell stays visible
+            let curLineEnd = lineStarts.[curRow] + lines.[curRow].Length
 
-                // this line's selected sub-range, clipped to the visible window
-                let selRange =
-                    match sel with
-                    | Some(lo, hi) ->
-                        let a = max lo gStart
-                        let b = min hi (gStart + line.Length)
+            let hstart =
+                EditRow.windowStart width curCol (EditRow.caretWidth text buf.Cursor curLineEnd)
 
-                        if b > a then
-                            let la = max 0 (a - gStart - hstart)
-                            let lb = min visible.Length (b - gStart - hstart)
-                            if lb > la then Some(la, lb) else None
-                        else
-                            None
-                    | None -> None
+            let sel =
+                if focused then
+                    match TextBuffer.selection buf with
+                    | Some(lo, hi) when hi > lo -> Some(lo, hi)
+                    | _ -> None
+                else
+                    None
 
-                match selRange with
-                | Some(la, lb) ->
-                    // selection highlight (reuse cursorStyle — inverse video)
-                    Stack.hstackOf
-                        [ Stack.sized Length.Content (Text.text (visible.Substring(0, la)) textStyle)
-                          Stack.sized Length.Content (Text.text (visible.Substring(la, lb - la)) cursorStyle)
-                          Stack.sized Length.Content (Text.text (visible.Substring(lb)) textStyle) ]
-                | None when focused && idx = curRow && Option.isNone sel ->
-                    // block cursor — only when nothing is selected
-                    let cw = curCol - hstart
-
-                    let leftPart =
-                        if cw <= 0 then
-                            ""
-                        else
-                            visible.Substring(0, min cw visible.Length)
-
-                    let atCursor =
-                        if cw >= 0 && cw < visible.Length then
-                            string visible.[cw]
-                        else
-                            " "
-
-                    let rightPart =
-                        if cw + 1 <= visible.Length then
-                            visible.Substring(min (max 0 (cw + 1)) visible.Length)
-                        else
-                            ""
-
-                    Stack.hstackOf
-                        [ Stack.sized Length.Content (Text.text leftPart textStyle)
-                          Stack.sized (Length.Cells 1) (Text.text atCursor cursorStyle)
-                          Stack.sized Length.Content (Text.text rightPart textStyle) ]
-                | None -> Text.text visible textStyle
+            let renderLine (idx: int) : LayoutNode<'msg> =
+                let lo = lineStarts.[idx]
+                let hi = lo + lines.[idx].Length
+                let caret = if focused && idx = curRow then Some buf.Cursor else None
+                EditRow.render text lo hi hstart width caret sel textStyle cursorStyle
 
             Stack.vstackOf
                 [ for y in offY .. min (lines.Length - 1) (offY + height - 1) ->
-                      Stack.sized (Length.Cells 1) (renderLine y lines.[y]) ]
+                      Stack.sized (Length.Cells 1) (renderLine y) ]
 
     /// Soft-wrapping variant of `render`: instead of horizontally scrolling each
-    /// logical line, every line is word-wrapped to `width` (see `wrapLine`) and the
-    /// resulting *visual* rows are what scroll vertically and carry the cursor and
-    /// selection. Same signature as `render`, so an app picks wrap vs. scroll per
-    /// call site. (Char-indexed, like the rest of the editing stack.)
+    /// logical line, every line is word-wrapped to `width` columns (see
+    /// `wrapLine`) and the resulting *visual* rows are what scroll vertically and
+    /// carry the cursor and selection. Same signature as `render`, so an app
+    /// picks wrap vs. scroll per call site.
     let renderWrapped
         (width: int)
         (height: int)
@@ -809,9 +926,11 @@ module TextArea =
         if width <= 0 || height <= 0 then
             Spacer.spacer
         else
-            let lines = buf.Text.Split('\n')
+            let buf = TextBuffer.normalize buf
+            let text = buf.Text
+            let lines = text.Split('\n')
 
-            // Global char offset of each logical line's start.
+            // Global offset of each logical line's start.
             let mutable acc = 0
 
             let lineStarts =
@@ -820,13 +939,12 @@ module TextArea =
                        acc <- acc + ln.Length + 1
                        s |]
 
-            // Flatten to visual rows: (logical line idx, char offset of the segment
-            // within that line, segment text, global offset of the line start).
+            // Flatten to visual rows: (logical line idx, global start, global end).
             let visRows =
                 [| for idx in 0 .. lines.Length - 1 do
                        let g = lineStarts.[idx]
 
-                       for (s, t) in wrapLine width lines.[idx] -> (idx, s, t, g) |]
+                       for (s, t) in wrapLine width lines.[idx] -> (idx, g + s, g + s + t.Length) |]
 
             let curG = buf.Cursor
 
@@ -837,69 +955,34 @@ module TextArea =
                 let mutable found = 0
 
                 for i in 0 .. visRows.Length - 1 do
-                    let (lineIdx, start, text, g) = visRows.[i]
-                    let lo = g + start
-                    let hi = lo + text.Length
+                    let (lineIdx, lo, hi) = visRows.[i]
 
                     let endsHere =
                         i = visRows.Length - 1
-                        || (let (nextLine, _, _, _) = visRows.[i + 1] in nextLine <> lineIdx)
+                        || (let (nextLine, _, _) = visRows.[i + 1] in nextLine <> lineIdx)
 
                     if curG >= lo && (curG < hi || (curG = hi && endsHere)) then
                         found <- i
 
                 found
 
-            let sel = if focused then TextBuffer.selection buf else None
+            let sel =
+                if focused then
+                    match TextBuffer.selection buf with
+                    | Some(lo, hi) when hi > lo -> Some(lo, hi)
+                    | _ -> None
+                else
+                    None
 
             let rawOff = if curVis < height then 0 else curVis - height + 1
             let offY = ScrollView.clampOffset height visRows.Length rawOff
 
             let renderRow (i: int) : LayoutNode<'msg> =
-                let (_, _, text, g) = visRows.[i]
-                let rowLo = g + (let (_, s, _, _) = visRows.[i] in s)
-                let rowHi = rowLo + text.Length
-
-                let selRange =
-                    match sel with
-                    | Some(lo, hi) ->
-                        let a = max lo rowLo
-                        let b = min hi rowHi
-                        if b > a then Some(a - rowLo, b - rowLo) else None
-                    | None -> None
-
-                match selRange with
-                | Some(la, lb) ->
-                    Stack.hstackOf
-                        [ Stack.sized Length.Content (Text.text (text.Substring(0, la)) textStyle)
-                          Stack.sized Length.Content (Text.text (text.Substring(la, lb - la)) cursorStyle)
-                          Stack.sized Length.Content (Text.text (text.Substring(lb)) textStyle) ]
-                | None when focused && i = curVis && Option.isNone sel ->
-                    let cw = curG - rowLo
-
-                    let leftPart =
-                        if cw <= 0 then
-                            ""
-                        else
-                            text.Substring(0, min cw text.Length)
-
-                    let atCursor =
-                        if cw >= 0 && cw < text.Length then
-                            string text.[cw]
-                        else
-                            " "
-
-                    let rightPart =
-                        if cw + 1 <= text.Length then
-                            text.Substring(min (max 0 (cw + 1)) text.Length)
-                        else
-                            ""
-
-                    Stack.hstackOf
-                        [ Stack.sized Length.Content (Text.text leftPart textStyle)
-                          Stack.sized (Length.Cells 1) (Text.text atCursor cursorStyle)
-                          Stack.sized Length.Content (Text.text rightPart textStyle) ]
-                | None -> Text.text text textStyle
+                let (_, lo, hi) = visRows.[i]
+                let caret = if focused && i = curVis then Some curG else None
+                // A wrapped row fits the width by construction; a trailing caret
+                // block may need one extra column, which the row's clip absorbs.
+                EditRow.render text lo hi 0 width caret sel textStyle cursorStyle
 
             Stack.vstackOf
                 [ for i in offY .. min (visRows.Length - 1) (offY + height - 1) ->

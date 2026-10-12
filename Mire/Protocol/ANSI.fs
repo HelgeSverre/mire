@@ -73,13 +73,56 @@ module ANSI =
     let defaultBg = CSI + "49m"
 
     // OSC 8 hyperlink
+    /// Longest URI accepted into an OSC 8 sequence (terminals cap it too; Kitty
+    /// and VTE use 2083-ish, so anything longer is almost certainly not a link).
+    let maxOscUriLength = 2048
+
+    /// Validate and encode a URI for an OSC 8 control string. The URI is data
+    /// spliced *inside* a terminal instruction, so an embedded ESC/BEL/ST would
+    /// terminate it early and let the rest run as commands. `None` if it holds
+    /// any control scalar (C0, DEL, C1) or is empty/over `maxOscUriLength`;
+    /// otherwise non-ASCII and space are percent-encoded (UTF-8), as the OSC 8
+    /// spec requires URIs to be printable ASCII (0x21–0x7E).
+    let oscUri (url: string) : string option =
+        if String.IsNullOrEmpty url || url.Length > maxOscUriLength then
+            None
+        elif url |> Seq.exists (fun c -> int c < 0x20 || (int c >= 0x7F && int c <= 0x9F)) then
+            None
+        elif url |> Seq.forall (fun c -> int c > 0x20 && int c < 0x7F) then
+            Some url
+        else
+            let sb = StringBuilder()
+
+            for b in Encoding.UTF8.GetBytes url do
+                if b > 0x20uy && b < 0x7Fuy then
+                    sb.Append(char b) |> ignore
+                else
+                    sb.Append('%').Append(b.ToString("X2")) |> ignore
+
+            let encoded = sb.ToString()
+
+            if encoded.Length > maxOscUriLength then
+                None
+            else
+                Some encoded
+
+    /// A complete OSC 8 hyperlink around `text`. An unsafe URL (see `oscUri`)
+    /// drops the link and yields just the text. `text` is emitted as-is — this is
+    /// a raw-output helper; cell text goes through the renderer's sanitizer.
     let hyperlink (url, text) =
-        $"\x1b]8;;{url}\x1b\\{text}\x1b]8;;\x1b\\"
+        match oscUri url with
+        | Some u -> $"\x1b]8;;{u}\x1b\\{text}\x1b]8;;\x1b\\"
+        | None -> text
 
     /// Open a hyperlink: cells written after this carry the link until `osc8Close`.
     /// (The Diff writer brackets each linked run with these so the link attribute
-    /// is scoped to exactly that run, even across cursor moves.)
-    let osc8Open (url: string) = $"\x1b]8;;{url}\x1b\\"
+    /// is scoped to exactly that run, even across cursor moves.) An unsafe URL
+    /// (see `oscUri`) yields `""` — the run renders unlinked.
+    let osc8Open (url: string) =
+        match oscUri url with
+        | Some u -> $"\x1b]8;;{u}\x1b\\"
+        | None -> ""
+
     let osc8Close = "\x1b]8;;\x1b\\"
 
     // OSC 52 clipboard
@@ -93,7 +136,17 @@ module ANSI =
     // is split into ≤4096-byte chunks with `m=1` on all but the last, per the spec.
     // `deleteImages` clears all placed images (`a=d`).
     let kittyImage (cols: int) (rows: int) (pngBase64: string) : string =
-        if pngBase64 = "" then
+        let isBase64 (c: char) =
+            (c >= 'A' && c <= 'Z')
+            || (c >= 'a' && c <= 'z')
+            || (c >= '0' && c <= '9')
+            || c = '+'
+            || c = '/'
+            || c = '='
+
+        // The payload sits inside an APC control string: anything but base64
+        // (an ESC, say) could terminate it and run the remainder as commands.
+        if pngBase64 = "" || not (Seq.forall isBase64 pngBase64) then
             ""
         else
             let sb = StringBuilder()
@@ -122,50 +175,96 @@ module ANSI =
 module TerminalMode =
     open System.Runtime.InteropServices
 
-    // Platform-specific raw mode setup
-    let setupRawMode () =
-        if RuntimeInformation.IsOSPlatform(OSPlatform.Windows) then
-            // Windows: use Console APIs
-            Console.OutputEncoding <- Encoding.UTF8
-            Console.InputEncoding <- Encoding.UTF8
+    /// Run `stty` against the controlling terminal (stdin is inherited, so it acts
+    /// on our tty). Returns `Ok stdout` on exit code 0, else `Error` with stderr.
+    let private stty (args: string) : Result<string, string> =
+        try
+            let psi = Diagnostics.ProcessStartInfo()
+            psi.FileName <- "stty"
+            psi.Arguments <- args
+            psi.UseShellExecute <- false
+            psi.RedirectStandardOutput <- true
+            psi.RedirectStandardError <- true
+            use p = Diagnostics.Process.Start(psi)
+            let out = p.StandardOutput.ReadToEnd()
+            let err = p.StandardError.ReadToEnd()
+
+            if not (p.WaitForExit(2000)) then
+                (try
+                    p.Kill()
+                 with _ ->
+                     ())
+
+                Error "stty timed out"
+            elif p.ExitCode <> 0 then
+                Error(if err = "" then $"stty exited {p.ExitCode}" else err.Trim())
+            else
+                Ok(out.Trim())
+        with ex ->
+            Error ex.Message
+
+    // The terminal's line-discipline state before we changed it (`stty -g`), so
+    // teardown restores the user's exact settings instead of resetting to `sane`.
+    let mutable private savedState: string option = None
+
+    /// The raw-mode policy: no echo, no line buffering, no signal keys (Ctrl+C/Z/\
+    /// arrive as bytes, so the app's quit policy decides), no XON/XOFF flow
+    /// control (Ctrl+S/Q reach the app), no Ctrl+V literal-next, no CR→NL input
+    /// translation; byte-at-a-time reads. Output post-processing is left on.
+    let rawPolicy = "-echo -icanon -isig -ixon -iexten -icrnl min 1 time 0"
+
+    /// Enter raw mode, first saving the terminal's current settings for
+    /// `restoreMode`. `Error` (with the reason) if the settings couldn't be saved
+    /// or applied — e.g. stdin isn't a terminal.
+    let trySetupRawMode () : Result<unit, string> =
+        Console.OutputEncoding <- Encoding.UTF8
+        Console.InputEncoding <- Encoding.UTF8
+
+        (try
             Console.CursorVisible <- false
-        else
-            // Unix: UTF-8 console + raw mode via stty (below). `poll`/`read` on fd 0
-            // handle input; `Console.WindowWidth/Height` handle size.
-            Console.OutputEncoding <- Encoding.UTF8
-            Console.InputEncoding <- Encoding.UTF8
-            Console.CursorVisible <- false
+         with _ ->
+             ())
 
-            // Try to disable canonical mode and echo via stty
-            try
-                let psi = Diagnostics.ProcessStartInfo()
-                psi.FileName <- "stty"
-                psi.Arguments <- "-echo -icanon min 1 time 0"
-                psi.UseShellExecute <- false
-                psi.RedirectStandardOutput <- true
-                psi.RedirectStandardError <- true
-                let p = Diagnostics.Process.Start(psi)
-                p.WaitForExit(1000) |> ignore
-            with _ ->
-                ()
-
-    let restoreMode () =
         if RuntimeInformation.IsOSPlatform(OSPlatform.Windows) then
-            Console.CursorVisible <- true
+            Ok()
         else
-            Console.CursorVisible <- true
+            match stty "-g" with
+            | Error e -> Error $"could not save terminal settings: {e}"
+            | Ok saved ->
+                if savedState.IsNone then
+                    savedState <- Some saved
 
-            try
-                let psi = Diagnostics.ProcessStartInfo()
-                psi.FileName <- "stty"
-                psi.Arguments <- "sane"
-                psi.UseShellExecute <- false
-                psi.RedirectStandardOutput <- true
-                psi.RedirectStandardError <- true
-                let p = Diagnostics.Process.Start(psi)
-                p.WaitForExit(1000) |> ignore
-            with _ ->
-                ()
+                match stty rawPolicy with
+                | Ok _ -> Ok()
+                | Error e -> Error $"could not enter raw mode: {e}"
+
+    /// Enter raw mode (see `trySetupRawMode`), ignoring failure.
+    let setupRawMode () = trySetupRawMode () |> ignore
+
+    /// Restore the terminal settings saved by `trySetupRawMode` (falling back to
+    /// `stty sane` if none were saved). `Error` if restoring failed.
+    let tryRestoreMode () : Result<unit, string> =
+        (try
+            Console.CursorVisible <- true
+         with _ ->
+             ())
+
+        if RuntimeInformation.IsOSPlatform(OSPlatform.Windows) then
+            Ok()
+        else
+            let result =
+                match savedState with
+                | Some saved -> stty saved
+                | None -> stty "sane"
+
+            match result with
+            | Ok _ ->
+                savedState <- None
+                Ok()
+            | Error e -> Error e
+
+    /// Restore the terminal settings (see `tryRestoreMode`), ignoring failure.
+    let restoreMode () = tryRestoreMode () |> ignore
 
     let getTerminalSize () =
         try
@@ -214,12 +313,26 @@ module TerminalMode =
         let n = read (0, buf, 1u)
         if n > 0 then Some buf.[0] else None
 
-    let rec readStdinBytes () : byte[] =
-        if stdinAvailable () then
-            match readStdinByte () with
-            | Some b ->
-                let rest = readStdinBytes ()
-                Array.append [| b |] rest
-            | None -> [||]
-        else
-            [||]
+    /// Default per-call budget for `readStdinBytesUpTo` (256 KiB).
+    let readBudget = 256 * 1024
+
+    /// Read whatever stdin has waiting, iteratively in 4 KiB chunks, stopping when
+    /// nothing more is immediately available or `maxBytes` have been read (the
+    /// rest stays in the kernel buffer for the next call). Bounded in both memory
+    /// and time per call, so a huge paste or input flood can't stall a frame or
+    /// grow the stack.
+    let readStdinBytesUpTo (maxBytes: int) : byte[] =
+        let out = new IO.MemoryStream()
+        let chunk = Array.zeroCreate<byte> 4096
+        let mutable go = true
+
+        while go && int out.Length < maxBytes && stdinAvailable () do
+            let want = min chunk.Length (maxBytes - int out.Length)
+            let n = read (0, chunk, uint32 want)
+
+            if n > 0 then out.Write(chunk, 0, n) else go <- false
+
+        out.ToArray()
+
+    /// Read whatever stdin has waiting (up to `readBudget` bytes).
+    let readStdinBytes () : byte[] = readStdinBytesUpTo readBudget

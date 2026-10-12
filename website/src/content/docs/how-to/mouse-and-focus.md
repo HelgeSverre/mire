@@ -43,10 +43,11 @@ The default handler returns `None`, so apps that don't use it are unaffected —
 events flow to `MapInput` as before. `Focusable.region` is layout-neutral: the child
 fills the assigned rect, and the runtime records that rect from the last rendered frame.
 
-<aside class="callout callout--warn"><div class="callout__label">heads up</div><div>
-Regions nested inside a <code>Scroll</code> are omitted from the table — their rects live
-in the scroll's virtual content space, not screen space. Handle wheel scrolling through the
-<code>Mouse</code> event in <code>MapInput</code> instead.
+<aside class="callout"><div class="callout__label">note</div><div>
+Regions nested inside a <code>Scroll</code> are hit-tested at their on-screen position
+(clipped to the viewport), and a later <code>Filled</code>/<code>Scrim</code> layer blocks
+the regions under it. Wheel events still go to <code>MapInput</code> when your handler
+returns <code>None</code>.
 </div></aside>
 
 The agent layer's `ApprovalModal` already tags its buttons (`ApprovalModal.acceptRegion`

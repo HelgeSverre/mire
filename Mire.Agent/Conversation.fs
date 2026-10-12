@@ -35,6 +35,11 @@ module Conversation =
     let blocks (c: Conversation) : TranscriptBlock list =
         c.Entries |> List.map (fun e -> e.Block)
 
+    /// `(id, block)` pairs in order — feed this to `ChatTranscript.viewKeyed` with a
+    /// session `TranscriptCache` so each message keeps one cached revision.
+    let keyed (c: Conversation) : (int * TranscriptBlock) list =
+        c.Entries |> List.map (fun e -> e.Id, e.Block)
+
     let isEmpty (c: Conversation) = List.isEmpty c.Entries
 
     /// Append a block, returning its new id and the updated conversation.

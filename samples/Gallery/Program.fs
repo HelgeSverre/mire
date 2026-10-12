@@ -235,7 +235,7 @@ let view (m: Model) : LayoutNode<Msg> =
 
     Dock.dock
         [ Dock.top 3 header
-          Dock.bottom 1 footer
+          Dock.bottom 3 footer
           Dock.fill (Box.box theme.border [ pageContent m ]) ]
 
 let mapInput (e: InputEvent) : Msg option =

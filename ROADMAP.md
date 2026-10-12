@@ -102,6 +102,22 @@ framework never knows what an LLM is). Slices, in dependency order:
 
 _(Naming was considered: keep `Mire.Agent` and grow into it, rather than renaming to `Mire.Chat`.)_
 
+### 0.8.0 — Correctness & interaction hardening · _released_
+
+From an external source audit of 0.7.0: the gap was composition at the
+boundaries, not the widget catalog.
+
+- [x] Safe output — control characters in cell text render inert; OSC 8 / Kitty payloads validated
+- [x] Incremental input decoding (`InputDecoder`) — independent of read boundaries; pastes never leak into keys
+- [x] Bounded chunked reads; bracketed terminal lifecycle; exact `stty` save/restore
+- [x] Supervised, cancellable async commands; bounded message pump
+- [x] Grapheme-safe editing + selection/anchor invariants; column-accurate edit views
+- [x] Explicit-size scroll extents; ancestor clipping; scroll-aware, occlusion-aware hit regions + pointer capture
+- [x] `AgentShell`: context routing, scroll/follow-tail, derived session, approval queue, cancel, completion, multi-line prompt, approval clicks
+- [x] Streaming cost: per-frame follow-tail, session `TranscriptCache`, direct-to-viewport scroll painting
+- [ ] PTY lifecycle tests in CI (verified by hand in a PTY so far), perf/memory budgets, package-consumer checks
+- [ ] Row virtualization _inside_ one huge block is paint-only: the block's node tree is still built and measured (cached per revision)
+
 ### 1.0.0 — later (not a near-term goal)
 
 Stay 0.x until the shipped surface (through 0.7.0 — core, agent layer, input/perf)
@@ -219,7 +235,7 @@ Recommended order — each step names its extraction source in the demo:
 ### v0.5 — Kitty/Ghostty niceties ✅
 
 - [x] Full Kitty keyboard protocol decode — `CSI u` **modifier** decoding (see archive), **event types** (the runtime pushes `CSI > 3 u`; `InputParser` decodes the `:event` sub-param into `Press`/`Repeat`/`Release`, and the runtime drops `Release` unless `Program.withKeyReleases`), **and the private-use functional codepoints** (PUA 57344–57454 → keypad/F13–F35/media keys; `keyOfFunctional`). Input decoding is now feature-complete for the targeted terminals.
-- [x] Buffer large bracketed pastes split across `read()`s — the runtime carries an unfinished paste (via `InputParser.stepPasteBuffer`, capped at 1 MiB) and reassembles it into one `Paste`
+- [x] Buffer large bracketed pastes split across `read()`s — the runtime carries an unfinished paste and reassembles it into one `Paste` (now via `InputDecoder`, which also retains split escape sequences and UTF-8; 1 MiB cap, truncated rather than leaked as keys)
 - [x] OSC 8 hyperlinks — `Style.Link` (`WithLink url`); the `Diff` writer brackets a linked run in OSC 8 open/close and `Markdown` link spans carry their URL
 - [x] OSC 52 clipboard — `Cmd.setClipboard text`, written to the terminal by the runtime (same hook shape as `Cmd.quit`)
 - [x] Kitty graphics protocol → `ImagePreview` with text fallback — `ANSI.kittyImage` (chunked transmit-and-display) + `Cmd.kittyImage`/`Cmd.writeRaw`; `Widgets.ImagePreview` renders the cell fallback
@@ -262,7 +278,7 @@ every push/PR; NuGet packaging with OIDC trusted publishing on `v*` releases.
 Things that work "well enough" today but have a sharp edge worth remembering:
 
 - **`Box` is single-child by design.** A `Box` renders one child filling its inner rect; passing multiple children overlaps them — flow is `Stack`'s job, so nest a `Stack` (the `panel`/`statusBar` helpers do this internally).
-- **Input decoding is feature-complete for the targeted terminals.** Keyboard (Kitty `CSI u` chords + press/repeat/release event types + private-use functional codepoints — keypad/F13–F35/media), mouse (SGR 1006, incl. the drag-motion bit → `MouseEvent.Moved`), bracketed paste (reassembled across reads), and focus events all decode; `InputParser.parseAll` splits a buffer holding several sequences into per-event spans, and multi-byte UTF-8 keystrokes decode to a `Char`.
+- **Input decoding is feature-complete for the targeted terminals.** Keyboard (Kitty `CSI u` chords + press/repeat/release event types + private-use functional codepoints — keypad/F13–F35/media), mouse (SGR 1006, incl. the drag-motion bit → `MouseEvent.Moved`), bracketed paste, and focus events all decode; the runtime's `InputDecoder` retains split sequences, partial UTF-8, and unfinished pastes across reads, so decoding is independent of read boundaries.
 - **Remaining input stretch items** (deferred, not bugs). No opt-in hover (mode 1003); the Kitty keyboard _alternate-keys_ / _all-as-escape_ / _associated-text_ flags (4/8/16) aren't requested, so `CSI u` keys carry no `Text` (entry uses the legacy byte path); modifier bits beyond Super (Hyper/Caps/Num lock) and underline color (`SGR 58`) aren't decoded/emitted. See `docs/PROTOCOLS.md`.
 - **Wide-char / grapheme rendering.** Resolved — see Cross-cutting — Correctness above (continuation cells + UAX #29 clusters).
 - **Dead scaffolding.** `RegionId` is load-bearing (the `Mire.Layout.Focus` key _and_ the `LayoutNode.Focusable` region table). The `Region`/`RenderMode` record in `Core/Region.fs` (and its `ZIndex`/`Clip`/`RenderMode` fields) is still a forward declaration for full z-ordering — the runtime hit-tests a lighter `(RegionId * Rect)` list today, not the full `Region`. (The unused `tcgetattr`/`tcsetattr`/`ioctl` externs and the stale "For now, use Console APIs" comment in `TerminalMode` were removed.)

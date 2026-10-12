@@ -3,7 +3,9 @@
 // (ChatTranscript + PromptBox + ApprovalModal + the Conversation model), and the
 // app supplies only *what a submission/approval does*. Type a message and press
 // Enter to get a streamed reply; type `run` to trigger a tool-approval modal
-// (←/→ choose, Enter confirms, Esc denies); ↑/↓ recall history. Ctrl+C quits.
+// (←/→ choose, Enter confirms, Esc denies, or click); ↑/↓ recall history; `/`
+// pops command completions; Shift+Enter adds a line; PgUp/PgDn or the wheel
+// scroll; Esc cancels a streaming reply. Ctrl+C quits.
 // `-- --dump` is headless.
 
 open System
@@ -59,12 +61,17 @@ let private onApprove (accepted: bool) (cmd: string) (m: ShellModel) : ShellMode
     else
         AgentShell.addNotice AppTheme.Warning (sprintf "denied: %s" cmd) m, Cmd.none
 
+/// Slash-command completions: typing `/` pops a list (↑/↓ select, Tab/Enter accept).
+let private completions (tok: CompletionToken) : string list =
+    if tok.Trigger = '/' && tok.Start = 0 then
+        [ "help"; "clear"; "model"; "run" ]
+        |> List.filter (fun c -> c.StartsWith(tok.Query, StringComparison.OrdinalIgnoreCase))
+    else
+        []
+
 let private config: ShellConfig =
-    { Theme = theme
-      Title = "└ mire · agent shell"
-      Placeholder = "type a message — or `run`"
-      OnSubmit = onSubmit
-      OnApprove = onApprove }
+    { AgentShell.config theme "└ mire · agent shell" "type a message — or `run`" onSubmit onApprove with
+        Completions = completions }
 
 // ── headless --dump (no raw mode) — render representative states as text ─────
 let private printSurface (label: string) (surface: Surface) =
@@ -90,21 +97,25 @@ let private dumpNode (label: string) (size: Size) (node: LayoutNode<ShellMsg>) =
     Layout.render surface (Layout.measure (Rect.FromOrigin size) node)
     printSurface label surface
 
-let private mkModel
-    (size: Size)
-    (conv: Conversation)
-    (approval: (string * bool) option)
-    (session: Session)
-    : ShellModel =
-    { Conversation = conv
-      Prompt = PromptBox.empty
-      Approval = approval
-      Offset = 0
-      Size = size
-      Session = session
-      Frame = 0
-      Theme = theme }
-    |> AgentShell.followTail
+let private mkModel (size: Size) (conv: Conversation) (approval: string option) : ShellModel =
+    let m0 = fst (AgentShell.init config ())
+
+    let m =
+        { m0 with
+            Conversation = conv
+            Size = size
+            Streams =
+                conv.Entries
+                |> List.filter (fun e -> e.Streaming)
+                |> List.map (fun e -> e.Id)
+                |> Set.ofList }
+
+    let m =
+        match approval with
+        | Some c -> AgentShell.requestApproval c m
+        | None -> m
+
+    m |> AgentShell.sync |> AgentShell.followTail
 
 let private dump () =
     let size = Size.Create(74, 20)
@@ -121,12 +132,12 @@ let private dump () =
         let id, c = Conversation.addToolCall "shell" "cargo build" Running c
         Conversation.setTool id Succeeded "1.1s" "Compiling… ok" c
 
-    dumpNode "A. agent shell (idle)" size (AgentShell.view config (mkModel size baseConv None Idle))
+    dumpNode "A. agent shell (idle)" size (AgentShell.view config (mkModel size baseConv None))
 
     dumpNode
         "B. agent shell + approval"
         size
-        (AgentShell.view config (mkModel size baseConv (Some("rm -rf build && cargo test", true)) AwaitingApproval))
+        (AgentShell.view config (mkModel size baseConv (Some "rm -rf build && cargo test")))
 
     // Mid-stream: an assistant reply still being appended (Session = Streaming).
     let streamingConv =
@@ -138,10 +149,7 @@ let private dump () =
         c
         |> Conversation.appendText id "The layout engine measures a tree of nodes into"
 
-    dumpNode
-        "C. agent shell (streaming a reply)"
-        size
-        (AgentShell.view config (mkModel size streamingConv None Streaming))
+    dumpNode "C. agent shell (streaming a reply)" size (AgentShell.view config (mkModel size streamingConv None))
 
 [<EntryPoint>]
 let main argv =

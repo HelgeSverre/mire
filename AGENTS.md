@@ -46,7 +46,7 @@ folder order encodes the layering. Each folder is also its namespace
 
 ```
 Mire/Core/       pure value types (Point, Size, Rect, Color, Style, Cell, Region, Grapheme, input events). No I/O.
-Mire/Protocol/   ANSI (escape-sequence strings), TerminalMode (raw mode via stty + libc poll/read), InputParser (bytes → InputEvent).
+Mire/Protocol/   ANSI (escape-sequence strings), TerminalMode (raw mode via stty + libc poll/read), InputParser (bytes → InputEvent), InputDecoder (incremental, read-boundary-safe decoding).
 Mire/Renderer/   Surface (cell grid + draw primitives), Diff (DiffRun computation + writing to a TextWriter). Diff uses Protocol.ANSI.
 Mire/Layout/     LayoutNode<'msg> DU, Layout.measure (assigns rects), Layout.render (paints to a Surface), Focus (keyboard focus ring).
 Mire/Widgets/    convenience widgets (Text, Box, Panel, StatusBar, Spacer, Dock, Stack, Scroll, Backdrop, ListView, Table, Input, TextArea, Overlay, Modal, Toast, ScrollView, CommandPalette, Completion, SplitView, Tooltip, Spinner, ProgressBar, Tabs, Toggle, Separator, Badge, KeyHint, Markdown) + AppTheme (swappable style set).

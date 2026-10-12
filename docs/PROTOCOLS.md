@@ -35,9 +35,19 @@ All sequences live in `Mire/Protocol/ANSI.fs`; the runtime writes them in
 
 ## Parsed (input)
 
-All decoding lives in `Mire/Protocol/InputParser.fs`; the runtime drives it from
-`readRawBytes` → `stepPasteBuffer` → `parseAll` (which slices the buffer into per-event
-spans and runs each through `parseBytes`) in `Runtime.run`.
+Sequence decoding lives in `Mire/Protocol/InputParser.fs` (`parseBytes` decodes one
+complete event). The runtime feeds raw bytes from `readRawBytes` (iterative 4 KiB
+chunks, 256 KiB per call) into a persistent `InputDecoder` (`InputDecoder.fs`), which
+emits only _complete_ events and retains any incomplete suffix — a split CSI/SS3
+sequence, a partial UTF-8 scalar, an unfinished bracketed paste — for the next read.
+So decoding doesn't depend on where the OS splits `read()`s. A lone `ESC` is settled
+as the Escape key after 30 ms of idle input; a paste stays a paste until `CSI 201~`
+(content past 1 MiB is truncated, never leaked into the key channel), and a paste
+stalled for 3 s is emitted as a `Paste` with what arrived.
+
+Raw mode (`TerminalMode.trySetupRawMode`) saves `stty -g`, applies
+`-echo -icanon -isig -ixon -iexten -icrnl min 1 time 0`, and teardown restores the
+saved settings exactly.
 
 | Protocol                        | Wire form                                          | Decoder                                      | Status                                                                            |
 | ------------------------------- | -------------------------------------------------- | -------------------------------------------- | --------------------------------------------------------------------------------- |
@@ -50,7 +60,7 @@ spans and runs each through `parseBytes`) in `Runtime.run`.
 | Ctrl chords / control bytes     | raw `0x00–0x1F`                                    | `parseBytes`                                 | ✅                                                                                |
 | SGR mouse (1006)                | `CSI < b ; x ; y M/m`                              | `parseMouseSgr`                              | ✅ button/wheel/mods/coords + motion bit `0x20` → `MouseEvent.Moved` (drag)       |
 | Multi-event reads               | any back-to-back sequences in one `read()`         | `parseAll` (tokenizer)                       | ✅ split into per-event spans; the runtime loops over them                        |
-| Bracketed paste                 | `CSI 200~ … CSI 201~`                              | `parsePaste` + `stepPasteBuffer`             | ✅ (reassembles across reads, 1 MiB cap)                                          |
+| Bracketed paste                 | `CSI 200~ … CSI 201~`                              | `InputDecoder` (paste state)                 | ✅ (reassembles across reads, 1 MiB cap, never leaks into keys)                   |
 | Focus events                    | `CSI I` / `CSI O`                                  | `parseFocus`                                 | ✅                                                                                |
 | Theme report                    | `CSI ?997;1 n` (dark) / `;2 n` (light)             | `parseThemeReport`                           | ✅                                                                                |
 

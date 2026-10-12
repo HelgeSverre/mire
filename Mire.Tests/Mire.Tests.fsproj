@@ -12,6 +12,12 @@
 
   <ItemGroup>
     <Compile Include="Tests.fs" />
+    <Compile Include="RenderSafetyTests.fs" />
+    <Compile Include="InputDecoderTests.fs" />
+    <Compile Include="RuntimeTests.fs" />
+    <Compile Include="EditingTests.fs" />
+    <Compile Include="GeometryTests.fs" />
+    <Compile Include="ShellTests.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 

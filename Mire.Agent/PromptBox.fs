@@ -213,3 +213,39 @@ module PromptBox =
         Stack.hstackOf
             [ Stack.sized (Length.Cells glyphW) (Text.text "❯ " glyphStyle)
               Stack.sized Length.Fill body ]
+
+    /// How many visual rows the prompt text occupies when soft-wrapped to `width`
+    /// columns (text area only — excluding the glyph), at least 1.
+    let visualRows (width: int) (p: PromptBox) : int =
+        if width <= 0 then
+            1
+        else
+            p.Buffer.Text.Split('\n')
+            |> Array.sumBy (fun line -> List.length (TextArea.wrapLine width line))
+            |> max 1
+
+    /// Multi-line prompt: like `render`, but the text soft-wraps to the width and
+    /// shows up to `rows` visual rows (scrolled to keep the caret visible) — for a
+    /// prompt that grows with pasted or Shift+Enter-composed multi-line input.
+    let renderRows
+        (width: int)
+        (rows: int)
+        (glyphStyle: Style)
+        (textStyle: Style)
+        (cursorStyle: Style)
+        (placeholderStyle: Style)
+        (placeholder: string)
+        (focused: bool)
+        (p: PromptBox)
+        : LayoutNode<'msg> =
+        let glyphW = 2
+
+        let body =
+            if TextBuffer.isEmpty p.Buffer then
+                Text.text placeholder placeholderStyle
+            else
+                TextArea.renderWrapped (max 0 (width - glyphW)) (max 1 rows) textStyle cursorStyle focused p.Buffer
+
+        Stack.hstackOf
+            [ Stack.sized (Length.Cells glyphW) (Text.text "❯ " glyphStyle)
+              Stack.sized Length.Fill body ]

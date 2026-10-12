@@ -156,3 +156,156 @@ module Grapheme =
                     widthCache.[s] <- w
 
                 w
+
+    /// Display width of one line of text as the renderer lays it out: like
+    /// `stringWidth`, but a tab advances to the next 8-column stop (measured from
+    /// the line's start), matching `Surface.Write`/`WriteClipped`.
+    let lineWidth (s: string) : int =
+        if s.IndexOf('\t') < 0 then
+            stringWidth s
+        else
+            let mutable cols = 0
+
+            for part in s.Split('\t') |> Array.indexed do
+                let (i, text) = part
+
+                if i > 0 then
+                    cols <- (cols / 8 + 1) * 8
+
+                cols <- cols + stringWidth text
+
+            cols
+
+    // --- control-character safety -------------------------------------------
+    // Cell text is content, not terminal instructions. A C0 control (ESC, BEL,
+    // CR, …), DEL, or a C1 control (0x80–0x9F, e.g. CSI 0x9B / OSC 0x9D) reaching
+    // the output stream would be *executed* by the terminal — `"a\x1b[2Jb"` would
+    // clear the screen instead of showing inert text. The renderer maps every such
+    // scalar to a visible, inert stand-in before it lands in a cell (and the diff
+    // writer re-checks at emission). Raw instructions go through the explicit,
+    // trusted `Cmd.writeRaw` path instead.
+
+    /// True for a C0 control (< 0x20), DEL (0x7F), or C1 control (0x80–0x9F).
+    let isControlScalar (cp: int) : bool = cp < 0x20 || (cp >= 0x7F && cp <= 0x9F)
+
+    /// True if `s` contains any control scalar (see `isControlScalar`).
+    let hasControl (s: string) : bool =
+        let mutable found = false
+        let mutable i = 0
+
+        while not found && i < s.Length do
+            if isControlScalar (int s.[i]) then
+                found <- true
+
+            i <- i + 1
+
+        found
+
+    /// The visible stand-in for a control scalar: C0 → its Unicode Control
+    /// Picture (U+2400 + cp, e.g. ESC → `␛`), DEL → `␡`, C1 → U+FFFD. All are a
+    /// single narrow column.
+    let controlPicture (cp: int) : string =
+        if cp < 0x20 then string (char (0x2400 + cp))
+        elif cp = 0x7F then "␡"
+        else "�"
+
+    /// Replace every control scalar in `s` with its visible stand-in
+    /// (`controlPicture`). Returns `s` unchanged (no allocation) when it has none.
+    let sanitize (s: string) : string =
+        if not (hasControl s) then
+            s
+        else
+            let sb = System.Text.StringBuilder(s.Length)
+
+            for c in s do
+                if isControlScalar (int c) then
+                    sb.Append(controlPicture (int c)) |> ignore
+                else
+                    sb.Append(c) |> ignore
+
+            sb.ToString()
+
+    // --- boundaries & columns (for editing) ---------------------------------
+    // Text buffers index by UTF-16 offset; these helpers keep those offsets on
+    // grapheme-cluster boundaries (never inside a surrogate pair, a base+mark
+    // run, or a ZWJ sequence) and convert between offsets and display columns.
+
+    /// The offset just past the cluster starting at `pos` (`s.Length` at the end).
+    let nextBoundary (s: string) (pos: int) : int =
+        if pos >= s.Length then
+            s.Length
+        elif pos < 0 then
+            0
+        else
+            pos + max 1 (StringInfo.GetNextTextElementLength(s, pos))
+
+    /// The largest cluster boundary ≤ `pos`: `pos` itself if it's a boundary,
+    /// else the start of the cluster containing it. Scans from the start of
+    /// `pos`'s line (a line feed always ends a cluster), so cost is per line.
+    let floorBoundary (s: string) (pos: int) : int =
+        let pos = max 0 (min s.Length pos)
+
+        if pos = 0 || pos = s.Length then
+            pos
+        else
+            let mutable i = s.LastIndexOf('\n', pos - 1) + 1
+
+            while i < pos && nextBoundary s i <= pos do
+                i <- nextBoundary s i
+
+            i
+
+    /// The cluster boundary before `pos` (0 at the start).
+    let prevBoundary (s: string) (pos: int) : int =
+        if pos <= 0 then 0 else floorBoundary s (pos - 1)
+
+    /// True if `pos` is a cluster boundary of `s`.
+    let isBoundary (s: string) (pos: int) : bool =
+        pos >= 0 && pos <= s.Length && floorBoundary s pos = pos
+
+    /// How an editor displays one cluster: the text to paint and its columns. A
+    /// tab shows as a single blank column, a control character as its visible
+    /// stand-in, and a zero-width cluster with no base (a lone combining mark) on
+    /// a dotted circle — so every cluster occupies at least one column and a
+    /// caret can always sit on it.
+    let editDisplay (cluster: string) : string * int =
+        if cluster = "\t" then
+            " ", 1
+        else
+            let shown = sanitize cluster
+            let w = clusterWidth shown
+
+            if w = 0 then "◌" + shown, 1 else shown, w
+
+    /// Display columns of `s.[lo .. hi - 1]` as an editor shows it (`editDisplay`).
+    let editColumns (s: string) (lo: int) (hi: int) : int =
+        let hi = min s.Length hi
+        let mutable i = max 0 lo
+        let mutable cols = 0
+
+        while i < hi do
+            let j = nextBoundary s i
+            cols <- cols + snd (editDisplay (s.Substring(i, j - i)))
+            i <- j
+
+        cols
+
+    /// The offset in `s.[lo .. hi - 1]` whose display column (from `lo`) is the
+    /// largest ≤ `col` — where a caret moved to column `col` of that line lands.
+    let offsetAtColumn (s: string) (lo: int) (hi: int) (col: int) : int =
+        let hi = min s.Length hi
+        let mutable i = max 0 lo
+        let mutable cols = 0
+        let mutable go = true
+
+        while go && i < hi do
+            let j = nextBoundary s i
+            let w = snd (editDisplay (s.Substring(i, j - i)))
+
+            if cols + w > col then
+                go <- false
+            else
+                cols <- cols + w
+                i <- j
+
+        i

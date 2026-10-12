@@ -101,6 +101,10 @@ module Diff =
         output.Write(Mire.Protocol.ANSI.cursorHide)
 
         for run in runs do
+            // A link whose URL can't be safely embedded is dropped (rendered plain).
+            let runLink =
+                run.Style.Link |> Option.filter (fun u -> (Mire.Protocol.ANSI.oscUri u).IsSome)
+
             // Move cursor if needed
             if run.Y <> currentY || run.X <> currentX then
                 output.Write(Mire.Protocol.ANSI.cursorTo (run.X, run.Y))
@@ -113,19 +117,21 @@ module Diff =
                 currentStyle <- run.Style
 
             // Open/close the OSC 8 hyperlink to match this run's link.
-            if run.Style.Link <> currentLink then
+            if runLink <> currentLink then
                 match currentLink with
                 | Some _ -> output.Write(Mire.Protocol.ANSI.osc8Close)
                 | None -> ()
 
-                match run.Style.Link with
+                match runLink with
                 | Some url -> output.Write(Mire.Protocol.ANSI.osc8Open url)
                 | None -> ()
 
-                currentLink <- run.Style.Link
+                currentLink <- runLink
 
-            // Write text
-            output.Write(run.Text)
+            // Write text. Cell text is content, never instructions: `Surface`
+            // already maps control characters to visible stand-ins, and this
+            // re-check covers cells assigned directly (`surface.[x, y] <- …`).
+            output.Write(Grapheme.sanitize run.Text)
             // Advance by display width, not UTF-16 char count — wide graphemes
             // (CJK/emoji), combining marks, and ZWJ sequences would otherwise
             // desync currentX and corrupt the next "cursor already here?" check.
